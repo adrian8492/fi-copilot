@@ -1,28 +1,599 @@
 import { COOKIE_NAME } from "@shared/const";
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+import {
+  createSession,
+  endSession,
+  getAllSessions,
+  getAllUsers,
+  getAnalyticsSummary,
+  getAuditLogs,
+  getFlagsBySession,
+  getGradeBySession,
+  getGradesByUser,
+  getRecordingsBySession,
+  getRecordingsByUser,
+  getReportBySession,
+  getReportsByUser,
+  getSessionById,
+  getSessionsByUserId,
+  getSuggestionsBySession,
+  getTranscriptsBySession,
+  insertAuditLog,
+  insertComplianceFlag,
+  insertCopilotSuggestion,
+  insertRecording,
+  insertTranscript,
+  resolveFlag,
+  updateRecordingStatus,
+  updateSessionStatus,
+  updateUserRole,
+  upsertCoachingReport,
+  upsertGrade,
+} from "./db";
+import { invokeLLM } from "./_core/llm";
+import { transcribeAudio } from "./_core/voiceTranscription";
+import { storagePut } from "./storage";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
+// ─── Helper: admin guard ──────────────────────────────────────────────────────
+const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+  return next({ ctx });
+});
+
+// ─── AI Co-Pilot Engine ───────────────────────────────────────────────────────
+async function runCopilotAnalysis(transcriptText: string, sessionId: number, context: string) {
+  const prompt = `You are an expert F&I (Finance & Insurance) manager coach for automotive dealerships. 
+Analyze the following conversation excerpt and provide real-time coaching suggestions.
+
+Context: ${context}
+Recent transcript: "${transcriptText}"
+
+Respond with a JSON object containing:
+{
+  "suggestions": [
+    {
+      "type": "product_recommendation|objection_handling|compliance_reminder|rapport_building|closing_technique|general_tip",
+      "title": "Short action title",
+      "content": "Specific coaching guidance (2-3 sentences max)",
+      "priority": "high|medium|low",
+      "triggeredBy": "The specific phrase or situation that triggered this"
+    }
+  ],
+  "complianceFlags": [
+    {
+      "severity": "critical|warning|info",
+      "rule": "Rule name",
+      "description": "What compliance issue was detected",
+      "excerpt": "The exact phrase that triggered this flag"
+    }
+  ]
+}
+
+Focus on F&I-specific guidance: GAP insurance, VSC (Vehicle Service Contract), prepaid maintenance, 
+interior/exterior protection, tire & wheel protection. Flag any missing disclosures (base payment, 
+risk-based pricing, privacy policy). Provide objection handling for price, coverage, and need objections.
+Return ONLY valid JSON, no markdown.`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are an F&I coaching AI. Always respond with valid JSON only." },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_schema", json_schema: {
+        name: "copilot_analysis",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            suggestions: { type: "array", items: {
+              type: "object",
+              properties: {
+                type: { type: "string" },
+                title: { type: "string" },
+                content: { type: "string" },
+                priority: { type: "string" },
+                triggeredBy: { type: "string" },
+              },
+              required: ["type", "title", "content", "priority", "triggeredBy"],
+              additionalProperties: false,
+            }},
+            complianceFlags: { type: "array", items: {
+              type: "object",
+              properties: {
+                severity: { type: "string" },
+                rule: { type: "string" },
+                description: { type: "string" },
+                excerpt: { type: "string" },
+              },
+              required: ["severity", "rule", "description", "excerpt"],
+              additionalProperties: false,
+            }},
+          },
+          required: ["suggestions", "complianceFlags"],
+          additionalProperties: false,
+        },
+      }},
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return null;
+    return JSON.parse(content);
+  } catch (e) {
+    console.error("[Copilot] Analysis failed:", e);
+    return null;
+  }
+}
+
+// ─── Grading Engine ───────────────────────────────────────────────────────────
+async function runGradingEngine(fullTranscript: string, sessionData: { customerName?: string | null; dealType?: string | null }) {
+  const prompt = `You are an expert F&I performance evaluator. Grade the following complete F&I interaction transcript.
+
+Customer: ${sessionData.customerName ?? "Unknown"}
+Deal Type: ${sessionData.dealType ?? "retail_finance"}
+
+Full Transcript:
+${fullTranscript}
+
+Grade on the Asura Group F&I Performance Rubric (0-100 each):
+1. Rapport Building: Did the manager build genuine connection, ask discovery questions, establish trust?
+2. Product Presentation: Were all products presented clearly, with value-based selling, not just price?
+3. Objection Handling: Were objections addressed professionally with empathy and re-framing?
+4. Closing Technique: Were closing techniques used appropriately? Was the "which" close used?
+5. Compliance: Were all required disclosures made (base payment, risk-based pricing, privacy policy)?
+
+Also provide:
+- Overall score (weighted average)
+- Key strengths (2-3 specific examples from transcript)
+- Areas for improvement (2-3 specific, actionable items)
+- Coaching notes (personalized guidance paragraph)
+
+Return JSON:
+{
+  "rapportScore": number,
+  "productPresentationScore": number,
+  "objectionHandlingScore": number,
+  "closingTechniqueScore": number,
+  "complianceScore": number,
+  "overallScore": number,
+  "strengths": "string",
+  "improvements": "string",
+  "coachingNotes": "string"
+}`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are an F&I grading AI. Always respond with valid JSON only." },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_schema", json_schema: {
+        name: "grade_result",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            rapportScore: { type: "number" },
+            productPresentationScore: { type: "number" },
+            objectionHandlingScore: { type: "number" },
+            closingTechniqueScore: { type: "number" },
+            complianceScore: { type: "number" },
+            overallScore: { type: "number" },
+            strengths: { type: "string" },
+            improvements: { type: "string" },
+            coachingNotes: { type: "string" },
+          },
+          required: ["rapportScore","productPresentationScore","objectionHandlingScore","closingTechniqueScore","complianceScore","overallScore","strengths","improvements","coachingNotes"],
+          additionalProperties: false,
+        },
+      }},
+    });
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return null;
+    return JSON.parse(content);
+  } catch (e) {
+    console.error("[Grading] Engine failed:", e);
+    return null;
+  }
+}
+
+// ─── Coaching Report Engine ───────────────────────────────────────────────────
+async function runCoachingReportEngine(fullTranscript: string, grade: Record<string, unknown>) {
+  const prompt = `You are an expert F&I coaching analyst. Generate a comprehensive coaching report for this interaction.
+
+Performance Scores: ${JSON.stringify(grade)}
+
+Full Transcript:
+${fullTranscript}
+
+Generate a detailed coaching report with:
+1. Executive summary (2-3 sentences)
+2. Sentiment analysis (manager and customer)
+3. Customer purchase likelihood (0-100)
+4. Key moments (array of {time, description, impact: positive|negative|neutral})
+5. Product opportunities missed or captured
+6. Objection patterns detected
+7. Specific behavioral recommendations
+
+Return JSON:
+{
+  "executiveSummary": "string",
+  "sentimentOverall": "positive|neutral|negative|mixed",
+  "sentimentManagerScore": number (0-100),
+  "sentimentCustomerScore": number (0-100),
+  "purchaseLikelihoodScore": number (0-100),
+  "keyMoments": [{"description": "string", "impact": "positive|negative|neutral"}],
+  "productOpportunities": [{"product": "string", "status": "captured|missed|partially", "note": "string"}],
+  "objectionPatterns": [{"type": "string", "frequency": number, "resolution": "string"}],
+  "recommendations": "string",
+  "behaviorInsights": "string"
+}`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are an F&I coaching report AI. Always respond with valid JSON only." },
+        { role: "user", content: prompt },
+      ],
+    });
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return null;
+    return JSON.parse(content);
+  } catch (e) {
+    console.error("[Report] Engine failed:", e);
+    return null;
+  }
+}
+
+// ─── Main Router ──────────────────────────────────────────────────────────────
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ─── Sessions ───────────────────────────────────────────────────────────────
+  sessions: router({
+    create: protectedProcedure
+      .input(z.object({
+        customerName: z.string().optional(),
+        dealNumber: z.string().optional(),
+        vehicleType: z.enum(["new", "used", "cpo"]).optional(),
+        dealType: z.enum(["retail_finance", "lease", "cash"]).optional(),
+        consentObtained: z.boolean().default(false),
+        consentMethod: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await createSession({ userId: ctx.user.id, ...input });
+        await insertAuditLog({ userId: ctx.user.id, action: "session.create", resourceType: "session", details: input });
+        const sessions = await getSessionsByUserId(ctx.user.id, 1, 0);
+        return sessions[0];
+      }),
+
+    list: protectedProcedure
+      .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }))
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role === "admin") return getAllSessions(input.limit, input.offset);
+        return getSessionsByUserId(ctx.user.id, input.limit, input.offset);
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.id);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return session;
+      }),
+
+    end: protectedProcedure
+      .input(z.object({ id: z.number(), durationSeconds: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.id);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await endSession(input.id, input.durationSeconds);
+        await insertAuditLog({ userId: ctx.user.id, action: "session.end", resourceType: "session", resourceId: String(input.id) });
+        return { success: true };
+      }),
+
+    getWithDetails: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.id);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        const [transcriptList, suggestions, flags, grade, report, recordings] = await Promise.all([
+          getTranscriptsBySession(input.id),
+          getSuggestionsBySession(input.id),
+          getFlagsBySession(input.id),
+          getGradeBySession(input.id),
+          getReportBySession(input.id),
+          getRecordingsBySession(input.id),
+        ]);
+        return { session, transcripts: transcriptList, suggestions, flags, grade, report, recordings };
+      }),
+  }),
+
+  // ─── Transcripts ────────────────────────────────────────────────────────────
+  transcripts: router({
+    add: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        speaker: z.enum(["manager", "customer", "unknown"]),
+        text: z.string(),
+        startTime: z.number().optional(),
+        endTime: z.number().optional(),
+        confidence: z.number().optional(),
+        isFinal: z.boolean().default(true),
+      }))
+      .mutation(async ({ input }) => {
+        await insertTranscript(input);
+        return { success: true };
+      }),
+
+    getBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getTranscriptsBySession(input.sessionId);
+      }),
+
+    analyze: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        recentText: z.string(),
+        context: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const result = await runCopilotAnalysis(input.recentText, input.sessionId, input.context ?? "F&I office interaction");
+        if (!result) return { suggestions: [], complianceFlags: [] };
+
+        for (const s of result.suggestions ?? []) {
+          await insertCopilotSuggestion({ sessionId: input.sessionId, ...s });
+        }
+        for (const f of result.complianceFlags ?? []) {
+          await insertComplianceFlag({ sessionId: input.sessionId, ...f });
+        }
+        return result;
+      }),
+  }),
+
+  // ─── Grading ────────────────────────────────────────────────────────────────
+  grades: router({
+    generate: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const transcriptList = await getTranscriptsBySession(input.sessionId);
+        const fullText = transcriptList.map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join("\n");
+
+        if (!fullText.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "No transcript available to grade" });
+
+        const gradeData = await runGradingEngine(fullText, { customerName: session.customerName, dealType: session.dealType });
+        if (!gradeData) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Grading engine failed" });
+
+        await upsertGrade({ sessionId: input.sessionId, userId: session.userId, ...gradeData });
+        await updateSessionStatus(input.sessionId, "completed");
+        await insertAuditLog({ userId: ctx.user.id, action: "grade.generate", resourceType: "session", resourceId: String(input.sessionId) });
+        return gradeData;
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getGradeBySession(input.sessionId);
+      }),
+
+    myHistory: protectedProcedure
+      .input(z.object({ limit: z.number().default(30) }))
+      .query(async ({ ctx, input }) => {
+        return getGradesByUser(ctx.user.id, input.limit);
+      }),
+  }),
+
+  // ─── Compliance ──────────────────────────────────────────────────────────────
+  compliance: router({
+    getFlags: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getFlagsBySession(input.sessionId);
+      }),
+
+    resolveFlag: protectedProcedure
+      .input(z.object({ flagId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await resolveFlag(input.flagId, ctx.user.id);
+        return { success: true };
+      }),
+  }),
+
+  // ─── Recordings ──────────────────────────────────────────────────────────────
+  recordings: router({
+    upload: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        fileName: z.string(),
+        mimeType: z.string(),
+        fileSizeBytes: z.number(),
+        fileDataBase64: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const buffer = Buffer.from(input.fileDataBase64, "base64");
+        const fileKey = `recordings/${ctx.user.id}/${input.sessionId}/${Date.now()}-${input.fileName}`;
+        const { url } = await storagePut(fileKey, buffer, input.mimeType);
+
+        await insertRecording({
+          sessionId: input.sessionId,
+          userId: ctx.user.id,
+          fileKey,
+          fileUrl: url,
+          fileName: input.fileName,
+          mimeType: input.mimeType,
+          fileSizeBytes: input.fileSizeBytes,
+        });
+
+        await insertAuditLog({ userId: ctx.user.id, action: "recording.upload", resourceType: "session", resourceId: String(input.sessionId), details: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes } });
+        const recordings = await getRecordingsBySession(input.sessionId);
+        return recordings[recordings.length - 1];
+      }),
+
+    getBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getRecordingsBySession(input.sessionId);
+      }),
+
+    myRecordings: protectedProcedure
+      .input(z.object({ limit: z.number().default(50) }))
+      .query(async ({ ctx, input }) => {
+        return getRecordingsByUser(ctx.user.id, input.limit);
+      }),
+
+    transcribe: protectedProcedure
+      .input(z.object({ recordingId: z.number(), sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const recordings = await getRecordingsBySession(input.sessionId);
+        const recording = recordings.find((r) => r.id === input.recordingId);
+        if (!recording) throw new TRPCError({ code: "NOT_FOUND" });
+
+        await updateRecordingStatus(input.recordingId, "processing");
+
+        try {
+          const result = await transcribeAudio({ audioUrl: recording.fileUrl, language: "en", prompt: "F&I automotive finance insurance conversation" });
+          if ('error' in result) throw new Error(result.error);
+          if (result.segments) {
+            for (const seg of result.segments) {
+              await insertTranscript({
+                sessionId: input.sessionId,
+                speaker: "unknown",
+                text: seg.text,
+                startTime: seg.start,
+                endTime: seg.end,
+                confidence: 0.9,
+                isFinal: true,
+              });
+            }
+          } else if (result.text) {
+            await insertTranscript({ sessionId: input.sessionId, speaker: "unknown", text: result.text, isFinal: true });
+          }
+          await updateRecordingStatus(input.recordingId, "transcribed");
+          await insertAuditLog({ userId: ctx.user.id, action: "recording.transcribe", resourceType: "recording", resourceId: String(input.recordingId) });
+          return { success: true, text: result.text };
+        } catch (e) {
+          await updateRecordingStatus(input.recordingId, "failed");
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcription failed" });
+        }
+      }),
+  }),
+
+  // ─── Coaching Reports ────────────────────────────────────────────────────────
+  reports: router({
+    generate: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const [transcriptList, grade] = await Promise.all([
+          getTranscriptsBySession(input.sessionId),
+          getGradeBySession(input.sessionId),
+        ]);
+
+        const fullText = transcriptList.map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join("\n");
+        if (!fullText.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "No transcript available" });
+
+        const reportData = await runCoachingReportEngine(fullText, grade ?? {});
+        if (!reportData) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Report generation failed" });
+
+        await upsertCoachingReport({ sessionId: input.sessionId, userId: session.userId, ...reportData });
+        await insertAuditLog({ userId: ctx.user.id, action: "report.generate", resourceType: "session", resourceId: String(input.sessionId) });
+        return reportData;
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getReportBySession(input.sessionId);
+      }),
+
+    myReports: protectedProcedure
+      .input(z.object({ limit: z.number().default(20) }))
+      .query(async ({ ctx, input }) => {
+        return getReportsByUser(ctx.user.id, input.limit);
+      }),
+  }),
+
+  // ─── Analytics ───────────────────────────────────────────────────────────────
+  analytics: router({
+    summary: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+      return getAnalyticsSummary(userId);
+    }),
+
+    adminSummary: adminProcedure.query(async () => {
+      return getAnalyticsSummary();
+    }),
+
+    myGradeTrend: protectedProcedure
+      .input(z.object({ limit: z.number().default(10) }))
+      .query(async ({ ctx, input }) => {
+        return getGradesByUser(ctx.user.id, input.limit);
+      }),
+  }),
+
+  // ─── Admin ───────────────────────────────────────────────────────────────────
+  admin: router({
+    listUsers: adminProcedure.query(async () => getAllUsers()),
+
+    updateRole: adminProcedure
+      .input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) }))
+      .mutation(async ({ ctx, input }) => {
+        await updateUserRole(input.userId, input.role);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.updateRole", resourceType: "user", resourceId: String(input.userId), details: { role: input.role } });
+        return { success: true };
+      }),
+
+    auditLogs: adminProcedure
+      .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
+      .query(async ({ input }) => getAuditLogs(input.limit, input.offset)),
+
+    allSessions: adminProcedure
+      .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
+      .query(async ({ input }) => getAllSessions(input.limit, input.offset)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
