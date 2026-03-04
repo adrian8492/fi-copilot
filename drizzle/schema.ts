@@ -79,6 +79,8 @@ export const copilotSuggestions = mysqlTable("copilot_suggestions", {
     "rapport_building",
     "closing_technique",
     "general_tip",
+    "language_correction",
+    "process_alert",
   ]).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content").notNull(),

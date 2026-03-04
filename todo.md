@@ -229,3 +229,6 @@
 ## Bug: Live Session Transcript Duplicates + Timestamp 00:00
 - [x] Fix: Interim Deepgram results create new entries instead of updating in place
 - [x] Fix: All transcript timestamps show 00:00 instead of elapsed time (Deepgram sends ms, converted to seconds)
+
+## Bug: Copilot Suggestions DB Insert Failing
+- [x] Fix: language_correction and process_alert types missing from copilot_suggestions enum — added to schema + migration applied

@@ -220,27 +220,29 @@ function createDeepgramConnection(
     send({ type: "deepgram_status", data: { connected: true, model: "nova-2" } });
   });
 
-  connection.on(LiveTranscriptionEvents.Transcript, async (data) => {
+   connection.on(LiveTranscriptionEvents.Transcript, async (data) => {
     const alt = data?.channel?.alternatives?.[0];
     if (!alt || !alt.transcript?.trim()) return;
-
-    const isFinal = data.is_final ?? false;
+    const isFinal: boolean = data.is_final ?? false;
+    const speechFinal: boolean = (data as Record<string, unknown>).speech_final === true;
     const text: string = alt.transcript;
     const confidence: number = alt.confidence ?? 1.0;
-
     // Speaker diarization: speaker 0 = F&I manager, speaker 1 = customer
     const speakerIndex: number = (alt.words as Array<{ speaker?: number }> | undefined)?.[0]?.speaker ?? 0;
     const speaker: "manager" | "customer" = speakerIndex === 0 ? "manager" : "customer";
-
     const words = alt.words as Array<{ start?: number; end?: number }> | undefined;
-    const startTime = words?.[0]?.start ? Math.round(words[0].start * 1000) : undefined;
-    const endTime = words?.[words.length - 1]?.end ? Math.round(words[words.length - 1].end! * 1000) : undefined;
-
-    // Broadcast immediately (interim + final)
-    send({
-      type: "transcript",
-      data: { text, speaker, startTime, endTime, isFinal, confidence, source: "deepgram" },
-    });
+    // Use server elapsed time (seconds) — word-level timestamps from Deepgram are
+    // audio-relative and unreliable for display; server elapsed is always accurate.
+    const elapsedNow = Math.floor((Date.now() - state.startTime) / 1000);
+    const startTime = words?.[0]?.start != null ? Math.round(words[0].start!) : elapsedNow;
+    const endTime = words?.[words.length - 1]?.end != null ? Math.round(words[words.length - 1].end!) : undefined;
+    // Broadcast interim OR final — but NOT speech_final (that's a duplicate of is_final)
+    if (!speechFinal) {
+      send({
+        type: "transcript",
+        data: { text, speaker, startTime, endTime, isFinal, confidence, source: "deepgram" },
+      });
+    }
 
     if (!isFinal) return;
 
