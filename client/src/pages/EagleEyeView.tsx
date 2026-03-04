@@ -130,24 +130,24 @@ export default function EagleEyeView() {
     <AppLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
               <Eye className="w-6 h-6 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Eagle Eye View</h1>
-              <p className="text-slate-400 text-sm">Team performance leaderboard — all F&I managers</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Eagle Eye View</h1>
+              <p className="text-slate-400 text-sm">Team performance leaderboard</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg p-1">
               <Calendar className="w-4 h-4 text-slate-400 ml-1" />
               {DATE_PRESETS.map((p) => (
                 <button
                   key={p.key}
                   onClick={() => setDatePreset(p.key)}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-xs sm:text-sm font-medium transition-all ${
                     datePreset === p.key
                       ? "bg-blue-600 text-white shadow"
                       : "text-slate-400 hover:text-white hover:bg-slate-700"
@@ -157,7 +157,7 @@ export default function EagleEyeView() {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-2 text-sm text-slate-400">
+            <div className="hidden sm:flex items-center gap-2 text-sm text-slate-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400" /> ≥80%
               <span className="w-2 h-2 rounded-full bg-amber-400 ml-1" /> 65–79%
               <span className="w-2 h-2 rounded-full bg-red-400 ml-1" /> &lt;65%
@@ -166,7 +166,7 @@ export default function EagleEyeView() {
         </div>
 
         {/* Summary KPI row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-blue-500/10"><TrendingUp className="w-5 h-5 text-blue-400" /></div>

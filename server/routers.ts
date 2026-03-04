@@ -44,6 +44,9 @@ import {
   deleteComplianceRule,
   markSuggestionUsed,
   getSuggestionUtilizationRate,
+  getPvrTrend,
+  getProductMix,
+  getSessionVolume,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -731,6 +734,22 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().default(10) }))
       .query(async ({ ctx, input }) => {
         return getGradesByUser(ctx.user.id, input.limit);
+      }),
+    pvrTrend: protectedProcedure
+      .input(z.object({ limit: z.number().default(30) }))
+      .query(async ({ ctx, input }) => {
+        const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+        return getPvrTrend(userId, input.limit);
+      }),
+    productMix: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+      return getProductMix(userId);
+    }),
+    sessionVolume: protectedProcedure
+      .input(z.object({ weeks: z.number().default(8) }))
+      .query(async ({ ctx, input }) => {
+        const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+        return getSessionVolume(userId, input.weeks);
       }),
   }),
 

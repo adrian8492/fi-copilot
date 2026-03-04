@@ -659,7 +659,7 @@ export default function LiveSession() {
         <div className="flex-1 flex overflow-hidden">
           {/* 17-Point Checklist Panel (collapsible) */}
           {showChecklist && (
-            <div className="w-72 flex flex-col shrink-0 border-r border-border overflow-y-auto bg-background/50">
+            <div className="hidden md:flex w-72 flex-col shrink-0 border-r border-border overflow-y-auto bg-background/50">
               <div className="px-3 py-2 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ClipboardList className="w-3.5 h-3.5 text-primary" />
@@ -794,7 +794,7 @@ export default function LiveSession() {
           </div>
 
           {/* Co-Pilot Panel */}
-          <div className="w-80 xl:w-96 flex flex-col shrink-0">
+          <div className="hidden md:flex w-80 xl:w-96 flex-col shrink-0">
             {/* Tab Bar */}
             <div className="flex border-b border-border">
               {[

@@ -762,3 +762,109 @@ export async function getSuggestionUtilizationRate(sessionId: number): Promise<{
   const utilizationRate = total > 0 ? Math.round((used / total) * 100) : 0;
   return { total, used, utilizationRate };
 }
+
+// ─── Analytics: PVR Trend ────────────────────────────────────────────────────
+export async function getPvrTrend(userId?: number, limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = userId
+    ? await db.select({
+        sessionId: performanceGrades.sessionId,
+        pvr: performanceGrades.pvr,
+        ppd: performanceGrades.productsPerDeal,
+        gradedAt: performanceGrades.gradedAt,
+      }).from(performanceGrades)
+        .innerJoin(sessions, eq(performanceGrades.sessionId, sessions.id))
+        .where(eq(sessions.userId, userId))
+        .orderBy(performanceGrades.gradedAt)
+        .limit(limit)
+    : await db.select({
+        sessionId: performanceGrades.sessionId,
+        pvr: performanceGrades.pvr,
+        ppd: performanceGrades.productsPerDeal,
+        gradedAt: performanceGrades.gradedAt,
+      }).from(performanceGrades)
+        .orderBy(performanceGrades.gradedAt)
+        .limit(limit);
+  return rows.map((r: { sessionId: number; pvr: number | null; ppd: number | null; gradedAt: Date | null }, i: number) => ({
+    index: i + 1,
+    pvr: r.pvr ?? 0,
+    ppd: r.ppd ?? 0,
+    date: r.gradedAt ? new Date(r.gradedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : `#${i + 1}`,
+  }));
+}
+
+// ─── Analytics: Product Mix ──────────────────────────────────────────────────
+export async function getProductMix(userId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = userId
+    ? await db.select({ product: objectionLogs.product, wasResolved: objectionLogs.wasResolved })
+        .from(objectionLogs)
+        .innerJoin(sessions, eq(objectionLogs.sessionId, sessions.id))
+        .where(eq(sessions.userId, userId))
+    : await db.select({ product: objectionLogs.product, wasResolved: objectionLogs.wasResolved })
+        .from(objectionLogs);
+
+  const totals: Record<string, { total: number; resolved: number }> = {};
+  for (const r of rows) {
+    const key = r.product;
+    if (!totals[key]) totals[key] = { total: 0, resolved: 0 };
+    totals[key].total++;
+    if (r.wasResolved) totals[key].resolved++;
+  }
+
+  const PRODUCT_LABELS: Record<string, string> = {
+    vehicle_service_contract: "VSC",
+    gap_insurance: "GAP",
+    prepaid_maintenance: "PPM",
+    interior_exterior_protection: "IEP",
+    road_hazard: "Road Hazard",
+    paintless_dent_repair: "PDR",
+    key_replacement: "Key Replace",
+    windshield_protection: "Windshield",
+    lease_wear_tear: "Lease W&T",
+    other: "Other",
+  };
+
+  return Object.entries(totals).map(([product, { total, resolved }]) => ({
+    name: PRODUCT_LABELS[product] ?? product,
+    total,
+    resolved,
+    winRate: total > 0 ? Math.round((resolved / total) * 100) : 0,
+  })).sort((a, b) => b.total - a.total);
+}
+
+// ─── Analytics: Session Volume by Week ──────────────────────────────────────
+export async function getSessionVolume(userId?: number, weeks = 8) {
+  const db = await getDb();
+  if (!db) return [];
+  const since = new Date();
+  since.setDate(since.getDate() - weeks * 7);
+
+  const rows = userId
+    ? await db.select({ startedAt: sessions.startedAt, status: sessions.status })
+        .from(sessions)
+        .where(and(eq(sessions.userId, userId), gte(sessions.startedAt, since)))
+    : await db.select({ startedAt: sessions.startedAt, status: sessions.status })
+        .from(sessions)
+        .where(gte(sessions.startedAt, since));
+
+  const buckets: Record<string, { label: string; total: number; completed: number }> = {};
+  for (const r of rows) {
+    const d = new Date(r.startedAt);
+    // Week start (Monday)
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const weekStart = new Date(d.setDate(diff));
+    const key = weekStart.toISOString().slice(0, 10);
+    const label = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (!buckets[key]) buckets[key] = { label, total: 0, completed: 0 };
+    buckets[key].total++;
+    if (r.status === "completed") buckets[key].completed++;
+  }
+
+  return Object.entries(buckets)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v);
+}
