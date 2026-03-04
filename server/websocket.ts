@@ -351,7 +351,25 @@ function scheduleReconnect(
 
 // ─── WebSocket Server Setup ───────────────────────────────────────────────────
 export function setupWebSocketServer(server: HttpServer) {
-  const wss = new WebSocketServer({ server, path: "/ws/session" });
+  // Use noServer mode so we manually route HTTP upgrade requests.
+  // If we pass { server, path } to WebSocketServer, the ws library registers
+  // an 'upgrade' listener that calls abortHandshake(socket, 400) for any
+  // path that doesn't match "/ws/session" — including Vite's HMR endpoint.
+  // That destroys the socket before Vite can handle it, causing the
+  // "[vite] failed to connect to websocket" console error.
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (req, socket, head) => {
+    const url = req.url ?? "";
+    const pathname = url.includes("?") ? url.slice(0, url.indexOf("?")) : url;
+    if (pathname === "/ws/session") {
+      // Only handle our own path; let all other upgrade requests pass through
+      // to Vite's HMR listener (or any other listener registered later).
+      wss.handleUpgrade(req, socket as import("net").Socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    }
+  });
 
   wss.on("connection", (ws: WebSocket) => {
     console.log("[WS] New client connected");
