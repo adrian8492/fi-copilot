@@ -10,6 +10,17 @@ import {
   json,
 } from "drizzle-orm/mysql-core";
 
+// ─── Dealerships ─────────────────────────────────────────────────────────────
+export const dealerships = mysqlTable("dealerships", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  plan: mysqlEnum("plan", ["trial", "beta", "pro", "enterprise"]).default("beta").notNull(),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -19,6 +30,8 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   dealership: varchar("dealership", { length: 255 }),
+  dealershipId: int("dealershipId"),
+  isSuperAdmin: boolean("isSuperAdmin").notNull().default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -28,6 +41,7 @@ export const users = mysqlTable("users", {
 export const sessions = mysqlTable("sessions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  dealershipId: int("dealershipId"),
   customerName: varchar("customerName", { length: 255 }),
   dealNumber: varchar("dealNumber", { length: 64 }),
   vehicleType: mysqlEnum("vehicleType", ["new", "used", "cpo"]).default("new"),
@@ -314,3 +328,19 @@ export type SessionChecklist = typeof sessionChecklists.$inferSelect;
 export type InsertSessionChecklist = typeof sessionChecklists.$inferInsert;
 export type ObjectionLog = typeof objectionLogs.$inferSelect;
 export type InsertObjectionLog = typeof objectionLogs.$inferInsert;
+
+// ─── Invitations ──────────────────────────────────────────────────────────────
+export const invitations = mysqlTable("invitations", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 128 }).notNull().unique(),
+  email: varchar("email", { length: 320 }),
+  dealershipId: int("dealershipId").notNull(),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  invitedBy: int("invitedBy").notNull(),
+  usedBy: int("usedBy"),
+  usedAt: timestamp("usedAt"),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Invitation = typeof invitations.$inferSelect;

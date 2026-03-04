@@ -16,6 +16,7 @@ import EagleEyeView from "./pages/EagleEyeView";
 import ObjectionAnalysis from "./pages/ObjectionAnalysis";
 import DemoMode from "./pages/DemoMode";
 import ComplianceRules from "./pages/ComplianceRules";
+import JoinPage from "./pages/JoinPage";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/objections" component={ObjectionAnalysis} />
       <Route path="/demo" component={DemoMode} />
       <Route path="/compliance-rules" component={ComplianceRules} />
+      <Route path="/join" component={JoinPage} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

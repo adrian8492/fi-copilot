@@ -184,3 +184,17 @@
 - [ ] Phase 11: TypeScript 0 errors confirmed
 - [ ] Phase 11: Final overnight checkpoint saved
 - [ ] Phase 12: 7 AM summary report written and delivered
+
+## Phase 2 — Invite-Only Onboarding (Multi-Tenancy)
+- [x] DB: Add `dealerships` table with name, slug, active flag
+- [x] DB: Add `dealershipId` FK to users, sessions, compliance_rules, audit_logs
+- [x] Backend: Multi-tenancy query filtering by dealershipId
+- [x] Backend: Admin dealerships CRUD router (list, create, update, delete)
+- [x] Frontend: AdminPanel Dealerships tab (create/edit/delete dealerships)
+- [x] DB: Add `invitations` table (token, email, dealershipId, role, expiresAt, usedBy)
+- [x] Backend: Invitations router (create, list, validate, redeem, revoke)
+- [x] Frontend: AdminPanel Invitations tab (generate links, view/revoke invites)
+- [x] Frontend: /join page for redeeming invite tokens
+- [x] App.tsx: Register /join route
+- [x] Tests: 12 new invitation tests (create, list, validate, redeem, revoke)
+- [x] Tests: 61/61 total tests passing

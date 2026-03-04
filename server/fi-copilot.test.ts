@@ -86,6 +86,11 @@ vi.mock("./db", () => ({
   getPvrTrend: vi.fn().mockResolvedValue([{ week: "2026-W01", avgPvr: 1200, avgPpd: 2.4 }]),
   getProductMix: vi.fn().mockResolvedValue([{ product: "GAP", count: 5 }]),
   getSessionVolume: vi.fn().mockResolvedValue([{ week: "2026-W01", count: 3 }]),
+  createInvitation: vi.fn().mockResolvedValue({ token: "abc123token", expiresAt: new Date(Date.now() + 7 * 86400000) }),
+  getInvitationByToken: vi.fn().mockResolvedValue({ id: 1, token: "abc123token", email: "test@dealership.com", dealershipId: 1, role: "user", invitedBy: 1, usedBy: null, usedAt: null, expiresAt: new Date(Date.now() + 7 * 86400000), createdAt: new Date() }),
+  redeemInvitation: vi.fn().mockResolvedValue({ id: 1, token: "abc123token", dealershipId: 1, role: "user" }),
+  getInvitationsByDealership: vi.fn().mockResolvedValue([{ id: 1, token: "abc123token", email: "test@dealership.com", dealershipId: 1, role: "user", invitedBy: 1, usedBy: null, usedAt: null, expiresAt: new Date(Date.now() + 7 * 86400000), createdAt: new Date() }]),
+  revokeInvitation: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./storage", () => ({
@@ -600,5 +605,104 @@ describe("reports.get", () => {
     const caller = appRouter.createCaller(makeCtx());
     const report = await caller.reports.get({ sessionId: 1 });
     expect(report).toBeNull();
+  });
+});
+// ─── Invitations ─────────────────────────────────────────────────────────────
+describe("invitations.create", () => {
+  it("allows admin to create an invitation", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.invitations.create({
+      email: "newmanager@dealership.com",
+      dealershipId: 1,
+      role: "user",
+      expiresInDays: 7,
+      origin: "https://app.example.com",
+    });
+    expect(result).toHaveProperty("token");
+    expect(result).toHaveProperty("inviteUrl");
+    expect(result.inviteUrl).toContain("/join?token=");
+  });
+  it("throws FORBIDDEN for non-admin", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.invitations.create({
+      dealershipId: 1,
+      role: "user",
+      expiresInDays: 7,
+      origin: "https://app.example.com",
+    })).rejects.toThrow();
+  });
+});
+describe("invitations.list", () => {
+  it("allows admin to list invitations for a dealership", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const list = await caller.invitations.list({ dealershipId: 1 });
+    expect(Array.isArray(list)).toBe(true);
+  });
+  it("throws FORBIDDEN for non-admin", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.invitations.list({ dealershipId: 1 })).rejects.toThrow();
+  });
+});
+describe("invitations.validate", () => {
+  it("returns valid=true for a valid token", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    const result = await caller.invitations.validate({ token: "abc123token" });
+    expect(result.valid).toBe(true);
+    expect(result.email).toBe("test@dealership.com");
+  });
+  it("returns valid=false for a non-existent token", async () => {
+    const { getInvitationByToken } = await import("./db");
+    vi.mocked(getInvitationByToken).mockResolvedValueOnce(null);
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    const result = await caller.invitations.validate({ token: "badtoken" });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("not_found");
+  });
+  it("returns valid=false for an already-used token", async () => {
+    const { getInvitationByToken } = await import("./db");
+    vi.mocked(getInvitationByToken).mockResolvedValueOnce({
+      id: 1, token: "usedtoken", email: "used@dealership.com", dealershipId: 1,
+      role: "user", invitedBy: 1, usedBy: 2, usedAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 86400000), createdAt: new Date(),
+    });
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    const result = await caller.invitations.validate({ token: "usedtoken" });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("already_used");
+  });
+  it("returns valid=false for an expired token", async () => {
+    const { getInvitationByToken } = await import("./db");
+    vi.mocked(getInvitationByToken).mockResolvedValueOnce({
+      id: 1, token: "expiredtoken", email: "expired@dealership.com", dealershipId: 1,
+      role: "user", invitedBy: 1, usedBy: null, usedAt: null,
+      expiresAt: new Date(Date.now() - 86400000), createdAt: new Date(),
+    });
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    const result = await caller.invitations.validate({ token: "expiredtoken" });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("expired");
+  });
+});
+describe("invitations.redeem", () => {
+  it("allows authenticated user to redeem a valid token", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.invitations.redeem({ token: "abc123token" });
+    expect(result.success).toBe(true);
+    expect(result.dealershipId).toBe(1);
+  });
+  it("throws UNAUTHORIZED when not logged in", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    await expect(caller.invitations.redeem({ token: "abc123token" })).rejects.toThrow();
+  });
+});
+describe("invitations.revoke", () => {
+  it("allows admin to revoke an invitation", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.invitations.revoke({ id: 1 });
+    expect(result.success).toBe(true);
+  });
+  it("throws FORBIDDEN for non-admin", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.invitations.revoke({ id: 1 })).rejects.toThrow();
   });
 });

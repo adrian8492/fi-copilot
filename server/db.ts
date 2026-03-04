@@ -10,6 +10,8 @@ import {
   complianceFlags,
   complianceRules,
   copilotSuggestions,
+  dealerships,
+  invitations,
   objectionLogs,
   performanceGrades,
   sessionChecklists,
@@ -79,6 +81,7 @@ export async function updateUserRole(userId: number, role: "user" | "admin") {
 // ─── Sessions ─────────────────────────────────────────────────────────────────
 export async function createSession(data: {
   userId: number;
+  dealershipId?: number | null;
   customerName?: string;
   dealNumber?: string;
   vehicleType?: "new" | "used" | "cpo";
@@ -105,10 +108,12 @@ export async function getSessionsByUserId(userId: number, limit = 50, offset = 0
   return db.select().from(sessions).where(eq(sessions.userId, userId)).orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
 }
 
-export async function getAllSessions(limit = 100, offset = 0) {
+export async function getAllSessions(limit = 100, offset = 0, dealershipId?: number | null) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(sessions).orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
+  const q = db.select().from(sessions);
+  const filtered = dealershipId != null ? q.where(eq(sessions.dealershipId, dealershipId)) : q;
+  return filtered.orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
 }
 
 export async function endSession(id: number, durationSeconds: number) {
@@ -335,11 +340,13 @@ export async function getAuditLogs(limit = 100, offset = 0) {
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
-export async function getAnalyticsSummary(userId?: number) {
+export async function getAnalyticsSummary(userId?: number, dealershipId?: number | null) {
   const db = await getDb();
   if (!db) return null;
 
-  const whereClause = userId ? eq(sessions.userId, userId) : undefined;
+  const dealershipFilter = dealershipId != null ? eq(sessions.dealershipId, dealershipId) : undefined;
+  const userFilter = userId ? eq(sessions.userId, userId) : undefined;
+  const whereClause = userFilter && dealershipFilter ? and(userFilter, dealershipFilter) : (userFilter ?? dealershipFilter);
   const sessionList = whereClause
     ? await db.select().from(sessions).where(whereClause)
     : await db.select().from(sessions);
@@ -379,7 +386,13 @@ export async function getAnalyticsSummary(userId?: number) {
     ? Math.round((usedSuggestions / totalSuggestions) * 100)
     : 0;
 
-  const flagList = await db.select().from(complianceFlags);
+  // Compliance flags — filter by dealership via session join when possible
+  const flagList = dealershipId != null
+    ? await db.select({ severity: complianceFlags.severity, resolved: complianceFlags.resolved })
+        .from(complianceFlags)
+        .innerJoin(sessions, eq(complianceFlags.sessionId, sessions.id))
+        .where(eq(sessions.dealershipId, dealershipId))
+    : await db.select({ severity: complianceFlags.severity, resolved: complianceFlags.resolved }).from(complianceFlags);
   const criticalFlags = flagList.filter((f) => f.severity === "critical" && !f.resolved).length;
 
   return {
@@ -455,12 +468,14 @@ export async function getObjectionsBySession(sessionId: number) {
 }
 
 // ─── Eagle Eye View Analytics ─────────────────────────────────────────────────
-export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date) {
+export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date, dealershipId?: number | null) {
   const db = await getDb();
   if (!db) return [];
 
   // Get all users with their sessions and grades
-  const allUsers = await db.select().from(users).where(eq(users.role, "user"));
+  const userConditions: ReturnType<typeof eq>[] = [eq(users.role, "user")];
+  if (dealershipId != null) userConditions.push(eq(users.dealershipId, dealershipId));
+  const allUsers = await db.select().from(users).where(and(...userConditions));
   const results = [];
 
   for (const user of allUsers) {
@@ -519,10 +534,12 @@ export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date) {
   return results.sort((a, b) => b.score - a.score);
 }
 
-export async function getEagleEyeTrends(fromDate?: Date, toDate?: Date) {
+export async function getEagleEyeTrends(fromDate?: Date, toDate?: Date, dealershipId?: number | null) {
   const db = await getDb();
   if (!db) return { groupTrend: [], managerTrends: {}, scriptFidelityTrend: [] };
-  const allUsers = await db.select().from(users).where(eq(users.role, "user"));
+  const trendUserConditions: ReturnType<typeof eq>[] = [eq(users.role, "user")];
+  if (dealershipId != null) trendUserConditions.push(eq(users.dealershipId, dealershipId));
+  const allUsers = await db.select().from(users).where(and(...trendUserConditions));
   const managerTrends: Record<string, Array<{ week: string; score: number }>> = {};
   const groupScoresByWeek: Record<string, number[]> = {};
   const groupFidelityByWeek: Record<string, number[]> = {};
@@ -867,4 +884,82 @@ export async function getSessionVolume(userId?: number, weeks = 8) {
   return Object.entries(buckets)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, v]) => v);
+}
+
+// ─── Dealership Management ────────────────────────────────────────────────────
+export async function getAllDealerships() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dealerships).orderBy(dealerships.name);
+}
+
+export async function createDealership(data: { name: string; slug: string; plan?: "trial" | "beta" | "pro" | "enterprise" }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(dealerships).values({ ...data, isActive: true });
+  const result = await db.select().from(dealerships).where(eq(dealerships.slug, data.slug)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function updateDealership(id: number, data: Partial<{ name: string; plan: "trial" | "beta" | "pro" | "enterprise"; isActive: boolean }>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(dealerships).set(data).where(eq(dealerships.id, id));
+}
+
+export async function assignUserToDealership(userId: number, dealershipId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ dealershipId }).where(eq(users.id, userId));
+}
+
+// ─── Invitations ──────────────────────────────────────────────────────────────
+import crypto from "crypto";
+
+export async function createInvitation(data: {
+  email?: string | null;
+  dealershipId: number;
+  role: "user" | "admin";
+  invitedBy: number;
+  expiresInDays?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + (data.expiresInDays ?? 7) * 24 * 60 * 60 * 1000);
+  await db.insert(invitations).values({ token, email: data.email ?? null, dealershipId: data.dealershipId, role: data.role, invitedBy: data.invitedBy, expiresAt });
+  return { token, expiresAt };
+}
+
+export async function getInvitationByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(invitations).where(eq(invitations.token, token)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function redeemInvitation(token: string, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const inv = await getInvitationByToken(token);
+  if (!inv) throw new Error("Invitation not found");
+  if (inv.usedBy) throw new Error("Invitation already used");
+  if (inv.expiresAt < new Date()) throw new Error("Invitation expired");
+  await db.update(invitations).set({ usedBy: userId, usedAt: new Date() }).where(eq(invitations.token, token));
+  // Assign user to dealership and set role
+  await db.update(users).set({ dealershipId: inv.dealershipId, role: inv.role }).where(eq(users.id, userId));
+  return inv;
+}
+
+export async function getInvitationsByDealership(dealershipId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(invitations).where(eq(invitations.dealershipId, dealershipId)).orderBy(desc(invitations.createdAt));
+}
+
+export async function revokeInvitation(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Mark as used with a sentinel value to prevent redemption
+  await db.update(invitations).set({ usedAt: new Date(), usedBy: -1 }).where(eq(invitations.id, id));
 }

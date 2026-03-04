@@ -36,6 +36,20 @@
       "when": 1772605862226,
       "tag": "0004_material_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1772639699101,
+      "tag": "0005_yummy_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1772640110124,
+      "tag": "0006_cloudy_black_panther",
+      "breakpoints": true
     }
   ]
 }

@@ -47,6 +47,15 @@ import {
   getPvrTrend,
   getProductMix,
   getSessionVolume,
+  getAllDealerships,
+  createDealership,
+  updateDealership,
+  assignUserToDealership,
+  createInvitation,
+  getInvitationByToken,
+  redeemInvitation,
+  getInvitationsByDealership,
+  revokeInvitation,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -378,7 +387,7 @@ export const appRouter = router({
         consentMethod: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        await createSession({ userId: ctx.user.id, ...input });
+        await createSession({ userId: ctx.user.id, dealershipId: ctx.user.dealershipId ?? null, ...input });
         await insertAuditLog({ userId: ctx.user.id, action: "session.create", resourceType: "session", details: input });
         const sessions = await getSessionsByUserId(ctx.user.id, 1, 0);
         return sessions[0];
@@ -387,7 +396,9 @@ export const appRouter = router({
     list: protectedProcedure
       .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }))
       .query(async ({ ctx, input }) => {
-        if (ctx.user.role === "admin") return getAllSessions(input.limit, input.offset);
+        // Super-admins see all; admins see their dealership; users see only their own sessions
+        if (ctx.user.isSuperAdmin) return getAllSessions(input.limit, input.offset);
+        if (ctx.user.role === "admin") return getAllSessions(input.limit, input.offset, ctx.user.dealershipId ?? null);
         return getSessionsByUserId(ctx.user.id, input.limit, input.offset);
       }),
 
@@ -723,11 +734,13 @@ export const appRouter = router({
   analytics: router({
     summary: protectedProcedure.query(async ({ ctx }) => {
       const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
-      return getAnalyticsSummary(userId);
+      const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+      return getAnalyticsSummary(userId, dealershipId);
     }),
 
-    adminSummary: adminProcedure.query(async () => {
-      return getAnalyticsSummary();
+    adminSummary: adminProcedure.query(async ({ ctx }) => {
+      const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+      return getAnalyticsSummary(undefined, dealershipId);
     }),
 
     myGradeTrend: protectedProcedure
@@ -811,10 +824,16 @@ export const appRouter = router({
   eagleEye: router({
     leaderboard: protectedProcedure
       .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
-      .query(async ({ input }) => getEagleEyeLeaderboard(input.fromDate, input.toDate)),
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+        return getEagleEyeLeaderboard(input.fromDate, input.toDate, dealershipId);
+      }),
     trends: protectedProcedure
       .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
-      .query(async ({ input }) => getEagleEyeTrends(input.fromDate, input.toDate)),
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+        return getEagleEyeTrends(input.fromDate, input.toDate, dealershipId);
+      }),
   }),
   // ─── Admin ───────────────────────────────────────────────────────────────────
   admin: router({
@@ -834,7 +853,96 @@ export const appRouter = router({
 
     allSessions: adminProcedure
       .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
-      .query(async ({ input }) => getAllSessions(input.limit, input.offset)),
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+        return getAllSessions(input.limit, input.offset, dealershipId);
+      }),
+
+    // Dealership management (super-admin only)
+    listDealerships: adminProcedure.query(async () => getAllDealerships()),
+
+    createDealership: adminProcedure
+      .input(z.object({
+        name: z.string().min(2),
+        slug: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/),
+        plan: z.enum(["trial", "beta", "pro", "enterprise"]).default("beta"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealership = await createDealership(input);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.createDealership", resourceType: "dealership", details: input });
+        return dealership;
+      }),
+
+    updateDealership: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(2).optional(),
+        plan: z.enum(["trial", "beta", "pro", "enterprise"]).optional(),
+        isActive: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        await updateDealership(id, data);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.updateDealership", resourceType: "dealership", resourceId: String(id), details: data });
+        return { success: true };
+      }),
+
+    assignUserToDealership: adminProcedure
+      .input(z.object({ userId: z.number(), dealershipId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await assignUserToDealership(input.userId, input.dealershipId);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.assignDealership", resourceType: "user", resourceId: String(input.userId), details: input });
+        return { success: true };
+      }),
+  }),
+
+  // ─── Invitations ─────────────────────────────────────────────────────────────
+  invitations: router({
+    create: adminProcedure
+      .input(z.object({
+        email: z.string().email().optional(),
+        dealershipId: z.number(),
+        role: z.enum(["user", "admin"]).default("user"),
+        expiresInDays: z.number().min(1).max(30).default(7),
+        origin: z.string().url(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { origin, ...invData } = input;
+        const { token, expiresAt } = await createInvitation({ ...invData, invitedBy: ctx.user.id });
+        const inviteUrl = `${origin}/join?token=${token}`;
+        await insertAuditLog({ userId: ctx.user.id, action: "invitations.create", resourceType: "invitation", details: { email: input.email, dealershipId: input.dealershipId } });
+        return { token, inviteUrl, expiresAt };
+      }),
+
+    list: adminProcedure
+      .input(z.object({ dealershipId: z.number() }))
+      .query(async ({ input }) => getInvitationsByDealership(input.dealershipId)),
+
+    revoke: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await revokeInvitation(input.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "invitations.revoke", resourceType: "invitation", resourceId: String(input.id), details: {} });
+        return { success: true };
+      }),
+
+    redeem: protectedProcedure
+      .input(z.object({ token: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const inv = await redeemInvitation(input.token, ctx.user.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "invitations.redeem", resourceType: "invitation", details: { dealershipId: inv.dealershipId } });
+        return { success: true, dealershipId: inv.dealershipId };
+      }),
+
+    validate: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const inv = await getInvitationByToken(input.token);
+        if (!inv) return { valid: false, reason: "not_found" };
+        if (inv.usedBy) return { valid: false, reason: "already_used" };
+        if (inv.expiresAt < new Date()) return { valid: false, reason: "expired" };
+        return { valid: true, email: inv.email, role: inv.role };
+      }),
   }),
 });
 
