@@ -10,10 +10,10 @@ import {
 } from "recharts";
 import {
   Eye, TrendingUp, DollarSign, Clock, Hash, Percent,
-  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus, Calendar,
+  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus, Calendar, BookOpen,
 } from "lucide-react";
 
-type MetricKey = "score" | "pvr" | "recordingLengthMinutes" | "dealCount" | "utilizationRate" | "ppd";
+type MetricKey = "score" | "pvr" | "recordingLengthMinutes" | "dealCount" | "utilizationRate" | "ppd" | "scriptFidelityScore";
 
 const METRIC_OPTIONS: { key: MetricKey; label: string; icon: React.ReactNode; format: (v: number) => string }[] = [
   { key: "score", label: "Score", icon: <Trophy className="w-4 h-4" />, format: (v) => `${v.toFixed(1)}%` },
@@ -22,6 +22,7 @@ const METRIC_OPTIONS: { key: MetricKey; label: string; icon: React.ReactNode; fo
   { key: "recordingLengthMinutes", label: "Recording Length", icon: <Clock className="w-4 h-4" />, format: (v) => `${v.toFixed(0)}m` },
   { key: "dealCount", label: "Deal Count", icon: <Hash className="w-4 h-4" />, format: (v) => String(v) },
   { key: "utilizationRate", label: "Utilization", icon: <Percent className="w-4 h-4" />, format: (v) => `${v.toFixed(1)}%` },
+  { key: "scriptFidelityScore", label: "Script Fidelity", icon: <BookOpen className="w-4 h-4" />, format: (v) => v > 0 ? `${v.toFixed(1)}` : "—" },
 ];
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
@@ -279,6 +280,37 @@ export default function EagleEyeView() {
                           <td className="py-4 px-3 text-right text-slate-300">{manager.recordingLengthMinutes.toFixed(0)}m</td>
                           <td className="py-4 px-3 text-right text-slate-300">{manager.dealCount}</td>
                           <td className="py-4 px-3 text-right text-slate-300">{manager.utilizationRate.toFixed(1)}%</td>
+                          <td className="py-4 px-3 text-right">
+                            {(manager as Record<string, unknown>).scriptFidelityScore as number > 0 ? (
+                              <div className="group relative inline-block">
+                                <span className={`text-sm font-semibold ${
+                                  ((manager as Record<string, unknown>).scriptFidelityScore as number) >= 85 ? "text-emerald-400" :
+                                  ((manager as Record<string, unknown>).scriptFidelityScore as number) >= 70 ? "text-amber-400" : "text-red-400"
+                                }`}>
+                                  {((manager as Record<string, unknown>).scriptFidelityScore as number).toFixed(1)}
+                                </span>
+                                <div className="absolute right-0 top-full mt-1 z-10 hidden group-hover:block w-52 bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl text-xs">
+                                  <p className="text-slate-400 font-semibold mb-2 uppercase tracking-wider">Script Fidelity Breakdown</p>
+                                  {[
+                                    { label: "Process", key: "processAdherenceScore" },
+                                    { label: "Menu Seq.", key: "menuSequenceScore" },
+                                    { label: "Objection", key: "objectionResponseScore" },
+                                    { label: "Transition", key: "transitionAccuracyScore" },
+                                  ].map(item => {
+                                    const val = ((manager as Record<string, unknown>)[item.key] as number) ?? 0;
+                                    return (
+                                      <div key={item.key} className="flex justify-between items-center mb-1">
+                                        <span className="text-slate-400">{item.label}</span>
+                                        <span className={val >= 85 ? "text-emerald-400 font-semibold" : val >= 70 ? "text-amber-400 font-semibold" : "text-red-400 font-semibold"}>{val.toFixed(1)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-600 text-xs">—</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

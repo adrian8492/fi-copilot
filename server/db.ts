@@ -462,6 +462,16 @@ export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date) {
     const avgRecordingMinutes = userSessions.length > 0
       ? userSessions.reduce((s, sess) => s + (sess.durationSeconds ?? 0), 0) / userSessions.length / 60 : 0;
 
+    const avgScriptFidelity = relevantGrades.length > 0
+      ? relevantGrades.reduce((s, g) => s + (g.scriptFidelityScore ?? 0), 0) / relevantGrades.length : 0;
+    const avgProcessAdherence = relevantGrades.length > 0
+      ? relevantGrades.reduce((s, g) => s + (g.processAdherenceScore ?? 0), 0) / relevantGrades.length : 0;
+    const avgMenuSequence = relevantGrades.length > 0
+      ? relevantGrades.reduce((s, g) => s + (g.menuSequenceScore ?? 0), 0) / relevantGrades.length : 0;
+    const avgObjectionResponse = relevantGrades.length > 0
+      ? relevantGrades.reduce((s, g) => s + (g.objectionResponseScore ?? 0), 0) / relevantGrades.length : 0;
+    const avgTransitionAccuracy = relevantGrades.length > 0
+      ? relevantGrades.reduce((s, g) => s + (g.transitionAccuracyScore ?? 0), 0) / relevantGrades.length : 0;
     results.push({
       userId: user.id,
       name: user.name ?? "Unknown",
@@ -472,6 +482,11 @@ export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date) {
       utilizationRate: Math.round(avgUtilization * 10) / 10,
       pvr: Math.round(avgPvr),
       ppd: Math.round(avgPpd * 10) / 10,
+      scriptFidelityScore: Math.round(avgScriptFidelity * 10) / 10,
+      processAdherenceScore: Math.round(avgProcessAdherence * 10) / 10,
+      menuSequenceScore: Math.round(avgMenuSequence * 10) / 10,
+      objectionResponseScore: Math.round(avgObjectionResponse * 10) / 10,
+      transitionAccuracyScore: Math.round(avgTransitionAccuracy * 10) / 10,
     });
   }
 
