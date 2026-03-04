@@ -225,13 +225,29 @@ export default function LiveSession() {
       switch (msg.type) {
         case "transcript":
           if (msg.data?.text) {
+            const isFinalMsg: boolean = msg.data.isFinal ?? true;
+            // Convert Deepgram ms timestamps → elapsed seconds for display
+            const tsSeconds: number = msg.data.startTime != null
+              ? Math.round(msg.data.startTime / 1000)
+              : elapsed;
             setTranscripts((prev) => {
+              // Interim result: update the last non-final entry from the same speaker in place
+              if (!isFinalMsg) {
+                const lastIdx = prev.length - 1;
+                if (lastIdx >= 0 && !prev[lastIdx].isFinal &&
+                    prev[lastIdx].speaker === (msg.data.speaker ?? "unknown")) {
+                  const updated = [...prev];
+                  updated[lastIdx] = { ...updated[lastIdx], text: msg.data.text };
+                  return updated;
+                }
+              }
+              // Final result or no matching interim: append new entry
               const entry: TranscriptEntry = {
                 id: `${Date.now()}-${Math.random()}`,
                 speaker: msg.data.speaker ?? "unknown",
                 text: msg.data.text,
-                timestamp: msg.data.startTime ?? elapsed,
-                isFinal: msg.data.isFinal ?? true,
+                timestamp: tsSeconds,
+                isFinal: isFinalMsg,
               };
               return [...prev, entry];
             });

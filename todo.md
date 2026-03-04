@@ -225,3 +225,7 @@
 
 ## Bug: Live Session Audio Not Transcribing
 - [x] Fix: Deepgram shows Connected but transcript stays at 0 entries when speaking (root cause: encoding:linear16 mismatch with browser WebM/Opus — removed encoding constraint)
+
+## Bug: Live Session Transcript Duplicates + Timestamp 00:00
+- [x] Fix: Interim Deepgram results create new entries instead of updating in place
+- [x] Fix: All transcript timestamps show 00:00 instead of elapsed time (Deepgram sends ms, converted to seconds)
