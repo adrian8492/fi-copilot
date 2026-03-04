@@ -359,10 +359,34 @@ export async function getAnalyticsSummary(userId?: number) {
     ? gradeList.reduce((sum, g) => sum + (g.pvr ?? 0), 0) / gradeList.length
     : 0;
 
+  const avgPpd = gradeList.length > 0
+    ? gradeList.reduce((sum, g) => sum + (g.productsPerDeal ?? 0), 0) / gradeList.length
+    : 0;
+
+  const scriptFidelityAvg = gradeList.length > 0
+    ? gradeList.reduce((sum, g) => sum + (g.scriptFidelityScore ?? 0), 0) / gradeList.length
+    : 0;
+
+  // Word track utilization rate
+  const allSuggestions = userId
+    ? await db.select({ wasActedOn: copilotSuggestions.wasActedOn }).from(copilotSuggestions)
+        .innerJoin(sessions, eq(copilotSuggestions.sessionId, sessions.id))
+        .where(eq(sessions.userId, userId))
+    : await db.select({ wasActedOn: copilotSuggestions.wasActedOn }).from(copilotSuggestions);
+  const totalSuggestions = allSuggestions.length;
+  const usedSuggestions = allSuggestions.filter((s) => s.wasActedOn).length;
+  const wordTrackUtilizationRate = totalSuggestions > 0
+    ? Math.round((usedSuggestions / totalSuggestions) * 100)
+    : 0;
+
   const flagList = await db.select().from(complianceFlags);
   const criticalFlags = flagList.filter((f) => f.severity === "critical" && !f.resolved).length;
 
-  return { totalSessions, completedSessions, avgScore, avgPvr, criticalFlags, totalGrades: gradeList.length };
+  return {
+    totalSessions, completedSessions, avgScore, avgPvr, avgPpd,
+    scriptFidelityAvg, wordTrackUtilizationRate,
+    criticalFlags, totalGrades: gradeList.length,
+  };
 }
 
 // ─── Session Checklists ───────────────────────────────────────────────────────

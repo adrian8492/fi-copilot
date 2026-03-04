@@ -40,7 +40,8 @@ interface ServerMessage {
     | "error"
     | "pong"
     | "analysis_complete"
-    | "deepgram_status";
+    | "deepgram_status"
+    | "stage_update";
   data?: unknown;
   message?: string;
   timestamp?: number;
@@ -55,6 +56,7 @@ interface SessionState {
   analysisBuffer: string;
   lastAnalysisTime: number;
   elapsedSeconds: number;
+  currentDealStage: string;
   // Deepgram
   deepgramConnection: ReturnType<ReturnType<typeof createClient>["listen"]["live"]> | null;
   usingDeepgram: boolean;
@@ -153,13 +155,23 @@ async function generateLLMSuggestion(
 }
 
 // ─── ASURA Quick Trigger Wrapper ─────────────────────────────────────────────
-function generateQuickSuggestion(text: string, fullTranscript?: string): typeof RESPONSE_CACHE[string] | null {
+function generateQuickSuggestion(
+  text: string,
+  fullTranscript?: string,
+  state?: SessionState,
+  send?: (msg: ServerMessage) => void
+): typeof RESPONSE_CACHE[string] | null {
   // Layer 1: ASURA regex triggers (instant, <5ms)
   const quick = asuraQuickTrigger(text);
   if (quick) return quick;
 
   // Layer 2: Script library keyword match (asura-scripts.ts)
   const dealStage = fullTranscript ? detectDealStage(fullTranscript) : undefined;
+  // Emit stage update if stage changed
+  if (dealStage && state && send && dealStage !== state.currentDealStage) {
+    state.currentDealStage = dealStage;
+    send({ type: "stage_update", data: { stage: dealStage } });
+  }
   const matched = retrieveScript(text, dealStage);
   if (matched) {
     return {
@@ -258,7 +270,8 @@ function createDeepgramConnection(
     state.analysisBuffer += ` ${text}`;
     state.transcriptBuffer.push(`${speaker.toUpperCase()}: ${text}`);
     // Quick regex trigger (instant, <5ms)
-    const quickSuggestion = generateQuickSuggestion(state.analysisBuffer);
+    const fullTranscript = state.transcriptBuffer.join(" ");
+    const quickSuggestion = generateQuickSuggestion(state.analysisBuffer, fullTranscript, state, send);
     if (quickSuggestion) {
       const triggered = state.analysisBuffer.substring(0, 100);
       await insertCopilotSuggestion({
@@ -389,6 +402,7 @@ export function setupWebSocketServer(server: HttpServer) {
             analysisBuffer: "",
             lastAnalysisTime: Date.now(),
             elapsedSeconds: 0,
+            currentDealStage: "introduction",
             deepgramConnection: null,
             usingDeepgram: false,
             reconnectAttempts: 0,
@@ -445,7 +459,8 @@ export function setupWebSocketServer(server: HttpServer) {
             }
           }
           // Quick regex trigger (instant)
-          const quickSugg = generateQuickSuggestion(state.analysisBuffer);
+          const fullTx = state.transcriptBuffer.join(" ");
+          const quickSugg = generateQuickSuggestion(state.analysisBuffer, fullTx, state, send);
           if (quickSugg) {
             const triggered = state.analysisBuffer.substring(0, 100);
             await insertCopilotSuggestion({

@@ -155,6 +155,8 @@ export default function LiveSession() {
   const [complianceFlags, setComplianceFlags] = useState<ComplianceFlag[]>([]);
   const [activeTab, setActiveTab] = useState<"copilot" | "compliance">("copilot");
 
+  // Deal stage tracking
+  const [currentDealStage, setCurrentDealStage] = useState<string>("introduction");
   // Deepgram / transcription status
   const [deepgramConnected, setDeepgramConnected] = useState(false);
   const [transcriptionMode, setTranscriptionMode] = useState<"deepgram" | "browser" | "pending">("pending");
@@ -265,6 +267,11 @@ export default function LiveSession() {
             setTranscriptionMode("deepgram");
           } else if (msg.data?.transcriptionMode === "browser") {
             setTranscriptionMode("browser");
+          }
+          break;
+        case "stage_update":
+          if (msg.data?.stage) {
+            setCurrentDealStage(msg.data.stage as string);
           }
           break;
         case "session_ended":
@@ -577,6 +584,14 @@ export default function LiveSession() {
               )} />
               {transcriptionMode === "deepgram" ? "Deepgram Nova-2" :
                transcriptionMode === "browser" ? "Browser Fallback" : "Connecting..."}
+            </div>
+          )}
+
+          {/* Deal Stage Badge */}
+          {isRecording && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-[10px] font-semibold text-violet-400 capitalize">
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+              {currentDealStage.replace(/_/g, " ")}
             </div>
           )}
 

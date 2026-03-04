@@ -14,6 +14,10 @@ import {
   BarChart3,
   Zap,
   Star,
+  DollarSign,
+  Package,
+  BookOpen,
+  ThumbsUp,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -87,52 +91,86 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
+        {(() => {
+          const s = summary as {
+            totalSessions?: number; completedSessions?: number;
+            avgScore?: number; avgPvr?: number; avgPpd?: number;
+            scriptFidelityAvg?: number; wordTrackUtilizationRate?: number;
+            criticalFlags?: number;
+          } | undefined;
+          const pvr = s?.avgPvr ?? 0;
+          const ppd = s?.avgPpd ?? 0;
+          const fidelity = s?.scriptFidelityAvg ?? 0;
+          const utilization = s?.wordTrackUtilizationRate ?? 0;
+          const stats = [
             {
-              label: "Total Sessions",
-              value: (summary as { totalSessions?: number } | undefined)?.totalSessions ?? 0,
-              icon: Mic,
+              label: "Avg PVR",
+              value: pvr > 0 ? `$${Math.round(pvr).toLocaleString()}` : "—",
+              sub: "Per vehicle retailed",
+              icon: DollarSign,
+              color: "text-emerald-400",
+              bg: "bg-emerald-500/10",
+            },
+            {
+              label: "Avg PPD",
+              value: ppd > 0 ? ppd.toFixed(1) : "—",
+              sub: "Products per deal",
+              icon: Package,
               color: "text-blue-400",
               bg: "bg-blue-500/10",
             },
             {
-              label: "Avg Score",
-              value: avgScore !== null ? `${avgScore}%` : "—",
-              icon: Star,
-              color: avgScore !== null ? getScoreColor(avgScore) : "text-muted-foreground",
-              bg: avgScore !== null ? getScoreBg(avgScore) : "bg-muted/20",
+              label: "Script Fidelity",
+              value: fidelity > 0 ? `${Math.round(fidelity)}%` : "—",
+              sub: "ASURA script adherence",
+              icon: BookOpen,
+              color: fidelity >= 80 ? "text-green-400" : fidelity >= 60 ? "text-yellow-400" : "text-red-400",
+              bg: fidelity >= 80 ? "bg-green-500/10" : fidelity >= 60 ? "bg-yellow-500/10" : "bg-red-500/10",
+            },
+            {
+              label: "Word Track Usage",
+              value: utilization > 0 ? `${utilization}%` : "—",
+              sub: "Co-pilot suggestions used",
+              icon: ThumbsUp,
+              color: "text-violet-400",
+              bg: "bg-violet-500/10",
             },
             {
               label: "Compliance Flags",
-              value: (summary as { totalFlags?: number } | undefined)?.totalFlags ?? 0,
+              value: s?.criticalFlags ?? 0,
+              sub: "Critical unresolved",
               icon: AlertTriangle,
-              color: "text-yellow-400",
-              bg: "bg-yellow-500/10",
+              color: (s?.criticalFlags ?? 0) > 0 ? "text-red-400" : "text-green-400",
+              bg: (s?.criticalFlags ?? 0) > 0 ? "bg-red-500/10" : "bg-green-500/10",
             },
             {
-              label: "Completed",
-              value: (summary as { completedSessions?: number } | undefined)?.completedSessions ?? 0,
-              icon: CheckCircle2,
-              color: "text-green-400",
-              bg: "bg-green-500/10",
+              label: "Sessions",
+              value: s?.totalSessions ?? 0,
+              sub: `${s?.completedSessions ?? 0} completed`,
+              icon: Mic,
+              color: "text-primary",
+              bg: "bg-primary/10",
             },
-          ].map((stat) => (
-            <Card key={stat.label} className="bg-card border-border">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
-                    <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
-                  </div>
-                  <div className={`w-9 h-9 rounded-lg ${stat.bg} flex items-center justify-center`}>
-                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          ];
+          return (
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              {stats.map((stat) => (
+                <Card key={stat.label} className="bg-card border-border">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
+                        <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                      </div>
+                    </div>
+                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                    <p className="text-xs font-semibold text-foreground mt-0.5">{stat.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{stat.sub}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          );
+        })()}
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Recent Sessions */}

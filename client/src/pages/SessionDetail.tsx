@@ -11,7 +11,7 @@ import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
-  Lightbulb, Copy, CheckCheck, ThumbsUp,
+  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -146,6 +146,39 @@ export default function SessionDetail() {
             </Badge>
           )}
         </div>
+
+        {/* Deal Info Strip */}
+        {(session.customerName || session.dealNumber || session.vehicleType || session.dealType) && (
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border">
+            {session.customerName && (
+              <div className="flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">{session.customerName}</span>
+              </div>
+            )}
+            {session.dealNumber && (
+              <div className="flex items-center gap-1.5">
+                <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Deal <span className="font-semibold text-foreground">{session.dealNumber}</span></span>
+              </div>
+            )}
+            {session.vehicleType && (
+              <div className="flex items-center gap-1.5">
+                <Car className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground capitalize">{session.vehicleType}</span>
+              </div>
+            )}
+            {session.dealType && (
+              <div className="flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground capitalize">{session.dealType.replace(/_/g, " ")}</span>
+              </div>
+            )}
+            <div className="ml-auto text-xs text-muted-foreground">
+              {format(new Date(session.startedAt), "MMM d, yyyy h:mm a")}
+            </div>
+          </div>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
