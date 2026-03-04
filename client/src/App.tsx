@@ -14,6 +14,7 @@ import AdminPanel from "./pages/AdminPanel";
 import Login from "./pages/Login";
 import EagleEyeView from "./pages/EagleEyeView";
 import ObjectionAnalysis from "./pages/ObjectionAnalysis";
+import DemoMode from "./pages/DemoMode";
 
 function Router() {
   return (
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/admin" component={AdminPanel} />
       <Route path="/eagle-eye" component={EagleEyeView} />
       <Route path="/objections" component={ObjectionAnalysis} />
+      <Route path="/demo" component={DemoMode} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

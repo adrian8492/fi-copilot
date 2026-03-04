@@ -20,6 +20,7 @@ import {
   X,
   Eye,
   AlertTriangle,
+  Play,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
 const PERFORMANCE_ITEMS = [
   { path: "/eagle-eye", label: "Eagle Eye View", icon: Eye },
   { path: "/objections", label: "Objection Analysis", icon: AlertTriangle },
+  { path: "/demo", label: "Demo Mode", icon: Play },
 ];
 
 const ADMIN_ITEMS = [

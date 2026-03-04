@@ -150,6 +150,10 @@ export default function LiveSession() {
   const [complianceFlags, setComplianceFlags] = useState<ComplianceFlag[]>([]);
   const [activeTab, setActiveTab] = useState<"copilot" | "compliance">("copilot");
 
+  // Deepgram / transcription status
+  const [deepgramConnected, setDeepgramConnected] = useState(false);
+  const [transcriptionMode, setTranscriptionMode] = useState<"deepgram" | "browser" | "pending">("pending");
+
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -230,6 +234,22 @@ export default function LiveSession() {
             }
           }
           break;
+        case "deepgram_status":
+          if (msg.data?.connected) {
+            setDeepgramConnected(true);
+            setTranscriptionMode("deepgram");
+          } else {
+            setDeepgramConnected(false);
+            setTranscriptionMode("browser");
+          }
+          break;
+        case "connected":
+          if (msg.data?.transcriptionMode === "deepgram") {
+            setTranscriptionMode("deepgram");
+          } else if (msg.data?.transcriptionMode === "browser") {
+            setTranscriptionMode("browser");
+          }
+          break;
         case "session_ended":
           setIsRecording(false);
           break;
@@ -238,6 +258,7 @@ export default function LiveSession() {
 
     ws.onclose = () => {
       setIsConnected(false);
+      setDeepgramConnected(false);
     };
 
     ws.onerror = () => {
@@ -322,14 +343,23 @@ export default function LiveSession() {
       // Connect WebSocket
       connectWebSocket(session.id);
 
-      // Start recording
-      const mediaRecorder = new MediaRecorder(stream);
+       // Start recording — stream audio chunks to Deepgram via WebSocket
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "audio/ogg";
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(1000);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(e.data); // Binary audio → server → Deepgram
+        }
+      };
+      mediaRecorder.start(250); // 250ms chunks for low latency
       setIsRecording(true);
-
-      // Start speech recognition
-      setTimeout(() => startSpeechRecognition(), 500);
+      // Browser SpeechRecognition as fallback (ignored if Deepgram connects)
+      setTimeout(() => startSpeechRecognition(), 800);
 
       toast.success("Session started. Recording active.");
     } catch (e) {
@@ -515,6 +545,23 @@ export default function LiveSession() {
             <div className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-green-400" : "bg-red-400")} />
             <span className="text-[10px] font-medium text-muted-foreground">{isConnected ? "Connected" : "Disconnected"}</span>
           </div>
+          {isRecording && (
+            <div className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-semibold",
+              transcriptionMode === "deepgram"
+                ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
+                : transcriptionMode === "browser"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                : "bg-muted/30 border-border text-muted-foreground"
+            )}>
+              <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse",
+                transcriptionMode === "deepgram" ? "bg-blue-400" :
+                transcriptionMode === "browser" ? "bg-amber-400" : "bg-muted-foreground"
+              )} />
+              {transcriptionMode === "deepgram" ? "Deepgram Nova-2" :
+               transcriptionMode === "browser" ? "Browser Fallback" : "Connecting..."}
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Speaker:</span>

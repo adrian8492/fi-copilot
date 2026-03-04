@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import {
   Eye, TrendingUp, DollarSign, Clock, Hash, Percent,
-  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus,
+  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus, Calendar,
 } from "lucide-react";
 
 type MetricKey = "score" | "pvr" | "recordingLengthMinutes" | "dealCount" | "utilizationRate" | "ppd";
@@ -54,13 +54,30 @@ function RankIcon({ rank }: { rank: number }) {
   return <span className="w-5 h-5 flex items-center justify-center text-slate-500 font-bold text-sm">{rank}</span>;
 }
 
+type DatePreset = "7d" | "30d" | "90d" | "all";
+const DATE_PRESETS: { key: DatePreset; label: string }[] = [
+  { key: "7d", label: "7 Days" },
+  { key: "30d", label: "30 Days" },
+  { key: "90d", label: "90 Days" },
+  { key: "all", label: "All Time" },
+];
+function getPresetDates(preset: DatePreset): { fromDate?: Date; toDate?: Date } {
+  if (preset === "all") return {};
+  const now = new Date();
+  const days = preset === "7d" ? 7 : preset === "30d" ? 30 : 90;
+  const from = new Date(now);
+  from.setDate(from.getDate() - days);
+  return { fromDate: from, toDate: now };
+}
 export default function EagleEyeView() {
   const [activeMetric, setActiveMetric] = useState<MetricKey>("score");
   const [sortField, setSortField] = useState<MetricKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [datePreset, setDatePreset] = useState<DatePreset>("30d");
+  const dateRange = useMemo(() => getPresetDates(datePreset), [datePreset]);
 
-  const { data: leaderboard = [], isLoading: loadingBoard } = trpc.eagleEye.leaderboard.useQuery({});
-  const { data: trends, isLoading: loadingTrends } = trpc.eagleEye.trends.useQuery({});
+  const { data: leaderboard = [], isLoading: loadingBoard } = trpc.eagleEye.leaderboard.useQuery(dateRange);
+  const { data: trends, isLoading: loadingTrends } = trpc.eagleEye.trends.useQuery(dateRange);
 
   const activeMetricDef = METRIC_OPTIONS.find((m) => m.key === activeMetric)!;
 
@@ -121,10 +138,28 @@ export default function EagleEyeView() {
               <p className="text-slate-400 text-sm">Team performance leaderboard — all F&I managers</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-slate-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" /> ≥80% Elite
-            <span className="w-2 h-2 rounded-full bg-amber-400 ml-2" /> 65–79% Developing
-            <span className="w-2 h-2 rounded-full bg-red-400 ml-2" /> &lt;65% Needs Coaching
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg p-1">
+              <Calendar className="w-4 h-4 text-slate-400 ml-1" />
+              {DATE_PRESETS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => setDatePreset(p.key)}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                    datePreset === p.key
+                      ? "bg-blue-600 text-white shadow"
+                      : "text-slate-400 hover:text-white hover:bg-slate-700"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" /> ≥80%
+              <span className="w-2 h-2 rounded-full bg-amber-400 ml-1" /> 65–79%
+              <span className="w-2 h-2 rounded-full bg-red-400 ml-1" /> &lt;65%
+            </div>
           </div>
         </div>
 

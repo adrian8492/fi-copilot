@@ -80,3 +80,22 @@
 - [x] Frontend: 17-point checklist panel in Live Session (collapsible, real-time scoring, auto-saves)
 - [x] Frontend: Update AppLayout nav with Eagle Eye View and Objection Analysis under Performance section
 - [x] Seeded 5 realistic test deals (Marcus Rivera 84.5%, Tanya Williams 74%, Derek Johnson 48%)
+
+## Compliance Engine & Sprint Completion
+
+- [ ] Fix websocket.ts syntax error (esbuild case/colon error)
+- [ ] Build full federal compliance engine (server/compliance-engine.ts)
+  - [ ] TILA / Reg Z rules
+  - [ ] Consumer Leasing Act / Reg M rules
+  - [ ] ECOA / Reg B rules
+  - [ ] UDAP / UDAAP rules
+  - [ ] Contract elements checklist
+  - [ ] GAP product compliance disclosures
+  - [ ] VSC/VSA compliance disclosures
+  - [ ] Aftermarket product optional-nature disclosures
+- [ ] Update live session compliance monitor with federal rules
+- [ ] Update grading rubric complianceScore weighting
+- [ ] Fix and run 90-day seed script
+- [ ] Add date range filter to Eagle Eye View
+- [ ] Run full test suite (target: 25+ passing)
+- [ ] Final checkpoint and delivery
