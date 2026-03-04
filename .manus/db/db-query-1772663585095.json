@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, name, slug, createdAt FROM dealerships ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute SELECT id, name, slug, createdAt FROM dealerships ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "ASURA Group",
+      "slug": "asura-group",
+      "createdAt": "2026-03-04 15:55:19"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tslug\tcreatedAt\n1\tASURA Group\tasura-group\t2026-03-04 15:55:19\n",
+  "stderr": "",
+  "execution_time_ms": 52
+}
