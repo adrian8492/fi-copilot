@@ -232,3 +232,10 @@
 
 ## Bug: Copilot Suggestions DB Insert Failing
 - [x] Fix: language_correction and process_alert types missing from copilot_suggestions enum — added to schema + migration applied
+
+## Critical Bugs: Live Session Transcription Pipeline
+- [ ] Fix: Duplicate final transcript entries (same sentence appears twice)
+- [ ] Fix: Speech fragmentation — utterances cut off mid-sentence (increase utterance_end_ms to 1500ms)
+- [ ] Fix: WebSocket shows Disconnected — add keepalive ping every 10s
+- [ ] Fix: Process % stuck at 0% — transcript entries not reaching process tracker
+- [ ] Fix: Timestamps all 00:00 — use server elapsed seconds correctly

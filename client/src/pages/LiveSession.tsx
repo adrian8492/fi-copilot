@@ -402,8 +402,17 @@ export default function LiveSession() {
       };
       mediaRecorder.start(250); // 250ms chunks for low latency
       setIsRecording(true);
-      // Browser SpeechRecognition as fallback (ignored if Deepgram connects)
-      setTimeout(() => startSpeechRecognition(), 800);
+      // Browser SpeechRecognition fallback — only start if Deepgram is NOT active.
+      // We check after the WebSocket open + start_session round-trip (500ms is enough
+      // for the server to respond with transcriptionMode:"deepgram").
+      setTimeout(() => {
+        setTranscriptionMode((mode) => {
+          if (mode !== "deepgram") {
+            startSpeechRecognition();
+          }
+          return mode;
+        });
+      }, 500);
 
       toast.success("Session started. Recording active.");
     } catch (e) {

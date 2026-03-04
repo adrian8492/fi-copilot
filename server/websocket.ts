@@ -62,6 +62,7 @@ interface SessionState {
   usingDeepgram: boolean;
   reconnectAttempts: number;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
+  keepaliveTimer: ReturnType<typeof setInterval> | null;
 }
 
 const activeSessions = new Map<WebSocket, SessionState>();
@@ -206,9 +207,9 @@ function createDeepgramConnection(
     smart_format: true,
     diarize: true,
     interim_results: true,
-    endpointing: 300,
+    endpointing: 500,
     punctuate: true,
-    utterance_end_ms: 1000,
+    utterance_end_ms: 1500,
     vad_events: true,
     // No encoding/sample_rate — Deepgram auto-detects WebM/Opus from browser MediaRecorder
   });
@@ -218,6 +219,17 @@ function createDeepgramConnection(
     state.reconnectAttempts = 0;
     console.log(`[WS] Deepgram connected for session ${state.sessionId}`);
     send({ type: "deepgram_status", data: { connected: true, model: "nova-2" } });
+    // Keepalive: send a keep-alive ping every 2s to prevent Deepgram from
+    // ever closing the connection during pauses in speech.
+    if (state.keepaliveTimer) clearInterval(state.keepaliveTimer);
+    state.keepaliveTimer = setInterval(() => {
+      try {
+        if (connection.getReadyState() === 1) {
+          // Deepgram SDK keepAlive method sends the proper keep-alive frame
+          connection.keepAlive();
+        }
+      } catch { /* ignore */ }
+    }, 2000);
   });
 
    connection.on(LiveTranscriptionEvents.Transcript, async (data) => {
@@ -316,15 +328,22 @@ function createDeepgramConnection(
   connection.on(LiveTranscriptionEvents.Error, (err) => {
     console.error(`[WS] Deepgram error for session ${state.sessionId}:`, err);
     state.usingDeepgram = false;
-    send({ type: "deepgram_status", data: { connected: false, error: "Deepgram error — using browser fallback" } });
+    if (state.keepaliveTimer) { clearInterval(state.keepaliveTimer); state.keepaliveTimer = null; }
+    // Only tell the client it's disconnected if we've exhausted reconnect attempts
+    if (state.reconnectAttempts >= 3) {
+      send({ type: "deepgram_status", data: { connected: false, error: "Deepgram error — using browser fallback" } });
+    }
     scheduleReconnect(state, ws, send);
   });
-
   connection.on(LiveTranscriptionEvents.Close, () => {
     if (activeSessions.has(ws)) {
       console.warn(`[WS] Deepgram closed for session ${state.sessionId}`);
       state.usingDeepgram = false;
-      send({ type: "deepgram_status", data: { connected: false, error: "Deepgram disconnected — using browser fallback" } });
+      if (state.keepaliveTimer) { clearInterval(state.keepaliveTimer); state.keepaliveTimer = null; }
+      // Only tell the client it's disconnected if we've exhausted reconnect attempts
+      if (state.reconnectAttempts >= 3) {
+        send({ type: "deepgram_status", data: { connected: false, error: "Deepgram disconnected — using browser fallback" } });
+      }
       scheduleReconnect(state, ws, send);
     }
   });
@@ -337,13 +356,12 @@ function scheduleReconnect(
   ws: WebSocket,
   send: (msg: ServerMessage) => void
 ) {
-  if (state.reconnectAttempts >= 3) {
-    console.warn(`[WS] Max reconnect attempts reached for session ${state.sessionId}`);
-    return;
-  }
-  const delay = Math.min(500 * Math.pow(2, state.reconnectAttempts), 5000);
+  // No max cap — always reconnect while the session is active.
+  // Delay caps at 2s so the user never waits more than 2 seconds.
+  const delay = Math.min(300 * Math.pow(1.5, Math.min(state.reconnectAttempts, 5)), 2000);
   state.reconnectAttempts++;
   console.log(`[WS] Reconnecting Deepgram in ${delay}ms (attempt ${state.reconnectAttempts})`);
+  if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
   state.reconnectTimer = setTimeout(() => {
     if (activeSessions.has(ws)) {
       state.deepgramConnection = createDeepgramConnection(state, ws, send);
@@ -427,6 +445,7 @@ export function setupWebSocketServer(server: HttpServer) {
             usingDeepgram: false,
             reconnectAttempts: 0,
             reconnectTimer: null,
+            keepaliveTimer: null,
           };
           activeSessions.set(ws, state);
           state.deepgramConnection = createDeepgramConnection(state, ws, send);
