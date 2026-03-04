@@ -179,6 +179,14 @@ export default defineConfig({
       "localhost",
       "127.0.0.1",
     ],
+    hmr: {
+      // When running behind a reverse proxy (Manus sandbox), the HMR
+      // WebSocket must connect on the same host/port as the HTTP request
+      // (port 443 over wss) rather than trying to open a direct socket
+      // to the internal Vite port (5173).
+      clientPort: 443,
+      protocol: "wss",
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],
