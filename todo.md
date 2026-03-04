@@ -68,3 +68,15 @@
 - [ ] DMS (Dealer Management System) integration
 - [ ] Multi-dealership group management
 - [ ] Custom compliance rule builder
+
+## Grading System Rebuild (Auto Trainer AI Deconstruction)
+- [x] DB: Add objection_logs table (product, concern_type, sessionId, resolved)
+- [x] DB: Add session_checklists table (sessionId + all 17 boolean fields + scores)
+- [x] Backend: Eagle Eye View analytics router (leaderboard, trend data, metric switcher)
+- [x] Backend: Objection analysis router (by product, by concern type, per-manager breakdown)
+- [x] Backend: Updated grading engine with 17-point checklist scoring (Intro 20%, Compliance 30%, Menu 50%)
+- [x] Frontend: Eagle Eye View page (leaderboard with score badges + dual trend charts + metric switcher)
+- [x] Frontend: Objection Analysis page (by-product chart + by-concern chart + per-manager table + coaching insight)
+- [x] Frontend: 17-point checklist panel in Live Session (collapsible, real-time scoring, auto-saves)
+- [x] Frontend: Update AppLayout nav with Eagle Eye View and Objection Analysis under Performance section
+- [x] Seeded 5 realistic test deals (Marcus Rivera 84.5%, Tanya Williams 74%, Derek Johnson 48%)

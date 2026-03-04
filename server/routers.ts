@@ -8,9 +8,15 @@ import {
   getAllUsers,
   getAnalyticsSummary,
   getAuditLogs,
+  getChecklistBySession,
+  getEagleEyeLeaderboard,
+  getEagleEyeTrends,
   getFlagsBySession,
   getGradeBySession,
   getGradesByUser,
+  getObjectionAnalysisByProduct,
+  getObjectionAnalysisByConcern,
+  getObjectionsBySession,
   getRecordingsBySession,
   getRecordingsByUser,
   getReportBySession,
@@ -22,6 +28,7 @@ import {
   insertAuditLog,
   insertComplianceFlag,
   insertCopilotSuggestion,
+  insertObjectionLog,
   insertRecording,
   insertTranscript,
   resolveFlag,
@@ -30,6 +37,7 @@ import {
   updateUserRole,
   upsertCoachingReport,
   upsertGrade,
+  upsertSessionChecklist,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -574,6 +582,69 @@ export const appRouter = router({
       }),
   }),
 
+  // ─── Session Checklists ──────────────────────────────────────────────────────
+  checklists: router({
+    get: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => getChecklistBySession(input.sessionId)),
+    upsert: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        fiManagerGreeting: z.boolean().optional(),
+        statedTitleWork: z.boolean().optional(),
+        statedFactoryWarranty: z.boolean().optional(),
+        statedFinancialOptions: z.boolean().optional(),
+        statedTimeFrame: z.boolean().optional(),
+        introductionToFirstForms: z.boolean().optional(),
+        privacyPolicyMentioned: z.boolean().optional(),
+        riskBasedPricingMentioned: z.boolean().optional(),
+        disclosedBasePayment: z.boolean().optional(),
+        presentedPrepaidMaintenance: z.boolean().optional(),
+        presentedVehicleServiceContract: z.boolean().optional(),
+        presentedGap: z.boolean().optional(),
+        presentedInteriorExteriorProtection: z.boolean().optional(),
+        presentedRoadHazard: z.boolean().optional(),
+        presentedPaintlessDentRepair: z.boolean().optional(),
+        customerQuestionsAddressed: z.boolean().optional(),
+        whichClosingQuestionAsked: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return upsertSessionChecklist({ ...input, userId: ctx.user.id });
+      }),
+  }),
+  // ─── Objection Logs ──────────────────────────────────────────────────────────
+  objections: router({
+    getBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => getObjectionsBySession(input.sessionId)),
+    log: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        product: z.enum(["vehicle_service_contract","gap_insurance","prepaid_maintenance","interior_exterior_protection","road_hazard","paintless_dent_repair","key_replacement","windshield_protection","lease_wear_tear","other"]),
+        concernType: z.enum(["cost","confidence_in_coverage","low_usage_expectation","skepticism_dealer_motives","misunderstanding","self_insurance_preference","perception_low_risk","exclusions_concern","financial_constraints","other"]),
+        excerpt: z.string().optional(),
+        wasResolved: z.boolean().default(false),
+        resolutionMethod: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return insertObjectionLog({ ...input, userId: ctx.user.id });
+      }),
+    analysisByProduct: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ input }) => getObjectionAnalysisByProduct(input.fromDate, input.toDate)),
+    analysisByConcern: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ input }) => getObjectionAnalysisByConcern(input.fromDate, input.toDate)),
+  }),
+  // ─── Eagle Eye View ───────────────────────────────────────────────────────────
+  eagleEye: router({
+    leaderboard: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ input }) => getEagleEyeLeaderboard(input.fromDate, input.toDate)),
+    trends: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ input }) => getEagleEyeTrends(input.fromDate, input.toDate)),
+  }),
   // ─── Admin ───────────────────────────────────────────────────────────────────
   admin: router({
     listUsers: adminProcedure.query(async () => getAllUsers()),

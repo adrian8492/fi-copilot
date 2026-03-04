@@ -148,6 +148,79 @@ export const coachingReports = mysqlTable("coaching_reports", {
   generatedAt: timestamp("generatedAt").defaultNow().notNull(),
 });
 
+// ─── Session Checklists ──────────────────────────────────────────────────────
+// Tracks the 17-point F&I process checklist per session (Introduction / Compliance / Menu)
+export const sessionChecklists = mysqlTable("session_checklists", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().unique(),
+  userId: int("userId").notNull(),
+  // Introduction section (6 items)
+  fiManagerGreeting: boolean("fiManagerGreeting").default(false).notNull(),
+  statedTitleWork: boolean("statedTitleWork").default(false).notNull(),
+  statedFactoryWarranty: boolean("statedFactoryWarranty").default(false).notNull(),
+  statedFinancialOptions: boolean("statedFinancialOptions").default(false).notNull(),
+  statedTimeFrame: boolean("statedTimeFrame").default(false).notNull(),
+  introductionToFirstForms: boolean("introductionToFirstForms").default(false).notNull(),
+  // General Compliance section (3 items)
+  privacyPolicyMentioned: boolean("privacyPolicyMentioned").default(false).notNull(),
+  riskBasedPricingMentioned: boolean("riskBasedPricingMentioned").default(false).notNull(),
+  disclosedBasePayment: boolean("disclosedBasePayment").default(false).notNull(),
+  // Menu Presentation section (8 items)
+  presentedPrepaidMaintenance: boolean("presentedPrepaidMaintenance").default(false).notNull(),
+  presentedVehicleServiceContract: boolean("presentedVehicleServiceContract").default(false).notNull(),
+  presentedGap: boolean("presentedGap").default(false).notNull(),
+  presentedInteriorExteriorProtection: boolean("presentedInteriorExteriorProtection").default(false).notNull(),
+  presentedRoadHazard: boolean("presentedRoadHazard").default(false).notNull(),
+  presentedPaintlessDentRepair: boolean("presentedPaintlessDentRepair").default(false).notNull(),
+  customerQuestionsAddressed: boolean("customerQuestionsAddressed").default(false).notNull(),
+  whichClosingQuestionAsked: boolean("whichClosingQuestionAsked").default(false).notNull(),
+  // Computed scores
+  introductionScore: float("introductionScore"),
+  complianceScore: float("complianceScore"),
+  menuPresentationScore: float("menuPresentationScore"),
+  overallChecklistScore: float("overallChecklistScore"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Objection Logs ───────────────────────────────────────────────────────────
+// Tracks individual objections raised during sessions for Eagle Eye analytics
+export const objectionLogs = mysqlTable("objection_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  userId: int("userId").notNull(),
+  // Which F&I product was objected to
+  product: mysqlEnum("product", [
+    "vehicle_service_contract",
+    "gap_insurance",
+    "prepaid_maintenance",
+    "interior_exterior_protection",
+    "road_hazard",
+    "paintless_dent_repair",
+    "key_replacement",
+    "windshield_protection",
+    "lease_wear_tear",
+    "other",
+  ]).notNull(),
+  // The type of concern driving the objection
+  concernType: mysqlEnum("concernType", [
+    "cost",
+    "confidence_in_coverage",
+    "low_usage_expectation",
+    "skepticism_dealer_motives",
+    "misunderstanding",
+    "self_insurance_preference",
+    "perception_low_risk",
+    "exclusions_concern",
+    "financial_constraints",
+    "other",
+  ]).notNull(),
+  excerpt: text("excerpt"),
+  wasResolved: boolean("wasResolved").default(false).notNull(),
+  resolutionMethod: varchar("resolutionMethod", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 export const auditLogs = mysqlTable("audit_logs", {
   id: int("id").autoincrement().primaryKey(),
@@ -174,3 +247,7 @@ export type PerformanceGrade = typeof performanceGrades.$inferSelect;
 export type AudioRecording = typeof audioRecordings.$inferSelect;
 export type CoachingReport = typeof coachingReports.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type SessionChecklist = typeof sessionChecklists.$inferSelect;
+export type InsertSessionChecklist = typeof sessionChecklists.$inferInsert;
+export type ObjectionLog = typeof objectionLogs.$inferSelect;
+export type InsertObjectionLog = typeof objectionLogs.$inferInsert;

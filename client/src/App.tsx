@@ -12,6 +12,8 @@ import Analytics from "./pages/Analytics";
 import BatchUpload from "./pages/BatchUpload";
 import AdminPanel from "./pages/AdminPanel";
 import Login from "./pages/Login";
+import EagleEyeView from "./pages/EagleEyeView";
+import ObjectionAnalysis from "./pages/ObjectionAnalysis";
 
 function Router() {
   return (
@@ -24,6 +26,8 @@ function Router() {
       <Route path="/analytics" component={Analytics} />
       <Route path="/upload" component={BatchUpload} />
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/eagle-eye" component={EagleEyeView} />
+      <Route path="/objections" component={ObjectionAnalysis} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

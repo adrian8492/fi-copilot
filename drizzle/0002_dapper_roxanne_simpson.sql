@@ -1,0 +1,43 @@
+CREATE TABLE `objection_logs` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`sessionId` int NOT NULL,
+	`userId` int NOT NULL,
+	`product` enum('vehicle_service_contract','gap_insurance','prepaid_maintenance','interior_exterior_protection','road_hazard','paintless_dent_repair','key_replacement','windshield_protection','lease_wear_tear','other') NOT NULL,
+	`concernType` enum('cost','confidence_in_coverage','low_usage_expectation','skepticism_dealer_motives','misunderstanding','self_insurance_preference','perception_low_risk','exclusions_concern','financial_constraints','other') NOT NULL,
+	`excerpt` text,
+	`wasResolved` boolean NOT NULL DEFAULT false,
+	`resolutionMethod` varchar(255),
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `objection_logs_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `session_checklists` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`sessionId` int NOT NULL,
+	`userId` int NOT NULL,
+	`fiManagerGreeting` boolean NOT NULL DEFAULT false,
+	`statedTitleWork` boolean NOT NULL DEFAULT false,
+	`statedFactoryWarranty` boolean NOT NULL DEFAULT false,
+	`statedFinancialOptions` boolean NOT NULL DEFAULT false,
+	`statedTimeFrame` boolean NOT NULL DEFAULT false,
+	`introductionToFirstForms` boolean NOT NULL DEFAULT false,
+	`privacyPolicyMentioned` boolean NOT NULL DEFAULT false,
+	`riskBasedPricingMentioned` boolean NOT NULL DEFAULT false,
+	`disclosedBasePayment` boolean NOT NULL DEFAULT false,
+	`presentedPrepaidMaintenance` boolean NOT NULL DEFAULT false,
+	`presentedVehicleServiceContract` boolean NOT NULL DEFAULT false,
+	`presentedGap` boolean NOT NULL DEFAULT false,
+	`presentedInteriorExteriorProtection` boolean NOT NULL DEFAULT false,
+	`presentedRoadHazard` boolean NOT NULL DEFAULT false,
+	`presentedPaintlessDentRepair` boolean NOT NULL DEFAULT false,
+	`customerQuestionsAddressed` boolean NOT NULL DEFAULT false,
+	`whichClosingQuestionAsked` boolean NOT NULL DEFAULT false,
+	`introductionScore` float,
+	`complianceScore` float,
+	`menuPresentationScore` float,
+	`overallChecklistScore` float,
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `session_checklists_id` PRIMARY KEY(`id`),
+	CONSTRAINT `session_checklists_sessionId_unique` UNIQUE(`sessionId`)
+);

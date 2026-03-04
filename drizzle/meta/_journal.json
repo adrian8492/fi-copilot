@@ -15,6 +15,13 @@
       "when": 1772508194868,
       "tag": "0001_sad_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1772510354259,
+      "tag": "0002_dapper_roxanne_simpson",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Square, Zap, AlertTriangle, CheckCircle2,
   Lightbulb, Shield, Clock, ChevronDown, User, Users,
+  ClipboardList, Circle, ShieldCheck, XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,67 @@ interface ComplianceFlag {
 }
 
 type SpeakerMode = "manager" | "customer" | "auto";
+
+// ─── 17-Point Checklist Definition ───────────────────────────────────────────
+const CHECKLIST_SECTIONS = [
+  {
+    id: "introduction",
+    label: "Introduction",
+    weight: 0.20,
+    weightLabel: "20%",
+    color: "blue" as const,
+    items: [
+      { key: "fiManagerGreeting", label: "F&I Manager Introduction & Greeting" },
+      { key: "statedTitleWork", label: "Stated Title Work Timeline" },
+      { key: "statedFactoryWarranty", label: "Stated Factory Warranty Details" },
+      { key: "statedFinancialOptions", label: "Stated Financial Options & Rate" },
+      { key: "statedTimeFrame", label: "Stated Time Frame for Appointment" },
+      { key: "introductionToFirstForms", label: "Introduction to First Forms" },
+    ],
+  },
+  {
+    id: "compliance",
+    label: "General Compliance",
+    weight: 0.30,
+    weightLabel: "30%",
+    color: "amber" as const,
+    items: [
+      { key: "privacyPolicyMentioned", label: "Privacy Policy Disclosed" },
+      { key: "riskBasedPricingMentioned", label: "Risk-Based Pricing Disclosed" },
+      { key: "disclosedBasePayment", label: "Base Payment Disclosed Before Menu" },
+    ],
+  },
+  {
+    id: "menu",
+    label: "Menu Presentation",
+    weight: 0.50,
+    weightLabel: "50%",
+    color: "emerald" as const,
+    items: [
+      { key: "presentedPrepaidMaintenance", label: "Presented Prepaid Maintenance" },
+      { key: "presentedVehicleServiceContract", label: "Presented Vehicle Service Contract" },
+      { key: "presentedGap", label: "Presented GAP Insurance" },
+      { key: "presentedInteriorExteriorProtection", label: "Presented Interior/Exterior Protection" },
+      { key: "presentedRoadHazard", label: "Presented Road Hazard" },
+      { key: "presentedPaintlessDentRepair", label: "Presented Paintless Dent Repair" },
+      { key: "customerQuestionsAddressed", label: "Customer Questions Addressed" },
+      { key: "whichClosingQuestionAsked", label: "Closing Question Asked" },
+    ],
+  },
+];
+
+type ChecklistState = Record<string, boolean>;
+
+function calcSectionScore(section: typeof CHECKLIST_SECTIONS[0], state: ChecklistState) {
+  const checked = section.items.filter((i) => state[i.key]).length;
+  return Math.round((checked / section.items.length) * 100);
+}
+
+function calcOverallScore(state: ChecklistState) {
+  return Math.round(
+    CHECKLIST_SECTIONS.reduce((sum, sec) => sum + calcSectionScore(sec, state) * sec.weight, 0)
+  );
+}
 type SpeechRecognitionCtor = new () => {
   continuous: boolean;
   interimResults: boolean;
@@ -96,10 +158,17 @@ export default function LiveSession() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
 
+  // Checklist state
+  const [checklist, setChecklist] = useState<ChecklistState>({});
+  const [checklistExpanded, setChecklistExpanded] = useState<Record<string, boolean>>({ introduction: true, compliance: true, menu: true });
+  const [showChecklist, setShowChecklist] = useState(false);
+
   const createSession = trpc.sessions.create.useMutation();
   const endSessionMutation = trpc.sessions.end.useMutation();
   const analyzeTranscript = trpc.transcripts.analyze.useMutation();
   const generateGrade = trpc.grades.generate.useMutation();
+  const upsertChecklist = trpc.checklists.upsert.useMutation();
+  const logObjection = trpc.objections.log.useMutation();
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -269,8 +338,21 @@ export default function LiveSession() {
     }
   };
 
+  const toggleChecklistItem = (key: string) => {
+    const next = { ...checklist, [key]: !checklist[key] };
+    setChecklist(next);
+    if (sessionId) {
+      upsertChecklist.mutate({ sessionId, ...next });
+    }
+  };
+
   const handleEndSession = async () => {
     if (!sessionId) return;
+
+    // Save checklist before ending
+    if (Object.keys(checklist).length > 0) {
+      await upsertChecklist.mutateAsync({ sessionId, ...checklist });
+    }
 
     // Stop speech recognition
     if (recognitionRef.current) {
@@ -451,6 +533,26 @@ export default function LiveSession() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Process Score badge */}
+            {sessionId && (
+              <div className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border",
+                calcOverallScore(checklist) >= 80 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" :
+                calcOverallScore(checklist) >= 65 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
+                "bg-red-500/10 border-red-500/30 text-red-400"
+              )}>
+                Process: {calcOverallScore(checklist)}%
+              </div>
+            )}
+            <Button
+              variant={showChecklist ? "default" : "outline"}
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => setShowChecklist((v) => !v)}
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              Checklist
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -476,6 +578,90 @@ export default function LiveSession() {
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
+          {/* 17-Point Checklist Panel (collapsible) */}
+          {showChecklist && (
+            <div className="w-72 flex flex-col shrink-0 border-r border-border overflow-y-auto bg-background/50">
+              <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">17-Point Checklist</span>
+                </div>
+                <div className={cn(
+                  "text-xs font-bold px-2 py-0.5 rounded-full",
+                  calcOverallScore(checklist) >= 80 ? "bg-emerald-500/20 text-emerald-400" :
+                  calcOverallScore(checklist) >= 65 ? "bg-amber-500/20 text-amber-400" :
+                  "bg-red-500/20 text-red-400"
+                )}>
+                  {calcOverallScore(checklist)}%
+                </div>
+              </div>
+              {/* Section score summary */}
+              <div className="grid grid-cols-3 gap-1 p-2 border-b border-border">
+                {CHECKLIST_SECTIONS.map((sec) => {
+                  const score = calcSectionScore(sec, checklist);
+                  return (
+                    <div key={sec.id} className="text-center p-1.5 rounded-lg bg-card">
+                      <div className={cn("text-sm font-bold",
+                        sec.color === "blue" ? "text-blue-400" :
+                        sec.color === "amber" ? "text-amber-400" : "text-emerald-400"
+                      )}>{score}%</div>
+                      <div className="text-[9px] text-muted-foreground leading-tight">{sec.label}</div>
+                      <div className="text-[9px] text-muted-foreground/60">{sec.weightLabel}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Checklist items */}
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {CHECKLIST_SECTIONS.map((section) => (
+                  <div key={section.id}>
+                    <button
+                      onClick={() => setChecklistExpanded((prev) => ({ ...prev, [section.id]: !prev[section.id] }))}
+                      className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck className={cn("w-3.5 h-3.5",
+                          section.color === "blue" ? "text-blue-400" :
+                          section.color === "amber" ? "text-amber-400" : "text-emerald-400"
+                        )} />
+                        <span className={cn("text-xs font-semibold",
+                          section.color === "blue" ? "text-blue-400" :
+                          section.color === "amber" ? "text-amber-400" : "text-emerald-400"
+                        )}>{section.label}</span>
+                      </div>
+                      <ChevronDown className={cn("w-3 h-3 text-muted-foreground transition-transform",
+                        checklistExpanded[section.id] ? "rotate-180" : ""
+                      )} />
+                    </button>
+                    {checklistExpanded[section.id] && (
+                      <div className="mt-1 space-y-0.5">
+                        {section.items.map((item) => {
+                          const checked = !!checklist[item.key];
+                          return (
+                            <button
+                              key={item.key}
+                              onClick={() => toggleChecklistItem(item.key)}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left transition-all text-xs",
+                                checked ? "bg-emerald-500/10 border border-emerald-500/20" : "hover:bg-accent border border-transparent"
+                              )}
+                            >
+                              {checked
+                                ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                : <Circle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                              }
+                              <span className={checked ? "text-emerald-300" : "text-muted-foreground"}>{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Transcript Panel */}
           <div className="flex-1 flex flex-col min-w-0 border-r border-border">
             <div className="px-4 py-2 border-b border-border flex items-center gap-2">

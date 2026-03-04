@@ -18,6 +18,8 @@ import {
   Zap,
   Menu,
   X,
+  Eye,
+  AlertTriangle,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,11 @@ const NAV_ITEMS = [
   { path: "/history", label: "Session History", icon: History },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/upload", label: "Batch Upload", icon: Upload },
+];
+
+const PERFORMANCE_ITEMS = [
+  { path: "/eagle-eye", label: "Eagle Eye View", icon: Eye },
+  { path: "/objections", label: "Objection Analysis", icon: AlertTriangle },
 ];
 
 const ADMIN_ITEMS = [
@@ -110,6 +117,11 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
         {NAV_ITEMS.map((item) => <NavItem key={item.path} item={item} />)}
+
+        <div className="pt-4">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Performance</p>
+          {PERFORMANCE_ITEMS.map((item) => <NavItem key={item.path} item={item} />)}
+        </div>
 
         {user?.role === "admin" && (
           <>
