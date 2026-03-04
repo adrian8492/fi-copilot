@@ -33,6 +33,7 @@ interface Suggestion {
   content: string;
   script?: string;          // VERBATIM ASURA word track
   framework?: string;       // Source framework/document
+  dealStage?: string;       // ASURA 7-step deal stage
   urgency?: "high" | "medium" | "low";
   priority: "high" | "medium" | "low";
   triggeredBy: string;
@@ -168,6 +169,9 @@ export default function LiveSession() {
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
+
+  // Expanded word tracks
+  const [expandedScripts, setExpandedScripts] = useState<Record<number, boolean>>({});
 
   // Checklist state
   const [checklist, setChecklist] = useState<ChecklistState>({});
@@ -836,10 +840,21 @@ export default function LiveSession() {
                 ) : (
                   suggestions.map((s, i) => {
                     const Icon = SUGGESTION_TYPE_ICONS[s.type] ?? Lightbulb;
-                    const priorityColor = s.priority === "high" ? "red" : s.priority === "medium" ? "yellow" : "blue";
+                    const isExpanded = expandedScripts[i] ?? true;
+                    const STAGE_LABELS: Record<string, string> = {
+                      introduction: "Introduction",
+                      customer_connection: "Client Survey",
+                      financial_snapshot: "Financial Snapshot",
+                      menu_presentation: "Menu Presentation",
+                      product_walkthrough: "Product Walkthrough",
+                      objection_handling: "Objection Handling",
+                      closing: "Closing",
+                      post_close: "Post-Close",
+                    };
                     return (
                       <div key={i} className={cn(
                         "suggestion-card rounded-xl border overflow-hidden",
+                        s.wasActedOn ? "opacity-60" : "",
                         s.priority === "high" ? "bg-red-500/5 border-red-500/20" :
                         s.priority === "medium" ? "bg-yellow-500/5 border-yellow-500/20" :
                         "bg-blue-500/5 border-blue-500/20"
@@ -857,7 +872,7 @@ export default function LiveSession() {
                               s.priority === "medium" ? "text-yellow-400" : "text-blue-400"
                             )} />
                           </div>
-                          <p className="text-xs font-bold text-foreground flex-1 truncate">{s.title}</p>
+                          <p className="text-xs font-bold text-foreground flex-1 leading-tight">{s.title}</p>
                           <Badge variant="outline" className={cn(
                             "text-[9px] px-1.5 py-0 h-4 shrink-0 uppercase",
                             s.priority === "high" ? "border-red-500/30 text-red-400" :
@@ -866,46 +881,72 @@ export default function LiveSession() {
                             {s.priority}
                           </Badge>
                         </div>
+
+                        {/* Deal Stage + Framework chips */}
+                        {(s.dealStage || s.framework) && (
+                          <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+                            {s.dealStage && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-[9px] font-semibold text-violet-400 uppercase tracking-wide">
+                                <div className="w-1 h-1 rounded-full bg-violet-400" />
+                                {STAGE_LABELS[s.dealStage] ?? s.dealStage.replace(/_/g, " ")}
+                              </span>
+                            )}
+                            {s.framework && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/5 border border-primary/15 text-[9px] text-primary/70 max-w-full truncate">
+                                <BookOpen className="w-2 h-2 shrink-0" />
+                                {s.framework}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {/* Coaching context */}
                         <div className="px-3 pb-2">
                           <p className="text-[11px] text-muted-foreground leading-relaxed">{s.content}</p>
                         </div>
-                        {/* Verbatim Script Block */}
+
+                        {/* Verbatim Script Block — collapsible */}
                         {s.script && (
                           <div className="mx-3 mb-2 rounded-lg bg-background/60 border border-border/60 overflow-hidden">
-                            <div className="flex items-center justify-between px-2.5 py-1.5 bg-primary/5 border-b border-border/40">
+                            <button
+                              onClick={() => setExpandedScripts(prev => ({ ...prev, [i]: !isExpanded }))}
+                              className="w-full flex items-center justify-between px-2.5 py-1.5 bg-primary/5 border-b border-border/40 hover:bg-primary/10 transition-colors"
+                            >
                               <div className="flex items-center gap-1.5">
                                 <BookOpen className="w-3 h-3 text-primary/70" />
                                 <span className="text-[10px] font-bold text-primary/80 uppercase tracking-wider">Exact Word Track</span>
                               </div>
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(s.script!); toast.success("Script copied!"); }}
-                                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                              >
-                                <Copy className="w-2.5 h-2.5" />
-                                Copy
-                              </button>
-                            </div>
-                            <p className="px-2.5 py-2 text-[11px] text-foreground leading-relaxed italic font-medium">
-                              &ldquo;{s.script}&rdquo;
-                            </p>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(s.script!); toast.success("Script copied!"); }}
+                                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                >
+                                  <Copy className="w-2.5 h-2.5" />
+                                  Copy
+                                </button>
+                                <ChevronDown className={cn("w-3 h-3 text-muted-foreground transition-transform", isExpanded ? "rotate-180" : "")} />
+                              </div>
+                            </button>
+                            {isExpanded && (
+                              <p className="px-2.5 py-2 text-[11px] text-foreground leading-relaxed italic font-medium">
+                                &ldquo;{s.script}&rdquo;
+                              </p>
+                            )}
                           </div>
                         )}
-                        {/* Framework source + Mark as Used */}
-                        <div className="px-3 pb-2.5 flex items-center justify-between">
-                          {s.framework ? (
-                            <span className="text-[10px] text-muted-foreground/60">Source: {s.framework}</span>
-                          ) : <span />}
+
+                        {/* Mark as Used */}
+                        <div className="px-3 pb-2.5 flex items-center justify-end">
                           {s.wasActedOn ? (
-                            <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+                            <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
                               <ThumbsUp className="w-3 h-3" /> Used
                             </span>
                           ) : (
                             <button
                               onClick={() => handleMarkUsed(i, s.id)}
-                              className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all"
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all"
                             >
-                              <ThumbsUp className="w-2.5 h-2.5" /> Used it
+                              <ThumbsUp className="w-2.5 h-2.5" /> Mark as Used
                             </button>
                           )}
                         </div>

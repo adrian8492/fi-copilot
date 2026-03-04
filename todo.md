@@ -206,3 +206,19 @@
 - [x] Demo: Wire all 3 stages into the demo replay timeline with co-pilot suggestions firing at correct moments
 - [x] Demo: Show compliance checklist updating live as each stage completes
 - [x] Demo: Show Script Fidelity Score updating after each verbatim line is delivered
+
+## Build Session — Mar 4 Afternoon (Phases 1–7 Execution)
+- [x] Phase 1: Live Session — dealStage field added to suggestion payload in websocket.ts
+- [x] Phase 1: Live Session — Suggestion interface updated with dealStage field
+- [x] Phase 1: Live Session — deal stage badge chip on co-pilot suggestion cards
+- [x] Phase 1: Live Session — expand/collapse word track with copy button
+- [x] Phase 1: Live Session — framework attribution chip (ASURA source label)
+- [x] Phase 2: Federal compliance engine already complete (TILA, CLA, ECOA, UDAP, GAP, VSC, Aftermarket)
+- [x] Phase 3: Dashboard KPI cards already live from DB (PVR, PPD, Script Fidelity, utilization)
+- [x] Phase 3: Session Detail header already shows customer name, deal number, vehicle info
+- [x] Phase 4: Analytics charts already complete (PVR trend, product mix pie, objection win rate, session volume)
+- [x] Phase 5: Mobile responsive already implemented (hamburger overlay, overflow-x-auto, hidden md:flex)
+- [x] Phase 6: Batch Upload — auto-trigger grading (grades.generate) after transcription completes
+- [x] Phase 7: compliance-engine.test.ts — 25 new unit tests (ALL_COMPLIANCE_RULES, scanTranscriptForViolations, calculateComplianceScore, PRODUCT_DISCLOSURE_REQUIREMENTS)
+- [x] Phase 7: 86/86 total tests passing (4 test files)
+- [x] TypeScript: 0 errors confirmed

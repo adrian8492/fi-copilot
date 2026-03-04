@@ -32,6 +32,7 @@ export default function BatchUpload() {
   const createSession = trpc.sessions.create.useMutation();
   const uploadRecording = trpc.recordings.upload.useMutation();
   const transcribeRecording = trpc.recordings.transcribe.useMutation();
+  const generateGrade = trpc.grades.generate.useMutation();
 
   const handleFiles = (incoming: FileList | null) => {
     if (!incoming) return;
@@ -87,6 +88,16 @@ export default function BatchUpload() {
         recordingId: recording.id,
         sessionId: session.id,
       });
+      updateFile(uploadFile.id, { progress: 85 });
+
+      // 5. Auto-grade — run the full ASURA grading engine on the transcript
+      try {
+        await generateGrade.mutateAsync({ sessionId: session.id });
+        toast.success(`Graded: ${uploadFile.file.name}`);
+      } catch {
+        // Grading failure is non-fatal — session is still transcribed
+        toast.warning(`Transcribed but grading failed for ${uploadFile.file.name}`);
+      }
       updateFile(uploadFile.id, { status: "done", progress: 100 });
       refetchRecordings();
     } catch (e: unknown) {

@@ -160,7 +160,7 @@ function generateQuickSuggestion(
   fullTranscript?: string,
   state?: SessionState,
   send?: (msg: ServerMessage) => void
-): typeof RESPONSE_CACHE[string] | null {
+): (typeof RESPONSE_CACHE[string] & { dealStage?: string }) | null {
   // Layer 1: ASURA regex triggers (instant, <5ms)
   const quick = asuraQuickTrigger(text);
   if (quick) return quick;
@@ -181,6 +181,7 @@ function generateQuickSuggestion(
       script: matched.scriptText,
       urgency: matched.urgency,
       framework: matched.sourceDocument,
+      dealStage: dealStage ?? matched.dealStage,
     };
   }
   return null;
@@ -282,7 +283,7 @@ function createDeepgramConnection(
         priority: quickSuggestion.urgency,
         triggeredBy: triggered,
       });
-      send({ type: "suggestion", data: { ...quickSuggestion, triggeredBy: triggered } });
+      send({ type: "suggestion", data: { ...quickSuggestion, triggeredBy: triggered, dealStage: state.currentDealStage } });
       state.analysisBuffer = "";
       state.lastAnalysisTime = Date.now();
     } else {
@@ -304,7 +305,7 @@ function createDeepgramConnection(
             priority: llmSuggestion.urgency,
             triggeredBy: llmSuggestion.triggeredBy.substring(0, 100),
           });
-          send({ type: "suggestion", data: llmSuggestion });
+          send({ type: "suggestion", data: { ...llmSuggestion, dealStage: state.currentDealStage } });
         }
         state.analysisBuffer = "";
       }
@@ -489,7 +490,7 @@ export function setupWebSocketServer(server: HttpServer) {
               priority: quickSugg.urgency,
               triggeredBy: triggered,
             });
-            send({ type: "suggestion", data: { ...quickSugg, triggeredBy: triggered } });
+            send({ type: "suggestion", data: { ...quickSugg, triggeredBy: triggered, dealStage: state.currentDealStage } });
             state.analysisBuffer = "";
             state.lastAnalysisTime = Date.now();
           } else {
@@ -510,7 +511,7 @@ export function setupWebSocketServer(server: HttpServer) {
                   priority: llmSugg.urgency,
                   triggeredBy: llmSugg.triggeredBy.substring(0, 100),
                 });
-                send({ type: "suggestion", data: llmSugg });
+                send({ type: "suggestion", data: { ...llmSugg, dealStage: state.currentDealStage } });
               }
               state.analysisBuffer = "";
             }
