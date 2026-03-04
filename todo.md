@@ -144,3 +144,43 @@
 - [x] Customer name + deal number fields in Start Session flow
 - [x] Compliance Rules Builder admin UI
 - [x] Polish Demo Mode with realistic full session replay
+
+## Overnight Build — Mar 4 → Mar 5 7AM
+- [ ] Phase 1: Mark as Used button on co-pilot suggestion cards (Live Session)
+- [ ] Phase 1: Mark as Used in Session Detail Suggestions tab
+- [ ] Phase 1: Word track utilization rate on grade report (DB + backend + frontend)
+- [ ] Phase 2: Federal compliance engine (server/compliance-engine.ts) — TILA/Reg Z
+- [ ] Phase 2: Federal compliance engine — ECOA/Reg B
+- [ ] Phase 2: Federal compliance engine — UDAP/UDAAP
+- [ ] Phase 2: Federal compliance engine — Consumer Leasing Act/Reg M
+- [ ] Phase 2: Federal compliance engine — GAP product disclosure rules
+- [ ] Phase 2: Federal compliance engine — VSC/VSA disclosure rules
+- [ ] Phase 2: Federal compliance engine — aftermarket optional-nature disclosures
+- [ ] Phase 2: Wire compliance engine into WebSocket trigger detection
+- [ ] Phase 2: Wire compliance engine into grading engine complianceScore
+- [ ] Phase 3: Live Session co-pilot panel — deal stage badge on suggestion cards
+- [ ] Phase 3: Live Session co-pilot panel — expand/collapse word track with copy button
+- [ ] Phase 3: Live Session co-pilot panel — framework source attribution chip
+- [ ] Phase 4: Dashboard KPI cards — real PVR, PPD, utilization from live DB
+- [ ] Phase 4: Dashboard recent sessions — customer name + deal number
+- [ ] Phase 5: Session Detail header — customer name, vehicle, deal number
+- [ ] Phase 5: Session Detail Suggestions tab — utilization rate badge
+- [ ] Phase 6: Deepgram real-time streaming WebSocket integration
+- [ ] Phase 6: Deepgram interim/final transcript display in Live Session
+- [ ] Phase 7: Batch Upload page — drag-and-drop with progress tracking
+- [ ] Phase 7: Batch Upload — async transcription queue + status polling
+- [ ] Phase 7: Batch Upload — auto-trigger grading on transcription complete
+- [ ] Phase 8: Analytics page — PVR trend line chart (30/60/90 day)
+- [ ] Phase 8: Analytics page — product mix pie chart
+- [ ] Phase 8: Analytics page — objection win rate by product
+- [ ] Phase 8: Analytics page — session volume bar chart by week
+- [ ] Phase 9: Admin Panel — user list with role toggle
+- [ ] Phase 9: Admin Panel — dealership name/settings
+- [ ] Phase 9: Admin Panel — audit log viewer
+- [ ] Phase 10: Mobile responsive — sidebar collapses to bottom nav on mobile
+- [ ] Phase 10: Mobile responsive — Live Session stacks vertically on mobile
+- [ ] Phase 10: Mobile responsive — Session History table horizontal scroll
+- [ ] Phase 11: Expand test suite to 40+ tests
+- [ ] Phase 11: TypeScript 0 errors confirmed
+- [ ] Phase 11: Final overnight checkpoint saved
+- [ ] Phase 12: 7 AM summary report written and delivered

@@ -42,6 +42,8 @@ import {
   insertComplianceRule,
   updateComplianceRule,
   deleteComplianceRule,
+  markSuggestionUsed,
+  getSuggestionUtilizationRate,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -468,9 +470,22 @@ export const appRouter = router({
         }
         return result;
       }),
+    markUsed: protectedProcedure
+      .input(z.object({ suggestionId: z.number(), wasActedOn: z.boolean().default(true) }))
+      .mutation(async ({ input }) => {
+        await markSuggestionUsed(input.suggestionId, input.wasActedOn);
+        return { success: true };
+      }),
+    getUtilization: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getSuggestionUtilizationRate(input.sessionId);
+      }),
   }),
-
-  // ─── Grading ────────────────────────────────────────────────────────────────
+  // ─── Grading ─────────────────────────────────────────────────────────────────
   grades: router({
     generate: protectedProcedure
       .input(z.object({ sessionId: z.number() }))

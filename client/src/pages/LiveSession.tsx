@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Square, Zap, AlertTriangle, CheckCircle2,
   Lightbulb, Shield, Clock, ChevronDown, User, Users,
-  ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen,
+  ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen, ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +27,7 @@ interface TranscriptEntry {
 }
 
 interface Suggestion {
+  id?: number;
   type: string;
   title: string;
   content: string;
@@ -36,6 +37,7 @@ interface Suggestion {
   priority: "high" | "medium" | "low";
   triggeredBy: string;
   timestamp: number;
+  wasActedOn?: boolean;
 }
 
 interface ComplianceFlag {
@@ -176,6 +178,13 @@ export default function LiveSession() {
   const generateGrade = trpc.grades.generate.useMutation();
   const upsertChecklist = trpc.checklists.upsert.useMutation();
   const logObjection = trpc.objections.log.useMutation();
+  const markUsedMutation = trpc.transcripts.markUsed.useMutation();
+
+  const handleMarkUsed = (suggIdx: number, suggId?: number) => {
+    setSuggestions(prev => prev.map((s, i) => i === suggIdx ? { ...s, wasActedOn: true } : s));
+    if (suggId) markUsedMutation.mutate({ suggestionId: suggId, wasActedOn: true });
+    toast.success("Word track marked as used!");
+  };
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -867,12 +876,24 @@ export default function LiveSession() {
                             </p>
                           </div>
                         )}
-                        {/* Framework source */}
-                        {s.framework && (
-                          <div className="px-3 pb-2.5">
+                        {/* Framework source + Mark as Used */}
+                        <div className="px-3 pb-2.5 flex items-center justify-between">
+                          {s.framework ? (
                             <span className="text-[10px] text-muted-foreground/60">Source: {s.framework}</span>
-                          </div>
-                        )}
+                          ) : <span />}
+                          {s.wasActedOn ? (
+                            <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+                              <ThumbsUp className="w-3 h-3" /> Used
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleMarkUsed(i, s.id)}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all"
+                            >
+                              <ThumbsUp className="w-2.5 h-2.5" /> Used it
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })

@@ -712,3 +712,29 @@ export async function deleteComplianceRule(id: number) {
   if (!db) throw new Error("DB unavailable");
   await db.delete(complianceRules).where(eq(complianceRules.id, id));
 }
+
+// ─── Suggestion Utilization ───────────────────────────────────────────────────
+export async function markSuggestionUsed(suggestionId: number, wasActedOn: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(copilotSuggestions)
+    .set({ wasActedOn })
+    .where(eq(copilotSuggestions.id, suggestionId));
+}
+
+export async function getSuggestionUtilizationRate(sessionId: number): Promise<{
+  total: number;
+  used: number;
+  utilizationRate: number;
+}> {
+  const db = await getDb();
+  if (!db) return { total: 0, used: 0, utilizationRate: 0 };
+  const rows = await db
+    .select({ wasActedOn: copilotSuggestions.wasActedOn })
+    .from(copilotSuggestions)
+    .where(eq(copilotSuggestions.sessionId, sessionId));
+  const total = rows.length;
+  const used = rows.filter((r) => r.wasActedOn).length;
+  const utilizationRate = total > 0 ? Math.round((used / total) * 100) : 0;
+  return { total, used, utilizationRate };
+}

@@ -11,7 +11,7 @@ import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
-  Lightbulb, Copy, CheckCheck,
+  Lightbulb, Copy, CheckCheck, ThumbsUp,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -45,8 +45,19 @@ export default function SessionDetail() {
   const { data: complianceFlags } = trpc.compliance.getFlags.useQuery({ sessionId });
   const { data: coachingReport } = trpc.reports.get.useQuery({ sessionId });
   const { data: sessionFull } = trpc.sessions.getWithDetails.useQuery({ id: sessionId });
+  const { data: utilization, refetch: refetchUtilization } = trpc.transcripts.getUtilization.useQuery({ sessionId });
+  const markUsedMutation = trpc.transcripts.markUsed.useMutation({
+    onSuccess: () => refetchUtilization(),
+  });
+  const [usedIds, setUsedIds] = useState<Set<number>>(new Set());
   const suggestions = sessionFull?.suggestions ?? [];
   const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const handleMarkUsed = (suggId: number) => {
+    setUsedIds(prev => new Set(Array.from(prev).concat(suggId)));
+    markUsedMutation.mutate({ suggestionId: suggId, wasActedOn: true });
+    toast.success("Word track marked as used!");
+  };
   const copyScript = (text: string, id: number) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -362,6 +373,21 @@ export default function SessionDetail() {
 
           {/* Co-Pilot Suggestions Tab */}
           <TabsContent value="suggestions" className="mt-4">
+            {/* Utilization Rate Header */}
+            {utilization && suggestions.length > 0 && (
+              <div className="flex items-center gap-4 mb-4 p-3 rounded-lg bg-card border border-border">
+                <ThumbsUp className="w-4 h-4 text-emerald-400" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-foreground">Word Track Utilization</p>
+                  <p className="text-xs text-muted-foreground">{utilization.used} of {utilization.total} suggestions marked as used</p>
+                </div>
+                <div className="text-right">
+                  <p className={cn("text-xl font-bold", utilization.utilizationRate >= 70 ? "text-emerald-400" : utilization.utilizationRate >= 40 ? "text-yellow-400" : "text-red-400")}>
+                    {utilization.utilizationRate}%
+                  </p>
+                </div>
+              </div>
+            )}
             {suggestions.length > 0 ? (
               <div className="space-y-3">
                 {suggestions.map((s) => {
@@ -412,6 +438,23 @@ export default function SessionDetail() {
                             {s.triggeredBy && (
                               <p className="text-[10px] text-muted-foreground/40 mt-2">Triggered by: &ldquo;{s.triggeredBy}&rdquo;</p>
                             )}
+                            {/* Mark as Used */}
+                            <div className="mt-3 flex justify-end">
+                              {(s.wasActedOn || usedIds.has(s.id)) ? (
+                                <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                                  <ThumbsUp className="w-3.5 h-3.5" /> Used in session
+                                </span>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-3 text-xs gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                                  onClick={() => handleMarkUsed(s.id)}
+                                >
+                                  <ThumbsUp className="w-3 h-3" /> Mark as Used
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </CardContent>
