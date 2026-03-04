@@ -58,9 +58,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function getAllUsers() {
@@ -93,9 +93,9 @@ export async function createSession(data: {
 
 export async function getSessionById(id: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
   const result = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function getSessionsByUserId(userId: number, limit = 50, offset = 0) {
@@ -224,9 +224,9 @@ export async function upsertGrade(data: {
 
 export async function getGradeBySession(sessionId: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
   const result = await db.select().from(performanceGrades).where(eq(performanceGrades.sessionId, sessionId)).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function getGradesByUser(userId: number, limit = 30) {
@@ -294,9 +294,9 @@ export async function upsertCoachingReport(data: {
 
 export async function getReportBySession(sessionId: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
   const result = await db.select().from(coachingReports).where(eq(coachingReports.sessionId, sessionId)).limit(1);
-  return result[0];
+  return result[0] ?? null;
 }
 
 export async function getReportsByUser(userId: number, limit = 20) {
