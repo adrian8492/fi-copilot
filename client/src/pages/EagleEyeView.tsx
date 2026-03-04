@@ -102,6 +102,7 @@ export default function EagleEyeView() {
 
   // Build group trend chart data
   const groupTrendData = trends?.groupTrend ?? [];
+  const scriptFidelityTrendData = (trends?.scriptFidelityTrend ?? []) as Array<{ week: string; fidelity: number }>;
 
   // Build per-manager trend data for the active metric
   const managerTrendData = useMemo(() => {
@@ -381,6 +382,43 @@ export default function EagleEyeView() {
                     {managerNames.map((name, i) => (
                       <Line key={name} type="monotone" dataKey={name} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
                     ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Script Fidelity Trend */}
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white text-base flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-purple-400" />
+                  Script Fidelity Trend
+                </CardTitle>
+                <span className="text-xs text-slate-400 bg-slate-700/50 px-2 py-1 rounded-full">ASURA Methodology</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Team average verbatim word track adherence over time</p>
+            </CardHeader>
+            <CardContent>
+              {loadingTrends ? (
+                <div className="h-48 bg-slate-700/30 rounded animate-pulse" />
+              ) : scriptFidelityTrendData.length === 0 ? (
+                <div className="h-48 flex items-center justify-center text-slate-500 text-sm text-center px-4">
+                  No script fidelity data yet &mdash; grades must be generated to populate this chart.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={scriptFidelityTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="week" tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                    <YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px" }}
+                      labelStyle={{ color: "#e2e8f0" }}
+                      formatter={(value: number) => [`${value}%`, "Script Fidelity"]}
+                    />
+                    <Line type="monotone" dataKey="fidelity" stroke="#a855f7" strokeWidth={2} dot={{ fill: "#a855f7", r: 4 }} name="Team Script Fidelity" />
                   </LineChart>
                 </ResponsiveContainer>
               )}

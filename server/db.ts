@@ -497,20 +497,17 @@ export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date) {
 
 export async function getEagleEyeTrends(fromDate?: Date, toDate?: Date) {
   const db = await getDb();
-  if (!db) return { groupTrend: [], managerTrends: {} };
-
+  if (!db) return { groupTrend: [], managerTrends: {}, scriptFidelityTrend: [] };
   const allUsers = await db.select().from(users).where(eq(users.role, "user"));
   const managerTrends: Record<string, Array<{ week: string; score: number }>> = {};
   const groupScoresByWeek: Record<string, number[]> = {};
-
+  const groupFidelityByWeek: Record<string, number[]> = {};
   for (const user of allUsers) {
     const conditions = [eq(sessions.userId, user.id), eq(sessions.status, "completed")];
     if (fromDate) conditions.push(gte(sessions.startedAt, fromDate));
     if (toDate) conditions.push(lte(sessions.startedAt, toDate));
-
     const userSessions = await db.select().from(sessions).where(and(...conditions));
     const grades = await db.select().from(performanceGrades).where(eq(performanceGrades.userId, user.id));
-
     const weeklyData: Record<string, number[]> = {};
     for (const session of userSessions) {
       const grade = grades.find((g) => g.sessionId === session.id);
@@ -520,20 +517,25 @@ export async function getEagleEyeTrends(fromDate?: Date, toDate?: Date) {
       weeklyData[weekKey].push(grade.overallScore);
       if (!groupScoresByWeek[weekKey]) groupScoresByWeek[weekKey] = [];
       groupScoresByWeek[weekKey].push(grade.overallScore);
+      // Track script fidelity per week
+      if (grade.scriptFidelityScore != null) {
+        if (!groupFidelityByWeek[weekKey]) groupFidelityByWeek[weekKey] = [];
+        groupFidelityByWeek[weekKey].push(grade.scriptFidelityScore);
+      }
     }
-
     if (Object.keys(weeklyData).length > 0) {
       managerTrends[user.name ?? `User ${user.id}`] = Object.entries(weeklyData)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([week, scores]) => ({ week, score: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 }));
     }
   }
-
   const groupTrend = Object.entries(groupScoresByWeek)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([week, scores]) => ({ week, score: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 }));
-
-  return { groupTrend, managerTrends };
+  const scriptFidelityTrend = Object.entries(groupFidelityByWeek)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([week, scores]) => ({ week, fidelity: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10 }));
+  return { groupTrend, managerTrends, scriptFidelityTrend };
 }
 
 function getWeekKey(date: Date): string {
