@@ -222,3 +222,6 @@
 - [x] Phase 7: compliance-engine.test.ts — 25 new unit tests (ALL_COMPLIANCE_RULES, scanTranscriptForViolations, calculateComplianceScore, PRODUCT_DISCLOSURE_REQUIREMENTS)
 - [x] Phase 7: 86/86 total tests passing (4 test files)
 - [x] TypeScript: 0 errors confirmed
+
+## Bug: Live Session Audio Not Transcribing
+- [x] Fix: Deepgram shows Connected but transcript stays at 0 entries when speaking (root cause: encoding:linear16 mismatch with browser WebM/Opus — removed encoding constraint)

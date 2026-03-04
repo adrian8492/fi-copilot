@@ -210,8 +210,7 @@ function createDeepgramConnection(
     punctuate: true,
     utterance_end_ms: 1000,
     vad_events: true,
-    encoding: "linear16",
-    sample_rate: 16000,
+    // No encoding/sample_rate — Deepgram auto-detects WebM/Opus from browser MediaRecorder
   });
 
   connection.on(LiveTranscriptionEvents.Open, () => {
