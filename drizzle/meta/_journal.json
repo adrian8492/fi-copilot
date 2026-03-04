@@ -29,6 +29,13 @@
       "when": 1772603288192,
       "tag": "0003_red_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1772605862226,
+      "tag": "0004_material_pride",
+      "breakpoints": true
     }
   ]
 }

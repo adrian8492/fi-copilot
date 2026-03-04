@@ -162,6 +162,8 @@ export async function insertCopilotSuggestion(data: {
   title: string;
   content: string;
   triggeredBy?: string;
+  script?: string;
+  framework?: string;
   priority?: "high" | "medium" | "low";
 }) {
   const db = await getDb();

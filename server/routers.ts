@@ -49,7 +49,7 @@ import { storagePut } from "./storage";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { ASURA_PROCESS_STEPS, detectDealStage, ALL_SCRIPTS } from "./asura-scripts";
+import { ASURA_PROCESS_STEPS, detectDealStage, ALL_SCRIPTS, retrieveAllMatchingScripts } from "./asura-scripts";
 
 // ─── Helper: admin guard ──────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -59,19 +59,31 @@ const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
 
 // ─── AI Co-Pilot Engine ───────────────────────────────────────────────────────
 async function runCopilotAnalysis(transcriptText: string, sessionId: number, context: string) {
-  const prompt = `You are an expert F&I (Finance & Insurance) manager coach for automotive dealerships. 
+  // Pull top matching ASURA verbatim scripts for this transcript excerpt
+  const matchingScripts = retrieveAllMatchingScripts(transcriptText, 4);
+  const scriptContext = matchingScripts.length > 0
+    ? `\n\nASURA VERBATIM WORD TRACKS MATCHED FOR THIS MOMENT:\n${matchingScripts.map((s, i) =>
+        `${i + 1}. [${s.scriptCategory.toUpperCase()} | ${s.urgency.toUpperCase()} PRIORITY]\n   Title: ${s.title}\n   Exact Script: "${s.scriptText}"\n   Coaching Note: ${s.coachingNote ?? 'N/A'}\n   Source: ${s.sourceDocument}`
+      ).join('\n\n')}`
+    : '';
+
+  const prompt = `You are an expert F&I (Finance & Insurance) manager coach for automotive dealerships using the ASURA Elite F&I Performance Playbook methodology.
 Analyze the following conversation excerpt and provide real-time coaching suggestions.
 
 Context: ${context}
-Recent transcript: "${transcriptText}"
+Recent transcript: "${transcriptText}"${scriptContext}
+
+IMPORTANT: When ASURA verbatim word tracks are provided above, you MUST use them. Include the exact script text in the "script" field and the source document in the "framework" field. Do not paraphrase — the verbatim word tracks are the coaching product.
 
 Respond with a JSON object containing:
 {
   "suggestions": [
     {
       "type": "product_recommendation|objection_handling|compliance_reminder|rapport_building|closing_technique|general_tip",
-      "title": "Short action title",
-      "content": "Specific coaching guidance (2-3 sentences max)",
+      "title": "Short action title (max 8 words)",
+      "content": "Specific coaching guidance explaining WHY this script works (2-3 sentences)",
+      "script": "VERBATIM word track text here — exact words the manager should say",
+      "framework": "Source document name (e.g. ASURA Elite F&I Performance Playbook)",
       "priority": "high|medium|low",
       "triggeredBy": "The specific phrase or situation that triggered this"
     }
@@ -109,10 +121,12 @@ Return ONLY valid JSON, no markdown.`;
                 type: { type: "string" },
                 title: { type: "string" },
                 content: { type: "string" },
+                script: { type: "string" },
+                framework: { type: "string" },
                 priority: { type: "string" },
                 triggeredBy: { type: "string" },
               },
-              required: ["type", "title", "content", "priority", "triggeredBy"],
+              required: ["type", "title", "content", "script", "framework", "priority", "triggeredBy"],
               additionalProperties: false,
             }},
             complianceFlags: { type: "array", items: {
