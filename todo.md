@@ -67,7 +67,7 @@
 - [ ] Email notifications for compliance alerts
 - [ ] DMS (Dealer Management System) integration
 - [ ] Multi-dealership group management
-- [ ] Custom compliance rule builder
+- [x] Custom compliance rule builder
 
 ## Grading System Rebuild (Auto Trainer AI Deconstruction)
 - [x] DB: Add objection_logs table (product, concern_type, sessionId, resolved)
@@ -99,3 +99,48 @@
 - [ ] Add date range filter to Eagle Eye View
 - [ ] Run full test suite (target: 25+ passing)
 - [ ] Final checkpoint and delivery
+
+## Sprint 3 — Demo Readiness
+
+- [x] DB: Add customerName, dealNumber, vehicleYear, vehicleMake, vehicleModel, dealType fields to sessions
+- [x] DB: Add compliance_rules table (custom rules builder)
+- [x] Backend: Update sessions router with customer/deal fields
+- [x] Backend: Compliance rules CRUD router (list, create, update, delete, toggle)
+- [ ] Backend: Grading engine merges custom + federal compliance rules
+- [x] Backend: PDF generation endpoint for Coaching Report
+- [x] Frontend: Update Start Session modal with customer name, deal number, vehicle fields
+- [x] Frontend: Compliance Rules Builder page (admin only)
+- [ ] Frontend: Session History table shows customer name and deal number
+- [ ] Frontend: Session Detail header shows customer/vehicle info
+- [x] Frontend: "Download Report" button on Session Detail
+- [ ] Polish: Dashboard KPI cards showing real PVR, PPD, utilization
+
+## Sprint 4 — Verbatim Script Engine & Strict Grading
+
+- [x] DB: Add compliance_rules table (custom rules builder)
+- [ ] DB: Add vehicleYear, vehicleMake, vehicleModel to sessions table
+- [x] Build asura-scripts.ts: full verbatim script library indexed by category, deal_stage, intent_trigger, source_document
+- [x] Rebuild asura-engine.ts: verbatim-only mode, Script Fidelity Scoring (0-100), 7-step process grading, objection pattern → required_script mapping
+- [x] Update websocket.ts: structured suggestion payload (script_text, category, deal_stage, source_document, fidelity_score)
+- [ ] Update Live Session co-pilot panel: Script Suggestion / Exact Word Track / Process Stage / Execution Score display
+- [x] Add scriptFidelityScore field to performanceGrades table
+- [x] Update Session Detail and Eagle Eye View to show Script Fidelity Score
+- [ ] System validation report endpoint
+- [x] Run full test suite and checkpoint
+
+## Bug Fixes (Session 3)
+- [x] Fix Vite HMR WebSocket error (clientPort:443 + wss in vite.ts serverOptions)
+- [x] Fix PostCSS @import ordering error (move Google Fonts to index.html)
+- [x] Patch asura-scripts.ts: add title + urgency fields to all VerbatimScript objects
+
+## Sprint 4 Continued — Script Fidelity Score Integration
+- [x] Update runGradingEngine to include Script Fidelity Score (5 sub-scores)
+- [x] Update upsertGrade in db.ts to persist all 5 Script Fidelity columns
+- [x] Update Session Detail page to display Script Fidelity Score breakdown
+- [ ] Update Eagle Eye View to show Script Fidelity Score in leaderboard
+
+## MVP Features (April 30 / May 10 deadline)
+- [x] Coaching Report PDF export (downloadable formatted report)
+- [x] Customer name + deal number fields in Start Session flow
+- [x] Compliance Rules Builder admin UI
+- [x] Polish Demo Mode with realistic full session replay

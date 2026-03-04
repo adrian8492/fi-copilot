@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Square, Zap, AlertTriangle, CheckCircle2,
   Lightbulb, Shield, Clock, ChevronDown, User, Users,
-  ClipboardList, Circle, ShieldCheck, XCircle,
+  ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +30,9 @@ interface Suggestion {
   type: string;
   title: string;
   content: string;
+  script?: string;          // VERBATIM ASURA word track
+  framework?: string;       // Source framework/document
+  urgency?: "high" | "medium" | "low";
   priority: "high" | "medium" | "low";
   triggeredBy: string;
   timestamp: number;
@@ -221,7 +224,12 @@ export default function LiveSession() {
           break;
         case "suggestion":
           if (msg.data) {
-            setSuggestions((prev) => [{ ...msg.data, timestamp: Date.now() }, ...prev].slice(0, 10));
+            const sugg: Suggestion = {
+              ...msg.data,
+              priority: msg.data.urgency ?? msg.data.priority ?? "medium",
+              timestamp: Date.now(),
+            };
+            setSuggestions((prev) => [sugg, ...prev].slice(0, 10));
             setActiveTab("copilot");
           }
           break;
@@ -804,39 +812,67 @@ export default function LiveSession() {
                 ) : (
                   suggestions.map((s, i) => {
                     const Icon = SUGGESTION_TYPE_ICONS[s.type] ?? Lightbulb;
+                    const priorityColor = s.priority === "high" ? "red" : s.priority === "medium" ? "yellow" : "blue";
                     return (
                       <div key={i} className={cn(
-                        "suggestion-card p-3 rounded-xl border",
+                        "suggestion-card rounded-xl border overflow-hidden",
                         s.priority === "high" ? "bg-red-500/5 border-red-500/20" :
                         s.priority === "medium" ? "bg-yellow-500/5 border-yellow-500/20" :
                         "bg-blue-500/5 border-blue-500/20"
                       )}>
-                        <div className="flex items-start gap-2.5">
+                        {/* Header */}
+                        <div className="flex items-center gap-2 px-3 pt-3 pb-2">
                           <div className={cn(
-                            "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
+                            "w-6 h-6 rounded-md flex items-center justify-center shrink-0",
                             s.priority === "high" ? "bg-red-500/15" :
                             s.priority === "medium" ? "bg-yellow-500/15" : "bg-blue-500/15"
                           )}>
                             <Icon className={cn(
-                              "w-3.5 h-3.5",
+                              "w-3 h-3",
                               s.priority === "high" ? "text-red-400" :
                               s.priority === "medium" ? "text-yellow-400" : "text-blue-400"
                             )} />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-xs font-bold text-foreground truncate">{s.title}</p>
-                              <Badge variant="outline" className={cn(
-                                "text-[9px] px-1.5 py-0 h-4 shrink-0",
-                                s.priority === "high" ? "border-red-500/30 text-red-400" :
-                                s.priority === "medium" ? "border-yellow-500/30 text-yellow-400" : "border-blue-500/30 text-blue-400"
-                              )}>
-                                {s.priority}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{s.content}</p>
-                          </div>
+                          <p className="text-xs font-bold text-foreground flex-1 truncate">{s.title}</p>
+                          <Badge variant="outline" className={cn(
+                            "text-[9px] px-1.5 py-0 h-4 shrink-0 uppercase",
+                            s.priority === "high" ? "border-red-500/30 text-red-400" :
+                            s.priority === "medium" ? "border-yellow-500/30 text-yellow-400" : "border-blue-500/30 text-blue-400"
+                          )}>
+                            {s.priority}
+                          </Badge>
                         </div>
+                        {/* Coaching context */}
+                        <div className="px-3 pb-2">
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">{s.content}</p>
+                        </div>
+                        {/* Verbatim Script Block */}
+                        {s.script && (
+                          <div className="mx-3 mb-2 rounded-lg bg-background/60 border border-border/60 overflow-hidden">
+                            <div className="flex items-center justify-between px-2.5 py-1.5 bg-primary/5 border-b border-border/40">
+                              <div className="flex items-center gap-1.5">
+                                <BookOpen className="w-3 h-3 text-primary/70" />
+                                <span className="text-[10px] font-bold text-primary/80 uppercase tracking-wider">Exact Word Track</span>
+                              </div>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(s.script!); toast.success("Script copied!"); }}
+                                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                              >
+                                <Copy className="w-2.5 h-2.5" />
+                                Copy
+                              </button>
+                            </div>
+                            <p className="px-2.5 py-2 text-[11px] text-foreground leading-relaxed italic font-medium">
+                              &ldquo;{s.script}&rdquo;
+                            </p>
+                          </div>
+                        )}
+                        {/* Framework source */}
+                        {s.framework && (
+                          <div className="px-3 pb-2.5">
+                            <span className="text-[10px] text-muted-foreground/60">Source: {s.framework}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })

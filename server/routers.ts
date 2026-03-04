@@ -38,6 +38,10 @@ import {
   upsertCoachingReport,
   upsertGrade,
   upsertSessionChecklist,
+  getAllComplianceRules,
+  insertComplianceRule,
+  updateComplianceRule,
+  deleteComplianceRule,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -45,6 +49,7 @@ import { storagePut } from "./storage";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { ASURA_PROCESS_STEPS, detectDealStage, ALL_SCRIPTS } from "./asura-scripts";
 
 // ─── Helper: admin guard ──────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -137,28 +142,100 @@ Return ONLY valid JSON, no markdown.`;
   }
 }
 
+// ─── Script Fidelity Score Calculator ────────────────────────────────────────
+/**
+ * Calculates 5 Script Fidelity sub-scores from the transcript using the
+ * ASURA verbatim script library and 7-step process adherence model.
+ */
+function calculateScriptFidelityScores(fullTranscript: string): {
+  scriptFidelityScore: number;
+  processAdherenceScore: number;
+  menuSequenceScore: number;
+  objectionResponseScore: number;
+  transitionAccuracyScore: number;
+} {
+  const text = fullTranscript.toLowerCase();
+
+  // 1. Process Adherence — check which of the 7 ASURA steps are present
+  const stepsCompleted = ASURA_PROCESS_STEPS.filter(step => {
+    const scripts = ALL_SCRIPTS.filter(s => s.scriptCategory === step.category);
+    return scripts.some(s =>
+      s.triggerKeywords.some(kw => text.includes(kw.toLowerCase()))
+    );
+  });
+  const processAdherenceScore = Math.round((stepsCompleted.length / ASURA_PROCESS_STEPS.length) * 100);
+
+  // 2. Script Fidelity — keyword overlap with verbatim scripts
+  const totalScripts = ALL_SCRIPTS.length;
+  const matchedScripts = ALL_SCRIPTS.filter(s =>
+    s.triggerKeywords.some(kw => text.includes(kw.toLowerCase()))
+  ).length;
+  const scriptFidelityScore = Math.round((matchedScripts / Math.max(totalScripts, 1)) * 100);
+
+  // 3. Menu Sequence — check for correct menu presentation order
+  const menuKeywords = ["base payment", "options", "levels", "package", "menu"];
+  const productKeywords = ["gap", "service contract", "warranty", "maintenance", "tire"];
+  const menuPresent = menuKeywords.some(kw => text.includes(kw));
+  const productsPresent = productKeywords.filter(kw => text.includes(kw)).length;
+  const menuSequenceScore = menuPresent
+    ? Math.min(100, 50 + (productsPresent * 10))
+    : Math.min(100, productsPresent * 15);
+
+  // 4. Objection Response — check for objection handling scripts
+  const objectionTriggers = ["think about it", "too expensive", "don't need", "already have", "credit union", "spouse", "never use"];
+  const objectionResponses = ["let me ask", "what specifically", "put it in perspective", "dollar a day", "responsibility", "per month"];
+  const objectionDetected = objectionTriggers.some(kw => text.includes(kw));
+  const objectionHandled = objectionResponses.some(kw => text.includes(kw));
+  const objectionResponseScore = objectionDetected
+    ? (objectionHandled ? 85 : 30)
+    : 100; // No objections = full score
+
+  // 5. Transition Accuracy — stage transitions (intro → snapshot → menu → products → close)
+  const stages = [
+    ["congratulations", "welcome in", "finance director"],
+    ["three quick questions", "how long do you keep", "miles per year"],
+    ["menu", "options", "packages", "levels"],
+    ["gap", "service contract", "warranty"],
+    ["sign", "move forward", "does that work", "let's get you"],
+  ];
+  const stagesPresent = stages.filter(stageKws =>
+    stageKws.some(kw => text.includes(kw))
+  ).length;
+  const transitionAccuracyScore = Math.round((stagesPresent / stages.length) * 100);
+
+  return {
+    scriptFidelityScore: Math.min(100, scriptFidelityScore),
+    processAdherenceScore: Math.min(100, processAdherenceScore),
+    menuSequenceScore: Math.min(100, menuSequenceScore),
+    objectionResponseScore: Math.min(100, objectionResponseScore),
+    transitionAccuracyScore: Math.min(100, transitionAccuracyScore),
+  };
+}
+
 // ─── Grading Engine ───────────────────────────────────────────────────────────
 async function runGradingEngine(fullTranscript: string, sessionData: { customerName?: string | null; dealType?: string | null }) {
-  const prompt = `You are an expert F&I performance evaluator. Grade the following complete F&I interaction transcript.
+  // Calculate Script Fidelity Scores deterministically (no LLM needed)
+  const scriptFidelityScores = calculateScriptFidelityScores(fullTranscript);
 
+  const prompt = `You are an expert F&I performance evaluator using the ASURA Group methodology. Grade the following complete F&I interaction transcript.
 Customer: ${sessionData.customerName ?? "Unknown"}
 Deal Type: ${sessionData.dealType ?? "retail_finance"}
 
 Full Transcript:
 ${fullTranscript}
 
-Grade on the Asura Group F&I Performance Rubric (0-100 each):
-1. Rapport Building: Did the manager build genuine connection, ask discovery questions, establish trust?
-2. Product Presentation: Were all products presented clearly, with value-based selling, not just price?
-3. Objection Handling: Were objections addressed professionally with empathy and re-framing?
-4. Closing Technique: Were closing techniques used appropriately? Was the "which" close used?
-5. Compliance: Were all required disclosures made (base payment, risk-based pricing, privacy policy)?
+Grade on the ASURA F&I Performance Rubric (0-100 each):
+1. Rapport Building: Did the manager build genuine connection, use the Professional Hello, ask discovery questions, establish trust?
+2. Product Presentation: Were all products presented clearly with value-based selling (not just price)? Were GAP, VSC, PPM, Tire/Wheel covered?
+3. Objection Handling: Were objections addressed with ASURA objection response scripts? Was empathy + reframe used?
+4. Closing Technique: Were ASURA closing techniques used (assumptive, either/or, takeaway)? Was commitment obtained?
+5. Compliance: Were all required disclosures made (base payment, TILA, risk-based pricing, privacy policy, product optional-nature)?
 
 Also provide:
-- Overall score (weighted average)
-- Key strengths (2-3 specific examples from transcript)
-- Areas for improvement (2-3 specific, actionable items)
-- Coaching notes (personalized guidance paragraph)
+- Overall score (weighted average: Rapport 15%, Product 25%, Objection 20%, Closing 20%, Compliance 20%)
+- Key strengths (2-3 specific examples from transcript with quotes)
+- Areas for improvement (2-3 specific, actionable ASURA methodology items)
+- Coaching notes (personalized guidance paragraph referencing ASURA frameworks)
 
 Return JSON:
 {
@@ -172,11 +249,10 @@ Return JSON:
   "improvements": "string",
   "coachingNotes": "string"
 }`;
-
   try {
     const response = await invokeLLM({
       messages: [
-        { role: "system", content: "You are an F&I grading AI. Always respond with valid JSON only." },
+        { role: "system", content: "You are an F&I grading AI trained on the ASURA Elite F&I Performance Playbook. Always respond with valid JSON only." },
         { role: "user", content: prompt },
       ],
       response_format: { type: "json_schema", json_schema: {
@@ -202,13 +278,14 @@ Return JSON:
     });
     const content = response.choices?.[0]?.message?.content;
     if (!content || typeof content !== 'string') return null;
-    return JSON.parse(content);
+    const llmGrade = JSON.parse(content);
+    // Merge LLM grades with deterministic Script Fidelity Scores
+    return { ...llmGrade, ...scriptFidelityScores };
   } catch (e) {
     console.error("[Grading] Engine failed:", e);
     return null;
   }
 }
-
 // ─── Coaching Report Engine ───────────────────────────────────────────────────
 async function runCoachingReportEngine(fullTranscript: string, grade: Record<string, unknown>) {
   const prompt = `You are an expert F&I coaching analyst. Generate a comprehensive coaching report for this interaction.
@@ -435,9 +512,55 @@ export const appRouter = router({
         await resolveFlag(input.flagId, ctx.user.id);
         return { success: true };
       }),
+    // ─── Compliance Rules (Admin) ─────────────────────────────────────────────
+    getRules: adminProcedure.query(async () => {
+      return getAllComplianceRules();
+    }),
+    createRule: adminProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        category: z.enum(["federal_tila", "federal_ecoa", "federal_udap", "federal_cla", "contract_element", "fi_product_disclosure", "process_step", "custom"]),
+        triggerKeywords: z.array(z.string()),
+        requiredPhrase: z.string().optional(),
+        severity: z.enum(["critical", "warning", "info"]),
+        weight: z.number().min(0).max(5).optional(),
+        isActive: z.boolean().optional(),
+        dealStage: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await insertComplianceRule({ ...input, createdBy: ctx.user.id });
+        await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.create", resourceType: "compliance_rule", resourceId: input.title });
+        return { success: true };
+      }),
+    updateRule: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().min(1).optional(),
+        description: z.string().optional(),
+        category: z.enum(["federal_tila", "federal_ecoa", "federal_udap", "federal_cla", "contract_element", "fi_product_disclosure", "process_step", "custom"]).optional(),
+        triggerKeywords: z.array(z.string()).optional(),
+        requiredPhrase: z.string().optional(),
+        severity: z.enum(["critical", "warning", "info"]).optional(),
+        weight: z.number().min(0).max(5).optional(),
+        isActive: z.boolean().optional(),
+        dealStage: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        await updateComplianceRule(id, data);
+        await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.update", resourceType: "compliance_rule", resourceId: String(id) });
+        return { success: true };
+      }),
+    deleteRule: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteComplianceRule(input.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.delete", resourceType: "compliance_rule", resourceId: String(input.id) });
+        return { success: true };
+      }),
   }),
-
-  // ─── Recordings ──────────────────────────────────────────────────────────────
+  // ─── Recordings ───────────────────────────────────────────────────────────────
   recordings: router({
     upload: protectedProcedure
       .input(z.object({

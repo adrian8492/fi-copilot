@@ -109,6 +109,12 @@ export const performanceGrades = mysqlTable("performance_grades", {
   strengths: text("strengths"),
   improvements: text("improvements"),
   coachingNotes: text("coachingNotes"),
+  // Script Fidelity Scoring (Sprint 4)
+  scriptFidelityScore: float("scriptFidelityScore"),
+  processAdherenceScore: float("processAdherenceScore"),
+  menuSequenceScore: float("menuSequenceScore"),
+  objectionResponseScore: float("objectionResponseScore"),
+  transitionAccuracyScore: float("transitionAccuracyScore"),
   gradedAt: timestamp("gradedAt").defaultNow().notNull(),
 });
 
@@ -221,6 +227,57 @@ export const objectionLogs = mysqlTable("objection_logs", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// ─── Compliance Rules (Custom Rules Builder) ────────────────────────────────
+export const complianceRules = mysqlTable("compliance_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  createdBy: int("createdBy").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  category: mysqlEnum("category", [
+    "federal_tila",
+    "federal_ecoa",
+    "federal_udap",
+    "federal_cla",
+    "contract_element",
+    "fi_product_disclosure",
+    "process_step",
+    "custom",
+  ]).notNull().default("custom"),
+  triggerKeywords: json("triggerKeywords").$type<string[]>().notNull(),
+  requiredPhrase: text("requiredPhrase"),
+  severity: mysqlEnum("severity", ["critical", "warning", "info"]).notNull().default("warning"),
+  weight: float("weight").notNull().default(1.0),
+  isActive: boolean("isActive").notNull().default(true),
+  dealStage: varchar("dealStage", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Script Library (Verbatim Script Index) ───────────────────────────────────
+export const scriptLibrary = mysqlTable("script_library", {
+  id: int("id").autoincrement().primaryKey(),
+  scriptText: text("scriptText").notNull(),
+  scriptCategory: mysqlEnum("scriptCategory", [
+    "professional_hello",
+    "customer_connection",
+    "financial_snapshot",
+    "menu_transition",
+    "product_presentation",
+    "objection_prevention",
+    "objection_response",
+    "closing",
+    "phone_script",
+    "compliance_disclosure",
+  ]).notNull(),
+  dealStage: varchar("dealStage", { length: 64 }).notNull(),
+  intentTrigger: varchar("intentTrigger", { length: 255 }).notNull(),
+  triggerKeywords: json("triggerKeywords").$type<string[]>().notNull(),
+  sourceDocument: varchar("sourceDocument", { length: 255 }).notNull(),
+  productContext: varchar("productContext", { length: 128 }),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 export const auditLogs = mysqlTable("audit_logs", {
   id: int("id").autoincrement().primaryKey(),
@@ -247,6 +304,10 @@ export type PerformanceGrade = typeof performanceGrades.$inferSelect;
 export type AudioRecording = typeof audioRecordings.$inferSelect;
 export type CoachingReport = typeof coachingReports.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type ComplianceRule = typeof complianceRules.$inferSelect;
+export type InsertComplianceRule = typeof complianceRules.$inferInsert;
+export type ScriptLibraryEntry = typeof scriptLibrary.$inferSelect;
+export type InsertScriptLibraryEntry = typeof scriptLibrary.$inferInsert;
 export type SessionChecklist = typeof sessionChecklists.$inferSelect;
 export type InsertSessionChecklist = typeof sessionChecklists.$inferInsert;
 export type ObjectionLog = typeof objectionLogs.$inferSelect;

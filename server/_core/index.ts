@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { setupWebSocketServer } from "../websocket";
+import { registerPdfRoutes } from "../pdf-routes";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -44,6 +45,8 @@ async function startServer() {
       createContext,
     })
   );
+  // PDF download routes (REST — not tRPC, because we stream binary)
+  registerPdfRoutes(app);
   // WebSocket server for real-time F&I sessions
   setupWebSocketServer(server);
 

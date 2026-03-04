@@ -94,6 +94,24 @@ export default function SessionDetail() {
           <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={() => navigate("/history")}>
             <ArrowLeft className="w-4 h-4" /> Back
           </Button>
+          <div className="ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-blue-400 border-blue-400/30 hover:bg-blue-400/10"
+              onClick={() => {
+                const url = `/api/pdf/coaching-report/${session.id}`;
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `coaching-report-${(session.customerName ?? `session-${session.id}`).toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              }}
+            >
+              <Download className="w-4 h-4" /> Download Report
+            </Button>
+          </div>
           <Badge variant="outline" className={cn(
             "text-xs",
             session.status === "completed" ? "border-green-500/30 text-green-400" :
@@ -179,6 +197,41 @@ export default function SessionDetail() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Script Fidelity Score Card */}
+                {(grade.scriptFidelityScore != null || grade.processAdherenceScore != null) && (
+                  <Card className="bg-card border-border lg:col-span-2">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm">Script Fidelity Score</CardTitle>
+                        <Badge variant="outline" className="text-xs text-blue-400 border-blue-400/40">ASURA Methodology</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Measures adherence to ASURA verbatim word tracks and 7-step process sequence</p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        {[
+                          { label: "Script Fidelity", value: grade.scriptFidelityScore, desc: "Verbatim keyword adherence" },
+                          { label: "Process Adherence", value: grade.processAdherenceScore, desc: "7-step process completion" },
+                          { label: "Menu Sequence", value: grade.menuSequenceScore, desc: "Menu presentation order" },
+                          { label: "Objection Response", value: grade.objectionResponseScore, desc: "Objection scripts used" },
+                          { label: "Transition Accuracy", value: grade.transitionAccuracyScore, desc: "Stage transitions" },
+                        ].map((item) => {
+                          const v = item.value ?? 0;
+                          const color = v >= 80 ? "text-green-400" : v >= 60 ? "text-yellow-400" : "text-red-400";
+                          const bg = v >= 80 ? "bg-green-400/10" : v >= 60 ? "bg-yellow-400/10" : "bg-red-400/10";
+                          return (
+                            <div key={item.label} className={`rounded-lg p-3 border border-border ${bg} text-center`}>
+                              <p className={`text-2xl font-bold ${color}`}>{item.value != null ? `${Math.round(item.value)}%` : "—"}</p>
+                              <p className="text-xs font-semibold text-foreground mt-1">{item.label}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             ) : (
               <Card className="bg-card border-border">

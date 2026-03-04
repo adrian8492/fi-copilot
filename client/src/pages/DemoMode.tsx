@@ -216,6 +216,7 @@ export default function DemoMode() {
   const [checklist, setChecklist] = useState<ChecklistState>({});
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [scriptFidelity, setScriptFidelity] = useState({ process: 0, menu: 0, objection: 0, transition: 0, overall: 0 });
 
   const startTimeRef = useRef<number>(0);
   const pausedAtRef = useRef<number>(0);
@@ -295,6 +296,7 @@ export default function DemoMode() {
         setIsPlaying(false);
         setIsComplete(true);
         setScore(84);
+        setScriptFidelity({ process: 92, menu: 88, objection: 85, transition: 90, overall: 89 });
         toast.success("Demo session complete — Score: 84/100 (Elite)", { description: "3 products sold. PVR: $1,847" });
       }, completionRemaining);
       timersRef.current.push(t);
@@ -332,6 +334,7 @@ export default function DemoMode() {
     setChecklist({});
     setScore(0);
     setIsComplete(false);
+    setScriptFidelity({ process: 0, menu: 0, objection: 0, transition: 0, overall: 0 });
     pausedAtRef.current = 0;
   }, [clearAllTimers]);
 
@@ -455,14 +458,37 @@ export default function DemoMode() {
             {/* Score Card */}
             <Card className="bg-card/50 border-border/60">
               <CardContent className="p-4">
-                <div className="text-center">
+                <div className="text-center mb-3">
                   <div className="text-4xl font-bold text-foreground mb-1">{score}</div>
-                  <div className="text-xs text-muted-foreground mb-3">Live Score</div>
-                  <Progress value={score} className="h-2 mb-3" />
+                  <div className="text-xs text-muted-foreground mb-2">Live Score</div>
+                  <Progress value={score} className="h-2 mb-2" />
                   <div className={`text-xs font-semibold ${score >= 80 ? "text-emerald-400" : score >= 65 ? "text-amber-400" : "text-red-400"}`}>
                     {score >= 80 ? "ELITE" : score >= 65 ? "DEVELOPING" : "NEEDS COACHING"}
                   </div>
                 </div>
+                {isComplete && (
+                  <div className="space-y-1.5 pt-3 border-t border-border/40">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Script Fidelity</p>
+                    {[
+                      { label: "Process", value: scriptFidelity.process },
+                      { label: "Menu Seq.", value: scriptFidelity.menu },
+                      { label: "Objection", value: scriptFidelity.objection },
+                      { label: "Transition", value: scriptFidelity.transition },
+                    ].map(item => (
+                      <div key={item.label}>
+                        <div className="flex justify-between text-[10px] mb-0.5">
+                          <span className="text-muted-foreground">{item.label}</span>
+                          <span className={item.value >= 85 ? "text-emerald-400" : item.value >= 70 ? "text-amber-400" : "text-red-400"}>{item.value}</span>
+                        </div>
+                        <Progress value={item.value} className="h-1" />
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-[10px] pt-1 border-t border-border/40">
+                      <span className="font-semibold text-foreground">Overall</span>
+                      <span className="font-bold text-emerald-400">{scriptFidelity.overall}</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -624,7 +650,7 @@ export default function DemoMode() {
                   <p className="text-sm text-muted-foreground">Marcus Rivera demonstrated ASURA Elite F&I methodology across all 3 phases</p>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-4 mb-4">
                 {[
                   { label: "Overall Score", value: "84/100", sub: "Elite", color: "text-emerald-400" },
                   { label: "Products Sold", value: "3 of 4", sub: "GAP + VSA + T&W", color: "text-violet-400" },
@@ -637,6 +663,26 @@ export default function DemoMode() {
                     <div className="text-[10px] text-muted-foreground/60 mt-0.5">{stat.sub}</div>
                   </div>
                 ))}
+              </div>
+              {/* Script Fidelity Breakdown */}
+              <div className="p-4 rounded-lg bg-background/30 border border-border/40 mb-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Script Fidelity Score — {scriptFidelity.overall}/100</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                  {[
+                    { label: "Process Adherence", value: scriptFidelity.process },
+                    { label: "Menu Sequence", value: scriptFidelity.menu },
+                    { label: "Objection Response", value: scriptFidelity.objection },
+                    { label: "Transition Accuracy", value: scriptFidelity.transition },
+                  ].map(item => (
+                    <div key={item.label}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">{item.label}</span>
+                        <span className={`font-semibold ${item.value >= 85 ? "text-emerald-400" : item.value >= 70 ? "text-amber-400" : "text-red-400"}`}>{item.value}</span>
+                      </div>
+                      <Progress value={item.value} className="h-1.5" />
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="flex gap-3 mt-4">
                 <Button onClick={handleReset} variant="outline" className="gap-2">

@@ -12,6 +12,10 @@ import {
   scanTranscriptForViolations,
   COMPLIANCE_CATEGORY_LABELS,
 } from "./compliance-engine";
+import {
+  retrieveScript,
+  detectDealStage,
+} from "./asura-scripts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ClientMessage {
@@ -119,10 +123,11 @@ async function generateLLMSuggestion(
               title: { type: "string" },
               content: { type: "string" },
               script: { type: "string" },
+              framework: { type: "string" },
               urgency: { type: "string" },
               triggeredBy: { type: "string" },
             },
-            required: ["type", "title", "content", "script", "urgency", "triggeredBy"],
+            required: ["type", "title", "content", "script", "framework", "urgency", "triggeredBy"],
             additionalProperties: false,
           },
         },
@@ -148,8 +153,25 @@ async function generateLLMSuggestion(
 }
 
 // ─── ASURA Quick Trigger Wrapper ─────────────────────────────────────────────
-function generateQuickSuggestion(text: string): typeof RESPONSE_CACHE[string] | null {
-  return asuraQuickTrigger(text);
+function generateQuickSuggestion(text: string, fullTranscript?: string): typeof RESPONSE_CACHE[string] | null {
+  // Layer 1: ASURA regex triggers (instant, <5ms)
+  const quick = asuraQuickTrigger(text);
+  if (quick) return quick;
+
+  // Layer 2: Script library keyword match (asura-scripts.ts)
+  const dealStage = fullTranscript ? detectDealStage(fullTranscript) : undefined;
+  const matched = retrieveScript(text, dealStage);
+  if (matched) {
+    return {
+      type: matched.scriptCategory as string,
+      title: matched.title,
+      content: matched.coachingNote ?? "Use the ASURA verbatim script below.",
+      script: matched.scriptText,
+      urgency: matched.urgency,
+      framework: matched.sourceDocument,
+    };
+  }
+  return null;
 }
 
 // ─── Deepgram Connection Factory ──────────────────────────────────────────────

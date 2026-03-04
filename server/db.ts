@@ -8,6 +8,7 @@ import {
   auditLogs,
   coachingReports,
   complianceFlags,
+  complianceRules,
   copilotSuggestions,
   objectionLogs,
   performanceGrades,
@@ -216,6 +217,11 @@ export async function upsertGrade(data: {
   strengths?: string;
   improvements?: string;
   coachingNotes?: string;
+  scriptFidelityScore?: number;
+  processAdherenceScore?: number;
+  menuSequenceScore?: number;
+  objectionResponseScore?: number;
+  transitionAccuracyScore?: number;
 }) {
   const db = await getDb();
   if (!db) return;
@@ -630,4 +636,60 @@ function formatConcernLabel(concern: string): string {
     other: "Other",
   };
   return map[concern] ?? concern;
+}
+
+// ─── Compliance Rules ─────────────────────────────────────────────────────────
+export async function getAllComplianceRules() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(complianceRules).orderBy(desc(complianceRules.createdAt));
+}
+
+export async function getActiveComplianceRules() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(complianceRules).where(eq(complianceRules.isActive, true)).orderBy(desc(complianceRules.createdAt));
+}
+
+export async function insertComplianceRule(data: {
+  createdBy: number;
+  title: string;
+  description?: string;
+  category: "federal_tila" | "federal_ecoa" | "federal_udap" | "federal_cla" | "contract_element" | "fi_product_disclosure" | "process_step" | "custom";
+  triggerKeywords: string[];
+  requiredPhrase?: string;
+  severity: "critical" | "warning" | "info";
+  weight?: number;
+  isActive?: boolean;
+  dealStage?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(complianceRules).values({
+    ...data,
+    weight: data.weight ?? 1.0,
+    isActive: data.isActive ?? true,
+  });
+}
+
+export async function updateComplianceRule(id: number, data: Partial<{
+  title: string;
+  description: string;
+  category: "federal_tila" | "federal_ecoa" | "federal_udap" | "federal_cla" | "contract_element" | "fi_product_disclosure" | "process_step" | "custom";
+  triggerKeywords: string[];
+  requiredPhrase: string;
+  severity: "critical" | "warning" | "info";
+  weight: number;
+  isActive: boolean;
+  dealStage: string;
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(complianceRules).set(data).where(eq(complianceRules.id, id));
+}
+
+export async function deleteComplianceRule(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(complianceRules).where(eq(complianceRules.id, id));
 }

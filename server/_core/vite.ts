@@ -9,7 +9,15 @@ import viteConfig from "../../vite.config";
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    // Pass the HTTP server so Vite can attach its HMR WebSocket to the same
+    // server process (port 3000). The clientPort/protocol settings from
+    // vite.config.ts tell the *browser* to connect via the reverse proxy
+    // (port 443 / wss) rather than trying to reach the internal port directly.
+    hmr: {
+      server,
+      clientPort: 443,
+      protocol: "wss",
+    },
     allowedHosts: true as const,
   };
 

@@ -12,6 +12,7 @@ import {
   BarChart3,
   Upload,
   ShieldCheck,
+  Shield,
   Settings,
   LogOut,
   ChevronRight,
@@ -41,6 +42,7 @@ const PERFORMANCE_ITEMS = [
 
 const ADMIN_ITEMS = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck },
+  { path: "/compliance-rules", label: "Compliance Rules", icon: Shield },
 ];
 
 interface AppLayoutProps {
