@@ -11,6 +11,7 @@ import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
+  Lightbulb, Copy, CheckCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,14 @@ export default function SessionDetail() {
   const { data: transcripts } = trpc.transcripts.getBySession.useQuery({ sessionId });
   const { data: complianceFlags } = trpc.compliance.getFlags.useQuery({ sessionId });
   const { data: coachingReport } = trpc.reports.get.useQuery({ sessionId });
+  const { data: sessionFull } = trpc.sessions.getWithDetails.useQuery({ id: sessionId });
+  const suggestions = sessionFull?.suggestions ?? [];
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const copyScript = (text: string, id: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const generateGrade = trpc.grades.generate.useMutation({
     onSuccess: () => { refetchGrade(); toast.success("Grade generated!"); },
@@ -154,6 +163,12 @@ export default function SessionDetail() {
             <TabsTrigger value="grade">Performance Grade</TabsTrigger>
             <TabsTrigger value="transcript">Transcript</TabsTrigger>
             <TabsTrigger value="compliance">Compliance</TabsTrigger>
+            <TabsTrigger value="suggestions" className="gap-1.5">
+              Co-Pilot Suggestions
+              {suggestions.length > 0 && (
+                <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">{suggestions.length}</span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="coaching">Coaching Report</TabsTrigger>
           </TabsList>
 
@@ -343,6 +358,76 @@ export default function SessionDetail() {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          {/* Co-Pilot Suggestions Tab */}
+          <TabsContent value="suggestions" className="mt-4">
+            {suggestions.length > 0 ? (
+              <div className="space-y-3">
+                {suggestions.map((s) => {
+                  const isHigh = s.priority === "high";
+                  const isMed = s.priority === "medium";
+                  const borderBg = isHigh ? "border-red-500/30 bg-red-500/5" : isMed ? "border-yellow-500/30 bg-yellow-500/5" : "border-blue-500/30 bg-blue-500/5";
+                  const badgeColor = isHigh ? "border-red-500/30 text-red-400" : isMed ? "border-yellow-500/30 text-yellow-400" : "border-blue-500/30 text-blue-400";
+                  const iconColor = isHigh ? "text-red-400" : isMed ? "text-yellow-400" : "text-blue-400";
+                  return (
+                    <Card key={s.id} className={cn("border", borderBg)}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Lightbulb className={cn("w-4 h-4 mt-0.5 shrink-0", iconColor)} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                              <Badge variant="outline" className={cn("text-[10px]", badgeColor)}>{s.priority}</Badge>
+                              <Badge variant="outline" className="text-[10px] border-border text-muted-foreground capitalize">
+                                {s.type.replace(/_/g, " ")}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground/50 ml-auto">
+                                {format(new Date(s.createdAt), "h:mm:ss a")}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-3">{s.content}</p>
+                            {s.script && (
+                              <div className="bg-background/60 border border-border rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Verbatim Word Track</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] gap-1"
+                                    onClick={() => copyScript(s.script!, s.id)}
+                                  >
+                                    {copiedId === s.id
+                                      ? <CheckCheck className="w-3 h-3 text-green-400" />
+                                      : <Copy className="w-3 h-3" />}
+                                    {copiedId === s.id ? "Copied" : "Copy"}
+                                  </Button>
+                                </div>
+                                <p className="text-sm text-foreground italic leading-relaxed">&ldquo;{s.script}&rdquo;</p>
+                                {s.framework && (
+                                  <p className="text-[10px] text-muted-foreground/50 mt-2">Source: {s.framework}</p>
+                                )}
+                              </div>
+                            )}
+                            {s.triggeredBy && (
+                              <p className="text-[10px] text-muted-foreground/40 mt-2">Triggered by: &ldquo;{s.triggeredBy}&rdquo;</p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card className="bg-card border-border">
+                <CardContent className="py-12 text-center">
+                  <Lightbulb className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+                  <p className="text-sm font-medium text-muted-foreground">No co-pilot suggestions recorded for this session</p>
+                  <p className="text-xs text-muted-foreground/50 mt-1">Suggestions are captured in real-time during live sessions</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Coaching Report Tab */}
