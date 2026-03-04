@@ -198,3 +198,11 @@
 - [x] App.tsx: Register /join route
 - [x] Tests: 12 new invitation tests (create, list, validate, redeem, revoke)
 - [x] Tests: 61/61 total tests passing
+
+## Demo Mode Rebuild — ASURA 7-Step Verbatim Script Walkthrough
+- [x] Demo: Script Client Survey stage — verbatim F&I manager lines + customer responses
+- [x] Demo: Script Review Figures / Balance Due stage — verbatim lines showing balance due presentation
+- [x] Demo: Script Introduction / Transition to Menu stage — verbatim menu intro word track
+- [x] Demo: Wire all 3 stages into the demo replay timeline with co-pilot suggestions firing at correct moments
+- [x] Demo: Show compliance checklist updating live as each stage completes
+- [x] Demo: Show Script Fidelity Score updating after each verbatim line is delivered
