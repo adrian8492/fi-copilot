@@ -51,6 +51,7 @@ interface StreamSession {
   audioChunkCount: number;
   // Buffer audio chunks that arrive before Deepgram is ready
   audioBuffer: Buffer[];
+  lastFinalText: string;
 }
 
 // Active HTTP-stream sessions keyed by token
@@ -243,9 +244,14 @@ function createDeepgramConnection(state: StreamSession) {
     const startTime = words?.[0]?.start != null ? Math.round(words[0].start!) : elapsedNow;
     const endTime = words?.[words.length - 1]?.end != null ? Math.round(words[words.length - 1].end!) : undefined;
 
-    if (!speechFinal) {
-      broadcast(state, "transcript", { text, speaker, startTime, endTime, isFinal, confidence, source: "deepgram" });
-    }
+    // Skip speech_final events (duplicates of is_final)
+    if (speechFinal) return;
+    
+    // Skip duplicate final text
+    if (isFinal && state.lastFinalText === text) return;
+    if (isFinal) state.lastFinalText = text;
+    
+    broadcast(state, "transcript", { text, speaker, startTime, endTime, isFinal, confidence, source: "deepgram" });
 
     if (!isFinal) return;
 
@@ -388,6 +394,7 @@ export function createHttpStreamRouter(): Router {
       token,
       audioChunkCount: 0,
       audioBuffer: [],
+      lastFinalText: "",
     };
 
     state.deepgramConnection = createDeepgramConnection(state);

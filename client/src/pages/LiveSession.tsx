@@ -248,6 +248,7 @@ export default function LiveSession() {
             : elapsed;
           setTranscripts((prev) => {
             if (!isFinalMsg) {
+              // Update the last interim entry in-place if same speaker
               const lastIdx = prev.length - 1;
               if (lastIdx >= 0 && !prev[lastIdx].isFinal &&
                   prev[lastIdx].speaker === ((data.speaker as string) ?? "unknown")) {
@@ -255,6 +256,10 @@ export default function LiveSession() {
                 updated[lastIdx] = { ...updated[lastIdx], text: data.text as string };
                 return updated;
               }
+            } else {
+              // Skip duplicate final text (same text as last final entry)
+              const lastFinal = [...prev].reverse().find((e) => e.isFinal);
+              if (lastFinal && lastFinal.text === data.text) return prev;
             }
             const entry: TranscriptEntry = {
               id: `${Date.now()}-${Math.random()}`,

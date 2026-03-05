@@ -91,6 +91,14 @@ vi.mock("./db", () => ({
   redeemInvitation: vi.fn().mockResolvedValue({ id: 1, token: "abc123token", dealershipId: 1, role: "user" }),
   getInvitationsByDealership: vi.fn().mockResolvedValue([{ id: 1, token: "abc123token", email: "test@dealership.com", dealershipId: 1, role: "user", invitedBy: 1, usedBy: null, usedAt: null, expiresAt: new Date(Date.now() + 7 * 86400000), createdAt: new Date() }]),
   revokeInvitation: vi.fn().mockResolvedValue(undefined),
+  getObjectionAnalysisByProduct: vi.fn().mockResolvedValue([{ product: "gap_insurance", total: 10, resolved: 7, resolutionRate: 70 }]),
+  getObjectionAnalysisByConcern: vi.fn().mockResolvedValue([{ concernType: "cost", total: 8, resolved: 5, resolutionRate: 62.5 }]),
+  getAllDealerships: vi.fn().mockResolvedValue([{ id: 1, name: "Test Dealership", slug: "test-dealership", plan: "beta", isActive: true, createdAt: new Date() }]),
+  createDealership: vi.fn().mockResolvedValue(undefined),
+  updateDealership: vi.fn().mockResolvedValue(undefined),
+  assignUserToDealership: vi.fn().mockResolvedValue(undefined),
+  getManagerScorecard: vi.fn().mockResolvedValue({ avgOverall: 82, avgPvr: 1400, avgCompliance: 88, avgWordTrack: 65, sessionCount: 12, avgScriptFidelity: 72, weeklyData: [{ week: "2026-W01", overall: 80, pvr: 1300, compliance: 85, wordTrack: 60, sessions: 3, scriptFidelity: 70 }] }),
+  getActiveComplianceRules: vi.fn().mockResolvedValue([{ id: 1, category: "custom", title: "No Pressure Language", description: "Avoid pressure tactics", triggerKeywords: ["you must buy", "required purchase"], requiredPhrase: null, severity: "critical", weight: 1.0, isActive: true, dealStage: null, createdBy: 1, createdAt: new Date(), updatedAt: new Date() }]),
 }));
 
 vi.mock("./storage", () => ({
@@ -704,5 +712,199 @@ describe("invitations.revoke", () => {
   it("throws FORBIDDEN for non-admin", async () => {
     const caller = appRouter.createCaller(makeCtx());
     await expect(caller.invitations.revoke({ id: 1 })).rejects.toThrow();
+  });
+});
+
+
+// ─── Session Export ──────────────────────────────────────────────────────────
+describe("sessions.exportSession", () => {
+  it("exports session data as JSON", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.exportSession({ sessionId: 1, format: "json" });
+    expect(result.format).toBe("json");
+    expect(result.filename).toContain("session-1");
+    expect(result.filename).toContain(".json");
+    expect(typeof result.data).toBe("string");
+    const parsed = JSON.parse(result.data);
+    expect(parsed.session.id).toBe(1);
+    expect(parsed.exportedAt).toBeDefined();
+  });
+
+  it("exports session data as CSV", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.exportSession({ sessionId: 1, format: "csv" });
+    expect(result.format).toBe("csv");
+    expect(result.filename).toContain(".csv");
+    expect(result.data).toContain("Speaker,Text,StartTime,EndTime,Confidence");
+  });
+
+  it("throws NOT_FOUND for non-existent session", async () => {
+    const { getSessionById } = await import("./db");
+    vi.mocked(getSessionById).mockResolvedValueOnce(undefined as any);
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.sessions.exportSession({ sessionId: 999, format: "json" })).rejects.toThrow();
+  });
+
+  it("throws UNAUTHORIZED when not logged in", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    await expect(caller.sessions.exportSession({ sessionId: 1, format: "json" })).rejects.toThrow();
+  });
+});
+
+// ─── System Validation ───────────────────────────────────────────────────────
+describe("admin.systemValidation", () => {
+  it("returns system health checks for admin", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.systemValidation();
+    expect(result.status).toBeDefined();
+    expect(result.checks).toBeInstanceOf(Array);
+    expect(result.checks.length).toBeGreaterThan(0);
+    expect(result.timestamp).toBeGreaterThan(0);
+    // Every check should have name, status, detail
+    for (const check of result.checks) {
+      expect(check.name).toBeDefined();
+      expect(["pass", "fail", "warn"]).toContain(check.status);
+      expect(check.detail).toBeDefined();
+    }
+  });
+
+  it("checks Deepgram API key presence", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.systemValidation();
+    const deepgramCheck = result.checks.find(c => c.name.includes("Deepgram"));
+    expect(deepgramCheck).toBeDefined();
+  });
+
+  it("checks LLM API key presence", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.systemValidation();
+    const llmCheck = result.checks.find(c => c.name.includes("LLM"));
+    expect(llmCheck).toBeDefined();
+  });
+
+  it("checks compliance engine status", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.systemValidation();
+    const complianceCheck = result.checks.find(c => c.name.includes("Compliance"));
+    expect(complianceCheck).toBeDefined();
+    expect(complianceCheck!.status).toBe("pass");
+  });
+
+  it("checks ASURA script library status", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.systemValidation();
+    const asuraCheck = result.checks.find(c => c.name.includes("ASURA"));
+    expect(asuraCheck).toBeDefined();
+    expect(asuraCheck!.status).toBe("pass");
+  });
+
+  it("throws FORBIDDEN for non-admin users", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.admin.systemValidation()).rejects.toThrow();
+  });
+});
+
+// ─── Objection Analysis ──────────────────────────────────────────────────────
+describe("objections.analysisByProduct", () => {
+  it("returns product-level objection analysis", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.objections.analysisByProduct({});
+    expect(result).toBeInstanceOf(Array);
+    expect(result[0].product).toBe("gap_insurance");
+    expect(result[0].total).toBe(10);
+  });
+});
+
+describe("objections.analysisByConcern", () => {
+  it("returns concern-type objection analysis", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.objections.analysisByConcern({});
+    expect(result).toBeInstanceOf(Array);
+    expect(result[0].concernType).toBe("cost");
+  });
+});
+
+// ─── Dealerships ─────────────────────────────────────────────────────────────
+describe("admin.listDealerships", () => {
+  it("returns dealership list for admin", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.listDealerships();
+    expect(result).toBeInstanceOf(Array);
+    expect(result[0].name).toBe("Test Dealership");
+  });
+
+  it("throws FORBIDDEN for non-admin", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.admin.listDealerships()).rejects.toThrow();
+  });
+});
+
+describe("admin.createDealership", () => {
+  it("creates a dealership for admin", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    // createDealership returns the dealership object from db, not { success: true }
+    await expect(caller.admin.createDealership({ name: "New Dealership", slug: "new-dealership" })).resolves.not.toThrow();
+  });
+
+  it("throws FORBIDDEN for non-admin", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.admin.createDealership({ name: "New", slug: "new" })).rejects.toThrow();
+  });
+});
+
+describe("admin.assignUserToDealership", () => {
+  it("assigns user to dealership for admin", async () => {
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.assignUserToDealership({ userId: 1, dealershipId: 1 });
+    expect(result.success).toBe(true);
+  });
+
+  it("throws FORBIDDEN for non-admin", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.admin.assignUserToDealership({ userId: 1, dealershipId: 1 })).rejects.toThrow();
+  });
+});
+
+// ─── Session End ─────────────────────────────────────────────────────────────
+describe("sessions.end", () => {
+  it("ends a session with duration", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.end({ id: 1, durationSeconds: 120 });
+    expect(result.success).toBe(true);
+  });
+
+  it("throws UNAUTHORIZED when not logged in", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    await expect(caller.sessions.end({ id: 1, durationSeconds: 120 })).rejects.toThrow();
+  });
+
+  it("throws NOT_FOUND for non-existent session", async () => {
+    const { getSessionById } = await import("./db");
+    vi.mocked(getSessionById).mockResolvedValueOnce(undefined as any);
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.sessions.end({ id: 999, durationSeconds: 120 })).rejects.toThrow();
+  });
+});
+
+// ─── Checklist Get ───────────────────────────────────────────────────────────
+describe("checklists.get", () => {
+  it("returns checklist for a session", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.checklists.get({ sessionId: 1 });
+    expect(result).toBeNull(); // mock returns null
+  });
+});
+
+// ─── Compliance Resolve ──────────────────────────────────────────────────────
+describe("compliance.resolveFlag", () => {
+  it("resolves a compliance flag", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.compliance.resolveFlag({ flagId: 1 });
+    expect(result.success).toBe(true);
+  });
+
+  it("throws UNAUTHORIZED when not logged in", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    await expect(caller.compliance.resolveFlag({ flagId: 1 })).rejects.toThrow();
   });
 });

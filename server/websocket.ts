@@ -64,6 +64,7 @@ interface SessionState {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   keepaliveTimer: ReturnType<typeof setInterval> | null;
   audioBuffer: Buffer[];
+  lastFinalText: string;
 }
 
 const activeSessions = new Map<WebSocket, SessionState>();
@@ -260,13 +261,17 @@ function createDeepgramConnection(
     const elapsedNow = Math.floor((Date.now() - state.startTime) / 1000);
     const startTime = words?.[0]?.start != null ? Math.round(words[0].start!) : elapsedNow;
     const endTime = words?.[words.length - 1]?.end != null ? Math.round(words[words.length - 1].end!) : undefined;
-    // Broadcast interim OR final — but NOT speech_final (that's a duplicate of is_final)
-    if (!speechFinal) {
-      send({
-        type: "transcript",
-        data: { text, speaker, startTime, endTime, isFinal, confidence, source: "deepgram" },
-      });
-    }
+    // Skip speech_final events (duplicates of is_final)
+    if (speechFinal) return;
+    
+    // Skip duplicate final text (Deepgram can send the same final twice)
+    if (isFinal && state.lastFinalText === text) return;
+    if (isFinal) state.lastFinalText = text;
+    
+    send({
+      type: "transcript",
+      data: { text, speaker, startTime, endTime, isFinal, confidence, source: "deepgram" },
+    });
 
     if (!isFinal) return;
 
@@ -489,6 +494,7 @@ export function setupWebSocketServer(server: HttpServer) {
             reconnectTimer: null,
             keepaliveTimer: null,
             audioBuffer: [],
+            lastFinalText: "",
           };
           activeSessions.set(ws, state);
           state.deepgramConnection = createDeepgramConnection(state, ws, send);

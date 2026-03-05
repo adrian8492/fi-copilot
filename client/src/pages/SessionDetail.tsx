@@ -162,6 +162,58 @@ export default function SessionDetail() {
             >
               <Download className="w-4 h-4" /> Download Report
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={() => {
+                const link = document.createElement("a");
+                const query = new URLSearchParams({ sessionId: String(sessionId), format: "json" });
+                // Use tRPC query to fetch export data
+                fetch(`/api/trpc/sessions.exportSession?input=${encodeURIComponent(JSON.stringify({ sessionId, format: "json" }))}`, { credentials: "include" })
+                  .then(r => r.json())
+                  .then(res => {
+                    const data = res?.result?.data ?? res;
+                    const blob = new Blob([typeof data.data === 'string' ? data.data : JSON.stringify(data, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    link.href = url;
+                    link.download = data.filename ?? `session-${sessionId}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    toast.success("Session exported as JSON");
+                  })
+                  .catch(() => toast.error("Export failed"));
+              }}
+            >
+              <FileText className="w-3.5 h-3.5" /> Export JSON
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={() => {
+                fetch(`/api/trpc/sessions.exportSession?input=${encodeURIComponent(JSON.stringify({ sessionId, format: "csv" }))}`, { credentials: "include" })
+                  .then(r => r.json())
+                  .then(res => {
+                    const data = res?.result?.data ?? res;
+                    const blob = new Blob([typeof data.data === 'string' ? data.data : ''], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = data.filename ?? `session-${sessionId}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    toast.success("Session exported as CSV");
+                  })
+                  .catch(() => toast.error("Export failed"));
+              }}
+            >
+              <FileText className="w-3.5 h-3.5" /> Export CSV
+            </Button>
           </div>
           <Badge variant="outline" className={cn(
             "text-xs",

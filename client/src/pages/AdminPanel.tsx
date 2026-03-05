@@ -8,7 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Users, Shield, Activity, Crown, UserCheck, RefreshCw, Building2, Settings2, CheckCircle2, XCircle, Mail, Link2, Trash2, Clock } from "lucide-react";
+import { Users, Shield, Activity, Crown, UserCheck, RefreshCw, Building2, Settings2, CheckCircle2, XCircle, Mail, Link2, Trash2, Clock, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -128,6 +128,7 @@ export default function AdminPanel() {
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
             <TabsTrigger value="audit">Audit Log</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="health">System Health</TabsTrigger>
           </TabsList>
 
           {/* Dealerships Tab */}
@@ -509,8 +510,78 @@ export default function AdminPanel() {
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="health" className="mt-4 space-y-4">
+            <SystemHealthPanel />
+          </TabsContent>
         </Tabs>
       </div>
     </AppLayout>
+  );
+}
+
+function SystemHealthPanel() {
+  const { data, isLoading, refetch } = trpc.admin.systemValidation.useQuery();
+  const statusColor = data?.status === "healthy" ? "text-green-400" : data?.status === "degraded" ? "text-yellow-400" : "text-red-400";
+  const statusBg = data?.status === "healthy" ? "bg-green-500/10 border-green-500/30" : data?.status === "degraded" ? "bg-yellow-500/10 border-yellow-500/30" : "bg-red-500/10 border-red-500/30";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">System Validation Report</h3>
+          <p className="text-sm text-muted-foreground">Real-time health check of all platform services</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+          <RefreshCw className={cn("w-4 h-4 mr-1.5", isLoading && "animate-spin")} /> Refresh
+        </Button>
+      </div>
+
+      {data && (
+        <>
+          <div className={cn("flex items-center gap-3 p-4 rounded-xl border", statusBg)}>
+            {data.status === "healthy" ? <CheckCircle2 className="w-6 h-6 text-green-400" /> : data.status === "degraded" ? <Activity className="w-6 h-6 text-yellow-400" /> : <XCircle className="w-6 h-6 text-red-400" />}
+            <div>
+              <p className={cn("font-semibold text-lg", statusColor)}>
+                {data.status === "healthy" ? "All Systems Operational" : data.status === "degraded" ? "Degraded Performance" : "System Error"}
+              </p>
+              <p className="text-xs text-muted-foreground">Last checked: {new Date(data.timestamp).toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            {data.checks.map((check, i) => (
+              <Card key={i} className={cn(
+                "border",
+                check.status === "pass" ? "border-green-500/20" : check.status === "warn" ? "border-yellow-500/20" : "border-red-500/20"
+              )}>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {check.status === "pass" ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : check.status === "warn" ? <AlertTriangle className="w-5 h-5 text-yellow-400" /> : <XCircle className="w-5 h-5 text-red-400" />}
+                    <div>
+                      <p className="font-medium text-sm">{check.name}</p>
+                      <p className="text-xs text-muted-foreground">{check.detail}</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={cn(
+                    "text-xs",
+                    check.status === "pass" ? "border-green-500/30 text-green-400" : check.status === "warn" ? "border-yellow-500/30 text-yellow-400" : "border-red-500/30 text-red-400"
+                  )}>
+                    {check.status.toUpperCase()}
+                  </Badge>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Running system checks...</span>
+        </div>
+      )}
+    </div>
   );
 }
