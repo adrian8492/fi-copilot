@@ -1,0 +1,137 @@
+New mock functions to add:
+updateSessionNotes, searchSessions, getSessionComparison, getComplianceTrend
+
+describe("sessions.updateNotes", () => {
+  it("should update session notes successfully", async () => {
+    const { updateSessionNotes } = await import("./db");
+    (updateSessionNotes as vi.Mock).mockResolvedValueOnce(undefined);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.sessions.updateNotes({
+      sessionId: 1,
+      notes: "Customer was very interested in GAP insurance"
+    });
+
+    expect(updateSessionNotes).toHaveBeenCalledWith(1, "Customer was very interested in GAP insurance");
+    expect(result).toBeUndefined();
+  });
+
+  it("should handle empty notes", async () => {
+    const { updateSessionNotes } = await import("./db");
+    (updateSessionNotes as vi.Mock).mockResolvedValueOnce(undefined);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.sessions.updateNotes({
+      sessionId: 1,
+      notes: ""
+    });
+
+    expect(updateSessionNotes).toHaveBeenCalledWith(1, "");
+    expect(result).toBeUndefined();
+  });
+});
+
+describe("sessions.search", () => {
+  it("should return search results", async () => {
+    const { searchSessions } = await import("./db");
+    const mockResults = [
+      { id: 1, userId: 1, status: "completed", dealType: "retail_finance", startedAt: new Date(), consentObtained: true, customerName: "John Doe", dealNumber: "D12345", vehicleType: "car", vehicleYear: 2023, vehicleMake: "Toyota", vehicleModel: "Camry", salePrice: 25000, financeAmount: 20000, endedAt: new Date(), durationSeconds: 1800, notes: "Great customer interaction", updatedAt: new Date() }
+    ];
+    (searchSessions as vi.Mock).mockResolvedValueOnce(mockResults);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.sessions.search({
+      query: "Toyota",
+      limit: 10
+    });
+
+    expect(searchSessions).toHaveBeenCalledWith("Toyota", 1, 10);
+    expect(result).toEqual(mockResults);
+  });
+
+  it("should handle empty query", async () => {
+    const { searchSessions } = await import("./db");
+    (searchSessions as vi.Mock).mockResolvedValueOnce([]);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.sessions.search({
+      query: ""
+    });
+
+    expect(searchSessions).toHaveBeenCalledWith("", 1, undefined);
+    expect(result).toEqual([]);
+  });
+});
+
+describe("sessions.compare", () => {
+  it("should return comparison of both sessions", async () => {
+    const { getSessionComparison } = await import("./db");
+    const mockComparison = {
+      session1: { id: 1, userId: 1, status: "completed", dealType: "retail_finance", startedAt: new Date(), consentObtained: true, customerName: "John Doe", dealNumber: "D12345", vehicleType: "car", vehicleYear: 2023, vehicleMake: "Toyota", vehicleModel: "Camry", salePrice: 25000, financeAmount: 20000, endedAt: new Date(), durationSeconds: 1800, notes: null, updatedAt: new Date() },
+      session2: { id: 2, userId: 1, status: "completed", dealType: "lease", startedAt: new Date(), consentObtained: true, customerName: "Jane Smith", dealNumber: "D12346", vehicleType: "car", vehicleYear: 2024, vehicleMake: "Honda", vehicleModel: "Accord", salePrice: 30000, financeAmount: 25000, endedAt: new Date(), durationSeconds: 2100, notes: null, updatedAt: new Date() }
+    };
+    (getSessionComparison as vi.Mock).mockResolvedValueOnce(mockComparison);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.sessions.compare({
+      sessionId1: 1,
+      sessionId2: 2
+    });
+
+    expect(getSessionComparison).toHaveBeenCalledWith(1, 2);
+    expect(result).toEqual(mockComparison);
+  });
+
+  it("should handle missing session", async () => {
+    const { getSessionComparison } = await import("./db");
+    const mockComparison = {
+      session1: { id: 1, userId: 1, status: "completed", dealType: "retail_finance", startedAt: new Date(), consentObtained: true, customerName: "John Doe", dealNumber: "D12345", vehicleType: "car", vehicleYear: 2023, vehicleMake: "Toyota", vehicleModel: "Camry", salePrice: 25000, financeAmount: 20000, endedAt: new Date(), durationSeconds: 1800, notes: null, updatedAt: new Date() },
+      session2: null
+    };
+    (getSessionComparison as vi.Mock).mockResolvedValueOnce(mockComparison);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.sessions.compare({
+      sessionId1: 1,
+      sessionId2: 999
+    });
+
+    expect(getSessionComparison).toHaveBeenCalledWith(1, 999);
+    expect(result).toEqual(mockComparison);
+  });
+});
+
+describe("analytics.complianceTrend", () => {
+  it("should return compliance trend data", async () => {
+    const { getComplianceTrend } = await import("./db");
+    const mockTrend = [
+      { date: "2026-01-01", flagCount: 2, severity: "critical" },
+      { date: "2026-01-02", flagCount: 1, severity: "warning" },
+      { date: "2026-01-03", flagCount: 0, severity: null }
+    ];
+    (getComplianceTrend as vi.Mock).mockResolvedValueOnce(mockTrend);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.analytics.complianceTrend({
+      days: 7
+    });
+
+    expect(getComplianceTrend).toHaveBeenCalledWith(1, 7);
+    expect(result).toEqual(mockTrend);
+  });
+
+  it("should use default days when not specified", async () => {
+    const { getComplianceTrend } = await import("./db");
+    const mockTrend = [
+      { date: "2026-01-01", flagCount: 3, severity: "critical" },
+      { date: "2026-01-02", flagCount: 2, severity: "warning" }
+    ];
+    (getComplianceTrend as vi.Mock).mockResolvedValueOnce(mockTrend);
+
+    const { caller } = createAuthenticatedContext();
+    const result = await caller.analytics.complianceTrend({});
+
+    expect(getComplianceTrend).toHaveBeenCalledWith(1, undefined);
+    expect(result).toEqual(mockTrend);
+  });
+});

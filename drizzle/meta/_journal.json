@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1772508059434,
+      "tag": "0000_ambiguous_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1772508194868,
+      "tag": "0001_sad_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1772510354259,
+      "tag": "0002_dapper_roxanne_simpson",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1772603288192,
+      "tag": "0003_red_vision",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1772605862226,
+      "tag": "0004_material_pride",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1772639699101,
+      "tag": "0005_yummy_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1772640110124,
+      "tag": "0006_cloudy_black_panther",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1772666322288,
+      "tag": "0007_breezy_donald_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1772689829440,
+      "tag": "0008_charming_jubilee",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1772690786762,
+      "tag": "0009_woozy_oracle",
+      "breakpoints": true
+    }
+  ]
+}

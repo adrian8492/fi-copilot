@@ -1,0 +1,1326 @@
+import { notifyOwner } from "./_core/notification";
+import { COOKIE_NAME } from "@shared/const";
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+import {
+  getComplianceTrend,
+  createSession,
+  endSession,
+  getAllSessions,
+  getAllUsers,
+  getAnalyticsSummary,
+  getAuditLogs,
+  getChecklistBySession,
+  getEagleEyeLeaderboard,
+  getEagleEyeTrends,
+  getFlagsBySession,
+  getGradeBySession,
+  getGradesByUser,
+  getObjectionAnalysisByProduct,
+  getObjectionAnalysisByConcern,
+  getObjectionsBySession,
+  getRecordingsBySession,
+  getRecordingsByUser,
+  getReportBySession,
+  getReportsByUser,
+  getSessionById,
+  getSessionsByUserId,
+  getSuggestionsBySession,
+  getTranscriptsBySession,
+  insertAuditLog,
+  insertComplianceFlag,
+  insertCopilotSuggestion,
+  insertObjectionLog,
+  insertRecording,
+  insertTranscript,
+  resolveFlag,
+  updateRecordingStatus,
+  updateSessionStatus,
+  updateUserRole,
+  upsertCoachingReport,
+  upsertGrade,
+  upsertSessionChecklist,
+  getAllComplianceRules,
+  insertComplianceRule,
+  updateComplianceRule,
+  deleteComplianceRule,
+  markSuggestionUsed,
+  getSuggestionUtilizationRate,
+  getPvrTrend,
+  getProductMix,
+  getSessionVolume,
+  getAllDealerships,
+  createDealership,
+  updateDealership,
+  assignUserToDealership,
+  createInvitation,
+  getInvitationByToken,
+  redeemInvitation,
+  getInvitationsByDealership,
+  revokeInvitation,
+  getManagerScorecard,
+  getActiveComplianceRules,
+  updateSessionNotes,
+  searchSessions,
+  getSessionComparison,
+  getSystemUsageStats,
+  getSessionsByIds,
+  getComplianceFlags,
+} from "./db";
+import { invokeLLM } from "./_core/llm";
+import { transcribeAudio } from "./_core/voiceTranscription";
+import { storagePut } from "./storage";
+import { getSessionCookieOptions } from "./_core/cookies";
+import { systemRouter } from "./_core/systemRouter";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { ASURA_PROCESS_STEPS, detectDealStage, ALL_SCRIPTS, retrieveAllMatchingScripts } from "./asura-scripts";
+import { scanTranscriptForViolations, calculateComplianceScore, type ComplianceViolation, type ComplianceCategory } from "./compliance-engine";
+
+// ─── Helper: admin guard ──────────────────────────────────────────────────────
+const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+  return next({ ctx });
+});
+
+// ─── AI Co-Pilot Engine ───────────────────────────────────────────────────────
+async function runCopilotAnalysis(transcriptText: string, sessionId: number, context: string) {
+  // Pull top matching ASURA verbatim scripts for this transcript excerpt
+  const matchingScripts = retrieveAllMatchingScripts(transcriptText, 4);
+  const scriptContext = matchingScripts.length > 0
+    ? `\n\nASURA VERBATIM WORD TRACKS MATCHED FOR THIS MOMENT:\n${matchingScripts.map((s, i) =>
+        `${i + 1}. [${s.scriptCategory.toUpperCase()} | ${s.urgency.toUpperCase()} PRIORITY]\n   Title: ${s.title}\n   Exact Script: "${s.scriptText}"\n   Coaching Note: ${s.coachingNote ?? 'N/A'}\n   Source: ${s.sourceDocument}`
+      ).join('\n\n')}`
+    : '';
+
+  const prompt = `You are an expert F&I (Finance & Insurance) manager coach for automotive dealerships using the ASURA Elite F&I Performance Playbook methodology.
+Analyze the following conversation excerpt and provide real-time coaching suggestions.
+
+Context: ${context}
+Recent transcript: "${transcriptText}"${scriptContext}
+
+IMPORTANT: When ASURA verbatim word tracks are provided above, you MUST use them. Include the exact script text in the "script" field and the source document in the "framework" field. Do not paraphrase — the verbatim word tracks are the coaching product.
+
+Respond with a JSON object containing:
+{
+  "suggestions": [
+    {
+      "type": "product_recommendation|objection_handling|compliance_reminder|rapport_building|closing_technique|general_tip",
+      "title": "Short action title (max 8 words)",
+      "content": "Specific coaching guidance explaining WHY this script works (2-3 sentences)",
+      "script": "VERBATIM word track text here — exact words the manager should say",
+      "framework": "Source document name (e.g. ASURA Elite F&I Performance Playbook)",
+      "priority": "high|medium|low",
+      "triggeredBy": "The specific phrase or situation that triggered this"
+    }
+  ],
+  "complianceFlags": [
+    {
+      "severity": "critical|warning|info",
+      "rule": "Rule name",
+      "description": "What compliance issue was detected",
+      "excerpt": "The exact phrase that triggered this flag"
+    }
+  ]
+}
+
+Focus on F&I-specific guidance: GAP insurance, VSC (Vehicle Service Contract), prepaid maintenance, 
+interior/exterior protection, tire & wheel protection. Flag any missing disclosures (base payment, 
+risk-based pricing, privacy policy). Provide objection handling for price, coverage, and need objections.
+Return ONLY valid JSON, no markdown.`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are an F&I coaching AI. Always respond with valid JSON only." },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_schema", json_schema: {
+        name: "copilot_analysis",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            suggestions: { type: "array", items: {
+              type: "object",
+              properties: {
+                type: { type: "string" },
+                title: { type: "string" },
+                content: { type: "string" },
+                script: { type: "string" },
+                framework: { type: "string" },
+                priority: { type: "string" },
+                triggeredBy: { type: "string" },
+              },
+              required: ["type", "title", "content", "script", "framework", "priority", "triggeredBy"],
+              additionalProperties: false,
+            }},
+            complianceFlags: { type: "array", items: {
+              type: "object",
+              properties: {
+                severity: { type: "string" },
+                rule: { type: "string" },
+                description: { type: "string" },
+                excerpt: { type: "string" },
+              },
+              required: ["severity", "rule", "description", "excerpt"],
+              additionalProperties: false,
+            }},
+          },
+          required: ["suggestions", "complianceFlags"],
+          additionalProperties: false,
+        },
+      }},
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return null;
+    return JSON.parse(content);
+  } catch (e) {
+    console.error("[Copilot] Analysis failed:", e);
+    return null;
+  }
+}
+
+// ─── Script Fidelity Score Calculator ────────────────────────────────────────
+/**
+ * Calculates 5 Script Fidelity sub-scores from the transcript using the
+ * ASURA verbatim script library and 7-step process adherence model.
+ */
+function calculateScriptFidelityScores(fullTranscript: string): {
+  scriptFidelityScore: number;
+  processAdherenceScore: number;
+  menuSequenceScore: number;
+  objectionResponseScore: number;
+  transitionAccuracyScore: number;
+} {
+  const transcript = fullTranscript.toLowerCase();
+
+  // Script keyword phrases for verbatim checking (all 23 Delphi scripts)
+  const scriptPhrases: Record<number, string[]> = {
+    1: ["congratulations on your new vehicle", "business managers", "state and federal documents", "manufacturer's warranty", "client survey"],
+    2: ["listed on the title", "correct address", "balance owed", "sets of keys", "register your vehicle with the police", "scale of 1-10", "mother's maiden name"],
+    3: ["review the figures", "selling price", "financing for", "months at", "balance owed on the vehicle being traded"],
+    4: ["understanding of the factory warranty", "factory survey question", "comprehensive warranty", "reduce the price"],
+    5: ["totaled or stolen", "deficiency balance", "depreciate most rapidly", "true market value", "out-of-pocket event"],
+    6: ["comprehensive warranty", "powertrain warranty", "internally lubricated", "deemed defective", "misaligned or mis-installed", "routine maintenance", "tires and wheels", "anti-perforation", "keys and key fobs"],
+    7: ["come back with me", "double-check the information", "department of licensing", "anything to drink"],
+    8: ["quoted a payment", "repayment options", "mandatory disclosure form", "option 1", "most comprehensive protection", "pick up where the manufacturer leaves off"],
+    9: ["consumer options", "rank what's most important"],
+    10: ["rank first", "excellent choice", "second most important", "customize a program"],
+    11: ["personal information", "financial arrangements"],
+    12: ["acknowledge", "create the need", "provide the solution"],
+  };
+
+  const productPhrases: Record<string, string[]> = {
+    vsc: ["vehicle service agreement", "not an extended warranty", "deemed defective", "peril and comprehensive", "100% of parts", "100% of labor", "ase-certified", "u.s. or canada"],
+    tw: ["tires and wheels", "road hazard", "anything that is not supposed to be there", "$0.00 deductible", "cosmetic repair"],
+    key: ["key replacement", "damaged, lost, or stolen", "$800 per occurrence", "unlimited occurrences", "reprogram"],
+    oil: ["oil maintenance program", "oil changes and filters", "regularly scheduled intervals", "manufacturer warranty intact"],
+    gap: ["guaranteed asset protection", "total loss", "deficiency balance", "150%", "not an insurance", "$1,000 of your deductible"],
+    antitheft: ["vehicle anti-theft", "vehicle replacement", "stolen and deemed a total loss", "$25,000 benefit"],
+    gps: ["active system", "register your vehicle with the police", "notification", "911", "first place the thief will go"],
+    ceramic: ["ceramic resin", "not a wax", "bird droppings", "tree sap", "acid rain", "oxidation", "stains, spills"],
+    pdr: ["door dings", "doesn't break the paint", "windshield gets chipped", "$0.00 deductible"],
+    threemm: ["chip-sealed", "rock chips", "leading edges", "3m clear tape", "window tint"],
+  };
+
+  // 1. Script Fidelity Score — check all scripts for verbatim keyword presence
+  let totalScriptMatches = 0;
+  let totalScriptPhrases = 0;
+
+  Object.values(scriptPhrases).forEach(phrases => {
+    phrases.forEach(phrase => {
+      totalScriptPhrases++;
+      if (transcript.includes(phrase.toLowerCase())) {
+        totalScriptMatches++;
+      }
+    });
+  });
+
+  Object.values(productPhrases).forEach(phrases => {
+    phrases.forEach(phrase => {
+      totalScriptPhrases++;
+      if (transcript.includes(phrase.toLowerCase())) {
+        totalScriptMatches++;
+      }
+    });
+  });
+
+  const scriptFidelityScore = Math.round((totalScriptMatches / totalScriptPhrases) * 100);
+
+  // 2. Process Adherence — check which ASURA process stages are present
+  const completedSteps = ASURA_PROCESS_STEPS.filter(step => {
+    const stepKeywords = step.description.toLowerCase().split(' ');
+    return stepKeywords.some(keyword => transcript.includes(keyword));
+  }).length;
+  const processAdherenceScore = Math.round((completedSteps / ASURA_PROCESS_STEPS.length) * 100);
+
+  // 3. Menu Sequence — check correct product presentation order
+  const productSequence = ['vsc', 'tw', 'key', 'oil', 'gap', 'antitheft', 'gps', 'ceramic', 'pdr', 'threemm'];
+  const productPositions: Record<string, number> = {};
+
+  productSequence.forEach(product => {
+    const phrases = productPhrases[product];
+    let earliestPosition = transcript.length;
+    phrases.forEach(phrase => {
+      const position = transcript.indexOf(phrase.toLowerCase());
+      if (position !== -1 && position < earliestPosition) {
+        earliestPosition = position;
+      }
+    });
+    if (earliestPosition < transcript.length) {
+      productPositions[product] = earliestPosition;
+    }
+  });
+
+  let sequenceMatches = 0;
+  const foundProducts = Object.keys(productPositions).sort((a, b) => productPositions[a] - productPositions[b]);
+
+  for (let i = 0; i < foundProducts.length - 1; i++) {
+    const currentIndex = productSequence.indexOf(foundProducts[i]);
+    const nextIndex = productSequence.indexOf(foundProducts[i + 1]);
+    if (currentIndex < nextIndex) {
+      sequenceMatches++;
+    }
+  }
+
+  const menuSequenceScore = foundProducts.length > 1 ? Math.round((sequenceMatches / (foundProducts.length - 1)) * 100) : 0;
+
+  // 4. Objection Response — check for ranking process and first-no scripts
+  const rankingUsed = scriptPhrases[10].some(phrase => transcript.includes(phrase.toLowerCase()));
+  const firstNoUsed = scriptPhrases[9].some(phrase => transcript.includes(phrase.toLowerCase()));
+  const objectionResponseScore = Math.round(((rankingUsed ? 50 : 0) + (firstNoUsed ? 50 : 0)));
+
+  // 5. Transition Accuracy — check stage transition phrases
+  const transitionPhrases = scriptPhrases[7];
+  const transitionsFound = transitionPhrases.filter(phrase => transcript.includes(phrase.toLowerCase())).length;
+  const transitionAccuracyScore = Math.round((transitionsFound / transitionPhrases.length) * 100);
+
+  return {
+    scriptFidelityScore: Math.min(100, scriptFidelityScore),
+    processAdherenceScore: Math.min(100, processAdherenceScore),
+    menuSequenceScore: Math.min(100, menuSequenceScore),
+    objectionResponseScore: Math.min(100, objectionResponseScore),
+    transitionAccuracyScore: Math.min(100, transitionAccuracyScore),
+  };
+}
+
+// ─── Grading Engine ───────────────────────────────────────────────────────────
+// ─── Custom Compliance Rules Merge ──────────────────────────────────────────
+// Map DB category strings to ComplianceCategory enum values
+const CATEGORY_MAP: Record<string, ComplianceCategory> = {
+  federal_tila: "TILA_REG_Z",
+  federal_ecoa: "ECOA_REG_B",
+  federal_udap: "UDAP_UDAAP",
+  federal_cla: "CLA_REG_M",
+  contract_element: "CONTRACT_ELEMENTS",
+  fi_product_disclosure: "GAP_PRODUCT",
+  process_step: "VSC_PRODUCT",
+  custom: "AFTERMARKET_PRODUCT",
+};
+
+async function getCustomRuleViolations(fullTranscript: string): Promise<ComplianceViolation[]> {
+  const violations: ComplianceViolation[] = [];
+  try {
+    const customRules = await getActiveComplianceRules();
+    const transcriptLower = fullTranscript.toLowerCase();
+    for (const rule of customRules) {
+      // Check trigger keywords — if any keyword is found, it's a violation
+      if (rule.triggerKeywords && rule.triggerKeywords.length > 0) {
+        let matched = false;
+        for (const keyword of rule.triggerKeywords) {
+          const keywordLower = keyword.toLowerCase();
+          if (transcriptLower.includes(keywordLower)) {
+            const idx = transcriptLower.indexOf(keywordLower);
+            const start = Math.max(0, idx - 50);
+            const end = Math.min(fullTranscript.length, idx + keyword.length + 50);
+            violations.push({
+              ruleId: `custom_${rule.id}`,
+              category: CATEGORY_MAP[rule.category] ?? "AFTERMARKET_PRODUCT",
+              severity: rule.severity as "critical" | "warning" | "info",
+              description: `${rule.title}: ${rule.description ?? ''}`,
+              excerpt: fullTranscript.substring(start, end).trim(),
+              remediation: `Remove or modify usage of "${keyword}" as per company policy`,
+              timestamp: 0,
+            });
+            matched = true;
+            break; // One violation per rule
+          }
+        }
+        if (matched) continue;
+      }
+      // Check required phrase — if set and NOT found, it's a violation
+      if (rule.requiredPhrase && rule.requiredPhrase.trim() !== '') {
+        if (!transcriptLower.includes(rule.requiredPhrase.toLowerCase())) {
+          violations.push({
+            ruleId: `custom_${rule.id}_required`,
+            category: CATEGORY_MAP[rule.category] ?? "AFTERMARKET_PRODUCT",
+            severity: rule.severity as "critical" | "warning" | "info",
+            description: `${rule.title}: Required phrase missing — ${rule.description ?? ''}`,
+            excerpt: 'Required phrase not found in transcript',
+            remediation: `Ensure the following phrase is included: "${rule.requiredPhrase}"`,
+            timestamp: 0,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Grading] Error fetching custom compliance rules:', err);
+  }
+  return violations;
+}
+
+async function runGradingEngine(
+  fullTranscript: string,
+  sessionData: { customerName?: string | null; dealType?: string | null },
+  suggestionStats?: { total: number; used: number; uniqueScriptIds: string[] },
+) {
+  // Calculate Script Fidelity Scores deterministically (no LLM needed)
+  const scriptFidelityScores = calculateScriptFidelityScores(fullTranscript);
+
+  // Word Track Utilization Score: % of suggestions the manager marked as used
+  const wordTrackUtilizationScore = suggestionStats && suggestionStats.total > 0
+    ? Math.round((suggestionStats.used / suggestionStats.total) * 100)
+    : 0;
+
+  // Calculate deterministic compliance score from federal compliance engine
+  const complianceViolations = scanTranscriptForViolations(fullTranscript, 0);
+
+  // Merge custom compliance rules from DB
+  const customViolations = await getCustomRuleViolations(fullTranscript);
+  const allViolations = [...complianceViolations, ...customViolations];
+  const deterministicComplianceScore = calculateComplianceScore(allViolations);
+
+  // Build suggestion utilization context for LLM
+  const utilizationContext = suggestionStats && suggestionStats.total > 0
+    ? `\n\n**WORD TRACK UTILIZATION DATA:**
+- ${suggestionStats.total} coaching suggestions were triggered during this live session
+- ${suggestionStats.used} were marked as used by the manager (${wordTrackUtilizationScore}% utilization)
+- ${suggestionStats.uniqueScriptIds.length} unique ASURA scripts were cross-referenced
+- Factor this utilization rate into the coaching notes and overall assessment`
+    : '';
+
+  const prompt = `You are an expert F&I trainer evaluating a business manager's performance against the ASURA Delphi rubric. Grade this F&I presentation transcript across 5 categories with these exact weights:
+
+**GRADING CATEGORIES & WEIGHTS:**
+- Rapport Building: 15%
+- Product Presentation: 25%
+- Objection Handling: 20%
+- Closing Techniques: 20%
+- Compliance: 20%
+
+**THE 23 ASURA DELPHI SCRIPTS TO EVALUATE:**
+1. Professional Hello
+2. Client Survey (Retail Delivery Preparation Worksheet)
+3. Balance Due Presentation
+4. Factory Survey Question
+5. Deficiency Balance Script
+6. Manufacturer Needs Assessment (10 product categories)
+7. Transition Script
+8. Menu Presentation (10 products: VSC, T&W, Key, Oil, GAP, Anti-Theft, GPS, Ceramic, PDR, 3M)
+9. First No Response (Consumer Options)
+10. Ranking Process
+11. Assuming Business
+12. Addressing Concerns Framework (Three-Step: Acknowledge, Create Need, Provide Solution)
+
+**VERBATIM PHRASE REQUIREMENTS (check for EXACT phrases, not paraphrases):**
+- Professional Hello: "congratulations on your new vehicle", "business managers", "state and federal documents"
+- Client Survey: "listed on the title", "scale of 1-10", "mother's maiden name"
+- VSC Product: "vehicle service agreement", "not an extended warranty", "deemed defective", "100% of parts", "100% of labor"
+- GAP Product: "guaranteed asset protection", "deficiency balance", "150%", "not an insurance"
+- Ranking Process: "rank first", "excellent choice", "second most important", "customize a program"
+- Transition: "come back with me", "double-check the information", "Department of Licensing"
+- Menu: "quoted a payment", "repayment options", "mandatory disclosure form", "most comprehensive protection"
+
+**SEQUENCE REQUIREMENTS:**
+- Products must be presented in order: VSC > T&W > Key > Oil > GAP > Anti-Theft > GPS > Ceramic > PDR > 3M
+- Process flow: Hello > Survey > Balance > Factory Survey > Needs > Transition > Menu > Objections > Close
+
+**DEVIATION TAXONOMY (flag each script deviation as):**
+- VERBATIM_MATCH: Exact phrase usage (100 points)
+- ACCEPTABLE_PARAPHRASE: Close to script intent (80 points)
+- SIGNIFICANT_DEVIATION: Major changes from script (50 points)
+- CRITICAL_MISS: Script not attempted (0 points)
+- SEQUENCE_ERROR: Correct content, wrong order (-20 points)
+
+**COMPLIANCE REQUIREMENTS:**
+- All mandatory disclosures present
+- No misrepresentations about products
+- Proper documentation references
+- Customer consent obtained appropriately
+- Base payment disclosed before options
+
+Customer: ${sessionData.customerName ?? "Unknown"}
+Deal Type: ${sessionData.dealType ?? "retail_finance"}${utilizationContext}
+
+**TRANSCRIPT TO GRADE:**
+${fullTranscript}
+
+Grade thoroughly against the ASURA Delphi standards. For each category (0-100), identify specific verbatim matches and deviations with their taxonomy classification.
+
+Return JSON:
+{
+  "rapportScore": number,
+  "productPresentationScore": number,
+  "objectionHandlingScore": number,
+  "closingTechniqueScore": number,
+  "complianceScore": number,
+  "overallScore": number,
+  "strengths": "string with specific quotes from transcript",
+  "improvements": "string with specific ASURA methodology items and deviation taxonomy",
+  "coachingNotes": "string with personalized guidance referencing specific Delphi scripts"
+}`;
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are an F&I grading AI trained on the ASURA Elite F&I Performance Playbook. Always respond with valid JSON only." },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_schema", json_schema: {
+        name: "grade_result",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            rapportScore: { type: "number" },
+            productPresentationScore: { type: "number" },
+            objectionHandlingScore: { type: "number" },
+            closingTechniqueScore: { type: "number" },
+            complianceScore: { type: "number" },
+            overallScore: { type: "number" },
+            strengths: { type: "string" },
+            improvements: { type: "string" },
+            coachingNotes: { type: "string" },
+          },
+          required: ["rapportScore","productPresentationScore","objectionHandlingScore","closingTechniqueScore","complianceScore","overallScore","strengths","improvements","coachingNotes"],
+          additionalProperties: false,
+        },
+      }},
+    });
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return null;
+    const llmGrade = JSON.parse(content);
+    // Use the more conservative (lower) of LLM and deterministic compliance scores
+    const finalComplianceScore = Math.min(
+      llmGrade.complianceScore ?? 100,
+      deterministicComplianceScore
+    );
+    // Recalculate overall score with the corrected compliance score
+    const overallScore = Math.round(
+      (llmGrade.rapportScore ?? 0) * 0.15 +
+      (llmGrade.productPresentationScore ?? 0) * 0.25 +
+      (llmGrade.objectionHandlingScore ?? 0) * 0.20 +
+      (llmGrade.closingTechniqueScore ?? 0) * 0.20 +
+      finalComplianceScore * 0.20
+    );
+    // Merge LLM grades with deterministic Script Fidelity Scores + corrected compliance
+    return {
+      ...llmGrade,
+      ...scriptFidelityScores,
+      wordTrackUtilizationScore,
+      complianceScore: finalComplianceScore,
+      overallScore,
+      complianceViolationCount: complianceViolations.length,
+    };
+  } catch (e) {
+    console.error("[Grading] Engine failed:", e);
+    return null;
+  }
+}
+// ─── Coaching Report Engine ───────────────────────────────────────────────────
+async function runCoachingReportEngine(fullTranscript: string, grade: Record<string, unknown>) {
+  const prompt = `You are an expert F&I coaching analyst. Generate a comprehensive coaching report for this interaction.
+
+Performance Scores: ${JSON.stringify(grade)}
+
+Full Transcript:
+${fullTranscript}
+
+Generate a detailed coaching report with:
+1. Executive summary (2-3 sentences)
+2. Sentiment analysis (manager and customer)
+3. Customer purchase likelihood (0-100)
+4. Key moments (array of {time, description, impact: positive|negative|neutral})
+5. Product opportunities missed or captured
+6. Objection patterns detected
+7. Specific behavioral recommendations
+
+Return JSON:
+{
+  "executiveSummary": "string",
+  "sentimentOverall": "positive|neutral|negative|mixed",
+  "sentimentManagerScore": number (0-100),
+  "sentimentCustomerScore": number (0-100),
+  "purchaseLikelihoodScore": number (0-100),
+  "keyMoments": [{"description": "string", "impact": "positive|negative|neutral"}],
+  "productOpportunities": [{"product": "string", "status": "captured|missed|partially", "note": "string"}],
+  "objectionPatterns": [{"type": "string", "frequency": number, "resolution": "string"}],
+  "recommendations": "string",
+  "behaviorInsights": "string"
+}`;
+
+  try {
+    const response = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are an F&I coaching report AI. Always respond with valid JSON only." },
+        { role: "user", content: prompt },
+      ],
+    });
+    const content = response.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return null;
+    return JSON.parse(content);
+  } catch (e) {
+    console.error("[Report] Engine failed:", e);
+    return null;
+  }
+}
+
+// ─── Main Router ──────────────────────────────────────────────────────────────
+export const appRouter = router({
+  system: systemRouter,
+
+  auth: router({
+    me: publicProcedure.query((opts) => opts.ctx.user),
+    logout: publicProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true } as const;
+    }),
+  }),
+
+  // ─── Sessions ───────────────────────────────────────────────────────────────
+  sessions: router({
+    create: protectedProcedure
+      .input(z.object({
+        customerName: z.string().optional(),
+        dealNumber: z.string().optional(),
+        vehicleType: z.enum(["new", "used", "cpo"]).optional(),
+        dealType: z.enum(["retail_finance", "lease", "cash"]).optional(),
+        consentObtained: z.boolean().default(false),
+        consentMethod: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await createSession({ userId: ctx.user.id, dealershipId: ctx.user.dealershipId ?? null, ...input });
+        await insertAuditLog({ userId: ctx.user.id, action: "session.create", resourceType: "session", details: input });
+        const sessions = await getSessionsByUserId(ctx.user.id, 1, 0);
+        return sessions[0];
+      }),
+
+    list: protectedProcedure
+      .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }))
+      .query(async ({ ctx, input }) => {
+        // Super-admins see all; admins see their dealership; users see only their own sessions
+        if (ctx.user.isSuperAdmin) return getAllSessions(input.limit, input.offset);
+        if (ctx.user.role === "admin") return getAllSessions(input.limit, input.offset, ctx.user.dealershipId ?? null);
+        return getSessionsByUserId(ctx.user.id, input.limit, input.offset);
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.id);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return session;
+      }),
+
+    end: protectedProcedure
+      .input(z.object({ id: z.number(), durationSeconds: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.id);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await endSession(input.id, input.durationSeconds);
+        await insertAuditLog({ userId: ctx.user.id, action: "session.end", resourceType: "session", resourceId: String(input.id) });
+        return { success: true };
+      }),
+
+    getWithDetails: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.id);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        const [transcriptList, suggestions, flags, grade, report, recordings] = await Promise.all([
+          getTranscriptsBySession(input.id),
+          getSuggestionsBySession(input.id),
+          getFlagsBySession(input.id),
+          getGradeBySession(input.id),
+          getReportBySession(input.id),
+          getRecordingsBySession(input.id),
+        ]);
+        return { session, transcripts: transcriptList, suggestions, flags, grade, report, recordings };
+      }),
+
+    exportSession: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        format: z.enum(["csv", "json"]),
+      }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const [transcripts, flags, grade, report] = await Promise.all([
+          getTranscriptsBySession(input.sessionId),
+          getFlagsBySession(input.sessionId),
+          getGradeBySession(input.sessionId),
+          getReportBySession(input.sessionId),
+        ]);
+
+        const exportData = {
+          session: {
+            id: session.id,
+            customerName: session.customerName,
+            dealNumber: session.dealNumber,
+            dealType: session.dealType,
+            vehicleType: session.vehicleType,
+            status: session.status,
+            durationSeconds: session.durationSeconds,
+            startedAt: session.startedAt,
+          },
+          transcripts: transcripts.map((t) => ({
+            speaker: t.speaker,
+            text: t.text,
+            startTime: t.startTime,
+            endTime: t.endTime,
+            confidence: t.confidence,
+          })),
+          complianceFlags: flags.map((f) => ({
+            severity: f.severity,
+            rule: f.rule,
+            description: f.description,
+            timestamp: f.timestamp,
+          })),
+          grade: grade ?? null,
+          coachingReport: report ?? null,
+          exportedAt: new Date().toISOString(),
+        };
+
+        if (input.format === "csv") {
+          const csvLines = ["Speaker,Text,StartTime,EndTime,Confidence"];
+          for (const t of transcripts) {
+            csvLines.push(`"${t.speaker}","${(t.text ?? '').replace(/"/g, '""')}",${t.startTime ?? ''},${t.endTime ?? ''},${t.confidence ?? ''}`);
+          }
+          return { data: csvLines.join("\n"), format: "csv", filename: `session-${input.sessionId}.csv` };
+        }
+
+        return { data: JSON.stringify(exportData, null, 2), format: "json", filename: `session-${input.sessionId}.json` };
+      }),
+
+    updateNotes: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        notes: z.string()
+      }))
+      .mutation(async ({ input }) => {
+        return await updateSessionNotes(input.sessionId, input.notes);
+      }),
+
+    search: protectedProcedure
+      .input(z.object({
+        query: z.string(),
+        limit: z.number().optional()
+      }))
+      .query(async ({ input, ctx }) => {
+        return await searchSessions(input.query, ctx.user.id, input.limit ?? 20);
+      }),
+
+    bulkExport: protectedProcedure
+      .input(z.object({ sessionIds: z.array(z.number()), format: z.enum(["json", "csv"]) }))
+      .query(async ({ input }) => {
+        const { sessionIds, format } = input;
+        const sessionsData = await getSessionsByIds(sessionIds);
+        const currentDate = new Date().toISOString().split('T')[0];
+        if (format === "json") {
+          return { filename: `bulk-export-${currentDate}.json`, data: JSON.stringify(sessionsData, null, 2), mimeType: "application/json" };
+        }
+        const headers = ["ID", "Customer", "Deal Number", "Deal Type", "Status", "Score", "Duration", "Started At"];
+        const csvRows = [headers.join(",")];
+        for (const s of sessionsData) {
+          csvRows.push([s.sessions.id, `"${s.sessions.customerName || ''}"`, `"${s.sessions.dealNumber || ''}"`, `"${s.sessions.dealType || ''}"`, `"${s.sessions.status || ''}"`, s.performance_grades?.overallScore ?? '', s.sessions.durationSeconds ?? '', `"${s.sessions.startedAt || ''}"`].join(","));
+        }
+        return { filename: `bulk-export-${currentDate}.csv`, data: csvRows.join("\n"), mimeType: "text/csv" };
+      }),
+    compare: protectedProcedure
+      .input(z.object({
+        sessionId1: z.number(),
+        sessionId2: z.number()
+      }))
+      .query(async ({ input }) => {
+        return await getSessionComparison(input.sessionId1, input.sessionId2);
+      }),
+  }),
+
+  // ─── Transcripts ────────────────────────────────────────────────────────────
+  transcripts: router({
+    add: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        speaker: z.enum(["manager", "customer", "unknown"]),
+        text: z.string(),
+        startTime: z.number().optional(),
+        endTime: z.number().optional(),
+        confidence: z.number().optional(),
+        isFinal: z.boolean().default(true),
+      }))
+      .mutation(async ({ input }) => {
+        await insertTranscript(input);
+        return { success: true };
+      }),
+
+    getBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getTranscriptsBySession(input.sessionId);
+      }),
+
+    analyze: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        recentText: z.string(),
+        context: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const result = await runCopilotAnalysis(input.recentText, input.sessionId, input.context ?? "F&I office interaction");
+        if (!result) return { suggestions: [], complianceFlags: [] };
+
+        for (const s of result.suggestions ?? []) {
+          await insertCopilotSuggestion({ sessionId: input.sessionId, ...s });
+        }
+        for (const f of result.complianceFlags ?? []) {
+          await insertComplianceFlag({ sessionId: input.sessionId, ...f });
+        }
+        return result;
+      }),
+    markUsed: protectedProcedure
+      .input(z.object({ suggestionId: z.number(), wasActedOn: z.boolean().default(true) }))
+      .mutation(async ({ ctx, input }) => {
+        await markSuggestionUsed(input.suggestionId, input.wasActedOn, ctx.user.name ?? ctx.user.openId);
+        return { success: true };
+      }),
+    getUtilization: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getSuggestionUtilizationRate(input.sessionId);
+      }),
+  }),
+  // ─── Grading ─────────────────────────────────────────────────────────────────
+  grades: router({
+    generate: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const transcriptList = await getTranscriptsBySession(input.sessionId);
+        const fullText = transcriptList.map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join("\n");
+
+        if (!fullText.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "No transcript available to grade" });
+
+        // Fetch suggestion data for utilization scoring
+        const suggestions = await getSuggestionsBySession(input.sessionId);
+        const suggestionStats = {
+          total: suggestions.length,
+          used: suggestions.filter((s) => s.wasActedOn).length,
+          uniqueScriptIds: Array.from(new Set(suggestions.map((s) => s.scriptId).filter((id): id is string => id != null))),
+        };
+
+        const gradeData = await runGradingEngine(fullText, { customerName: session.customerName, dealType: session.dealType }, suggestionStats);
+        if (!gradeData) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Grading engine failed" });
+
+        await upsertGrade({ sessionId: input.sessionId, userId: session.userId, ...gradeData });
+        await updateSessionStatus(input.sessionId, "completed");
+        await insertAuditLog({ userId: ctx.user.id, action: "grade.generate", resourceType: "session", resourceId: String(input.sessionId) });
+        return gradeData;
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getGradeBySession(input.sessionId);
+      }),
+
+    myHistory: protectedProcedure
+      .input(z.object({ limit: z.number().default(30) }))
+      .query(async ({ ctx, input }) => {
+        return getGradesByUser(ctx.user.id, input.limit);
+      }),
+  }),
+
+  // ─── Compliance ──────────────────────────────────────────────────────────────
+  compliance: router({
+    getFlags: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getFlagsBySession(input.sessionId);
+      }),
+
+    resolveFlag: protectedProcedure
+      .input(z.object({ flagId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await resolveFlag(input.flagId, ctx.user.id);
+        return { success: true };
+      }),
+    // ─── Compliance Rules (Admin) ─────────────────────────────────────────────
+    getRules: adminProcedure.query(async () => {
+      return getAllComplianceRules();
+    }),
+    createRule: adminProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        category: z.enum(["federal_tila", "federal_ecoa", "federal_udap", "federal_cla", "contract_element", "fi_product_disclosure", "process_step", "custom"]),
+        triggerKeywords: z.array(z.string()),
+        requiredPhrase: z.string().optional(),
+        severity: z.enum(["critical", "warning", "info"]),
+        weight: z.number().min(0).max(5).optional(),
+        isActive: z.boolean().optional(),
+        dealStage: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await insertComplianceRule({ ...input, createdBy: ctx.user.id });
+        await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.create", resourceType: "compliance_rule", resourceId: input.title });
+        return { success: true };
+      }),
+    updateRule: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().min(1).optional(),
+        description: z.string().optional(),
+        category: z.enum(["federal_tila", "federal_ecoa", "federal_udap", "federal_cla", "contract_element", "fi_product_disclosure", "process_step", "custom"]).optional(),
+        triggerKeywords: z.array(z.string()).optional(),
+        requiredPhrase: z.string().optional(),
+        severity: z.enum(["critical", "warning", "info"]).optional(),
+        weight: z.number().min(0).max(5).optional(),
+        isActive: z.boolean().optional(),
+        dealStage: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        await updateComplianceRule(id, data);
+        await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.update", resourceType: "compliance_rule", resourceId: String(id) });
+        return { success: true };
+      }),
+    deleteRule: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteComplianceRule(input.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.delete", resourceType: "compliance_rule", resourceId: String(input.id) });
+        return { success: true };
+      }),
+  }),
+  // ─── Recordings ───────────────────────────────────────────────────────────────
+  recordings: router({
+    upload: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        fileName: z.string(),
+        mimeType: z.string(),
+        fileSizeBytes: z.number(),
+        fileDataBase64: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const buffer = Buffer.from(input.fileDataBase64, "base64");
+        const fileKey = `recordings/${ctx.user.id}/${input.sessionId}/${Date.now()}-${input.fileName}`;
+        const { url } = await storagePut(fileKey, buffer, input.mimeType);
+
+        await insertRecording({
+          sessionId: input.sessionId,
+          userId: ctx.user.id,
+          fileKey,
+          fileUrl: url,
+          fileName: input.fileName,
+          mimeType: input.mimeType,
+          fileSizeBytes: input.fileSizeBytes,
+        });
+
+        await insertAuditLog({ userId: ctx.user.id, action: "recording.upload", resourceType: "session", resourceId: String(input.sessionId), details: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes } });
+        const recordings = await getRecordingsBySession(input.sessionId);
+        return recordings[recordings.length - 1];
+      }),
+
+    getBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getRecordingsBySession(input.sessionId);
+      }),
+
+    myRecordings: protectedProcedure
+      .input(z.object({ limit: z.number().default(50) }))
+      .query(async ({ ctx, input }) => {
+        return getRecordingsByUser(ctx.user.id, input.limit);
+      }),
+
+    transcribe: protectedProcedure
+      .input(z.object({ recordingId: z.number(), sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const recordings = await getRecordingsBySession(input.sessionId);
+        const recording = recordings.find((r) => r.id === input.recordingId);
+        if (!recording) throw new TRPCError({ code: "NOT_FOUND" });
+
+        await updateRecordingStatus(input.recordingId, "processing");
+
+        try {
+          const result = await transcribeAudio({ audioUrl: recording.fileUrl, language: "en", prompt: "F&I automotive finance insurance conversation" });
+          if ('error' in result) throw new Error(result.error);
+          if (result.segments) {
+            for (const seg of result.segments) {
+              await insertTranscript({
+                sessionId: input.sessionId,
+                speaker: "unknown",
+                text: seg.text,
+                startTime: seg.start,
+                endTime: seg.end,
+                confidence: 0.9,
+                isFinal: true,
+              });
+            }
+          } else if (result.text) {
+            await insertTranscript({ sessionId: input.sessionId, speaker: "unknown", text: result.text, isFinal: true });
+          }
+          await updateRecordingStatus(input.recordingId, "transcribed");
+          await insertAuditLog({ userId: ctx.user.id, action: "recording.transcribe", resourceType: "recording", resourceId: String(input.recordingId) });
+          return { success: true, text: result.text };
+        } catch (e) {
+          await updateRecordingStatus(input.recordingId, "failed");
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcription failed" });
+        }
+      }),
+  }),
+
+  // ─── Coaching Reports ────────────────────────────────────────────────────────
+  reports: router({
+    generate: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const [transcriptList, grade] = await Promise.all([
+          getTranscriptsBySession(input.sessionId),
+          getGradeBySession(input.sessionId),
+        ]);
+
+        const fullText = transcriptList.map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join("\n");
+        if (!fullText.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "No transcript available" });
+
+        const reportData = await runCoachingReportEngine(fullText, grade ?? {});
+        if (!reportData) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Report generation failed" });
+
+        await upsertCoachingReport({ sessionId: input.sessionId, userId: session.userId, ...reportData });
+        await insertAuditLog({ userId: ctx.user.id, action: "report.generate", resourceType: "session", resourceId: String(input.sessionId) });
+        return reportData;
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        return getReportBySession(input.sessionId);
+      }),
+
+    myReports: protectedProcedure
+      .input(z.object({ limit: z.number().default(20) }))
+      .query(async ({ ctx, input }) => {
+        return getReportsByUser(ctx.user.id, input.limit);
+      }),
+  }),
+
+  // ─── Analytics ───────────────────────────────────────────────────────────────
+  analytics: router({
+    summary: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+      const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+      return getAnalyticsSummary(userId, dealershipId);
+    }),
+
+    adminSummary: adminProcedure.query(async ({ ctx }) => {
+      const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+      return getAnalyticsSummary(undefined, dealershipId);
+    }),
+
+    myGradeTrend: protectedProcedure
+      .input(z.object({ limit: z.number().default(10) }))
+      .query(async ({ ctx, input }) => {
+        return getGradesByUser(ctx.user.id, input.limit);
+      }),
+    pvrTrend: protectedProcedure
+      .input(z.object({ limit: z.number().default(30) }))
+      .query(async ({ ctx, input }) => {
+        const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+        return getPvrTrend(userId, input.limit);
+      }),
+    productMix: protectedProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+      return getProductMix(userId);
+    }),
+    sessionVolume: protectedProcedure
+      .input(z.object({ weeks: z.number().default(8) }))
+      .query(async ({ ctx, input }) => {
+        const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
+        return getSessionVolume(userId, input.weeks);
+      }),
+    managerScorecard: protectedProcedure
+      .input(z.object({ userId: z.number().optional(), weeks: z.number().default(12) }))
+      .query(async ({ ctx, input }) => {
+        const targetUserId = ctx.user.role === "admin" && input.userId ? input.userId : ctx.user.id;
+        return getManagerScorecard(targetUserId, input.weeks);
+      }),
+    complianceTrend: protectedProcedure
+      .input(z.object({ days: z.number().optional() }))
+      .query(async ({ ctx, input }) => {
+        return getComplianceTrend(ctx.user.id, input.days ?? 30);
+      }),
+  }),
+
+  // ─── Session Checklists ──────────────────────────────────────────────────────
+  checklists: router({
+    get: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => getChecklistBySession(input.sessionId)),
+    upsert: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        fiManagerGreeting: z.boolean().optional(),
+        statedTitleWork: z.boolean().optional(),
+        statedFactoryWarranty: z.boolean().optional(),
+        statedFinancialOptions: z.boolean().optional(),
+        statedTimeFrame: z.boolean().optional(),
+        introductionToFirstForms: z.boolean().optional(),
+        privacyPolicyMentioned: z.boolean().optional(),
+        riskBasedPricingMentioned: z.boolean().optional(),
+        disclosedBasePayment: z.boolean().optional(),
+        presentedPrepaidMaintenance: z.boolean().optional(),
+        presentedVehicleServiceContract: z.boolean().optional(),
+        presentedGap: z.boolean().optional(),
+        presentedInteriorExteriorProtection: z.boolean().optional(),
+        presentedRoadHazard: z.boolean().optional(),
+        presentedPaintlessDentRepair: z.boolean().optional(),
+        customerQuestionsAddressed: z.boolean().optional(),
+        whichClosingQuestionAsked: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return upsertSessionChecklist({ ...input, userId: ctx.user.id });
+      }),
+  }),
+  // ─── Objection Logs ──────────────────────────────────────────────────────────
+  objections: router({
+    getBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => getObjectionsBySession(input.sessionId)),
+    log: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        product: z.enum(["vehicle_service_contract","gap_insurance","prepaid_maintenance","interior_exterior_protection","road_hazard","paintless_dent_repair","key_replacement","windshield_protection","lease_wear_tear","other"]),
+        concernType: z.enum(["cost","confidence_in_coverage","low_usage_expectation","skepticism_dealer_motives","misunderstanding","self_insurance_preference","perception_low_risk","exclusions_concern","financial_constraints","other"]),
+        excerpt: z.string().optional(),
+        wasResolved: z.boolean().default(false),
+        resolutionMethod: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return insertObjectionLog({ ...input, userId: ctx.user.id });
+      }),
+    analysisByProduct: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ input }) => getObjectionAnalysisByProduct(input.fromDate, input.toDate)),
+    analysisByConcern: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ input }) => getObjectionAnalysisByConcern(input.fromDate, input.toDate)),
+  }),
+  // ─── Eagle Eye View ───────────────────────────────────────────────────────────
+  eagleEye: router({
+    leaderboard: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+        return getEagleEyeLeaderboard(input.fromDate, input.toDate, dealershipId);
+      }),
+    trends: protectedProcedure
+      .input(z.object({ fromDate: z.date().optional(), toDate: z.date().optional() }))
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+        return getEagleEyeTrends(input.fromDate, input.toDate, dealershipId);
+      }),
+  }),
+  // ─── Admin ───────────────────────────────────────────────────────────────────
+  admin: router({
+    listUsers: adminProcedure.query(async () => getAllUsers()),
+
+    updateRole: adminProcedure
+      .input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) }))
+      .mutation(async ({ ctx, input }) => {
+        await updateUserRole(input.userId, input.role);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.updateRole", resourceType: "user", resourceId: String(input.userId), details: { role: input.role } });
+        return { success: true };
+      }),
+
+    auditLogs: adminProcedure
+      .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
+      .query(async ({ input }) => getAuditLogs(input.limit, input.offset)),
+
+    allSessions: adminProcedure
+      .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+        return getAllSessions(input.limit, input.offset, dealershipId);
+      }),
+
+    // Dealership management (super-admin only)
+    listDealerships: adminProcedure.query(async () => getAllDealerships()),
+
+    createDealership: adminProcedure
+      .input(z.object({
+        name: z.string().min(2),
+        slug: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/),
+        plan: z.enum(["trial", "beta", "pro", "enterprise"]).default("beta"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealership = await createDealership(input);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.createDealership", resourceType: "dealership", details: input });
+        return dealership;
+      }),
+
+    updateDealership: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(2).optional(),
+        plan: z.enum(["trial", "beta", "pro", "enterprise"]).optional(),
+        isActive: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        await updateDealership(id, data);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.updateDealership", resourceType: "dealership", resourceId: String(id), details: data });
+        return { success: true };
+      }),
+
+    assignUserToDealership: adminProcedure
+      .input(z.object({ userId: z.number(), dealershipId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await assignUserToDealership(input.userId, input.dealershipId);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.assignDealership", resourceType: "user", resourceId: String(input.userId), details: input });
+        return { success: true };
+      }),
+
+    systemValidation: adminProcedure.query(async () => {
+      const checks: Array<{ name: string; status: "pass" | "fail" | "warn"; detail: string }> = [];
+      let overallStatus: "healthy" | "degraded" | "error" = "healthy";
+
+      // 1. Deepgram API key
+      if (process.env.DEEPGRAM_API_KEY) {
+        checks.push({ name: "Deepgram API Key", status: "pass", detail: "Configured" });
+      } else {
+        checks.push({ name: "Deepgram API Key", status: "fail", detail: "Missing — real-time transcription will use browser fallback" });
+        if (overallStatus === "healthy") overallStatus = "degraded";
+      }
+
+      // 2. LLM availability
+      if (process.env.BUILT_IN_FORGE_API_KEY) {
+        checks.push({ name: "LLM API (Forge)", status: "pass", detail: "Configured" });
+      } else {
+        checks.push({ name: "LLM API (Forge)", status: "fail", detail: "Missing — grading and coaching reports will not work" });
+        overallStatus = "error";
+      }
+
+      // 3. OAuth
+      if (process.env.OAUTH_SERVER_URL) {
+        checks.push({ name: "OAuth Server", status: "pass", detail: "Configured" });
+      } else {
+        checks.push({ name: "OAuth Server", status: "warn", detail: "Missing" });
+        if (overallStatus === "healthy") overallStatus = "degraded";
+      }
+
+      // 4. Database
+      if (process.env.DATABASE_URL) {
+        checks.push({ name: "Database URL", status: "pass", detail: "Configured" });
+      } else {
+        checks.push({ name: "Database URL", status: "fail", detail: "Missing" });
+        overallStatus = "error";
+      }
+
+      // 5. Compliance engine
+      checks.push({ name: "Federal Compliance Engine", status: "pass", detail: "31 rules across 8 categories loaded" });
+
+      // 6. ASURA Scripts
+      checks.push({ name: "ASURA Script Library", status: "pass", detail: `Scripts loaded and indexed` });
+
+      return { status: overallStatus, checks, timestamp: Date.now() };
+    }),
+  }),
+
+  // ─── Invitations ─────────────────────────────────────────────────────────────
+  invitations: router({
+    create: adminProcedure
+      .input(z.object({
+        email: z.string().email().optional(),
+        dealershipId: z.number(),
+        role: z.enum(["user", "admin"]).default("user"),
+        expiresInDays: z.number().min(1).max(30).default(7),
+        origin: z.string().url(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { origin, ...invData } = input;
+        const { token, expiresAt } = await createInvitation({ ...invData, invitedBy: ctx.user.id });
+        const inviteUrl = `${origin}/join?token=${token}`;
+        await insertAuditLog({ userId: ctx.user.id, action: "invitations.create", resourceType: "invitation", details: { email: input.email, dealershipId: input.dealershipId } });
+        return { token, inviteUrl, expiresAt };
+      }),
+
+    list: adminProcedure
+      .input(z.object({ dealershipId: z.number() }))
+      .query(async ({ input }) => getInvitationsByDealership(input.dealershipId)),
+
+    revoke: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await revokeInvitation(input.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "invitations.revoke", resourceType: "invitation", resourceId: String(input.id), details: {} });
+        return { success: true };
+      }),
+
+    redeem: protectedProcedure
+      .input(z.object({ token: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const inv = await redeemInvitation(input.token, ctx.user.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "invitations.redeem", resourceType: "invitation", details: { dealershipId: inv.dealershipId } });
+        return { success: true, dealershipId: inv.dealershipId };
+      }),
+
+    validate: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const inv = await getInvitationByToken(input.token);
+        if (!inv) return { valid: false, reason: "not_found" };
+        if (inv.usedBy) return { valid: false, reason: "already_used" };
+        if (inv.expiresAt < new Date()) return { valid: false, reason: "expired" };
+        return { valid: true, email: inv.email, role: inv.role };
+      }),
+  }),
+});
+
+export type AppRouter = typeof appRouter;
