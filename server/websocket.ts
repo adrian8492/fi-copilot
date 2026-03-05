@@ -65,6 +65,8 @@ interface SessionState {
   keepaliveTimer: ReturnType<typeof setInterval> | null;
   audioBuffer: Buffer[];
   lastFinalText: string;
+  // DB failure tracking
+  dbFailCount: number;
 }
 
 const activeSessions = new Map<WebSocket, SessionState>();
@@ -277,19 +279,23 @@ function createDeepgramConnection(
 
     state.elapsedSeconds = Math.floor((Date.now() - state.startTime) / 1000);
 
-    // Persist to DB (wrapped in try/catch to prevent server crashes)
-    try {
-      await insertTranscript({
-        sessionId: state.sessionId,
-        speaker,
-        text,
-        startTime,
-        endTime,
-        confidence,
-        isFinal: true,
-      });
-    } catch (err) {
-      console.error(`[WS] insertTranscript error:`, err);
+    // Persist to DB with retry (insertTranscript now returns boolean)
+    const dbOk = await insertTranscript({
+      sessionId: state.sessionId,
+      speaker,
+      text,
+      startTime,
+      endTime,
+      confidence,
+      isFinal: true,
+    });
+    if (!dbOk) {
+      state.dbFailCount++;
+      console.error(`[WS] insertTranscript failed (total failures: ${state.dbFailCount}) for session ${state.sessionId}`);
+      // Notify client every 3 failures so they know transcripts may be lost
+      if (state.dbFailCount % 3 === 1) {
+        send({ type: "error", message: `Transcript save failed (${state.dbFailCount} failures). Audio recording is still active.` });
+      }
     }
 
     // Compliance check (manager speech only)
@@ -495,6 +501,7 @@ export function setupWebSocketServer(server: HttpServer) {
             keepaliveTimer: null,
             audioBuffer: [],
             lastFinalText: "",
+            dbFailCount: 0,
           };
           activeSessions.set(ws, state);
           state.deepgramConnection = createDeepgramConnection(state, ws, send);
@@ -590,8 +597,16 @@ export function setupWebSocketServer(server: HttpServer) {
         case "end_session": {
           const state = activeSessions.get(ws);
           if (!state) return;
+          // Give Deepgram 1.5s to drain any final transcripts before closing
           if (state.deepgramConnection) {
-            try { state.deepgramConnection.requestClose(); } catch { /* ignore */ }
+            try {
+              const dgReady = state.deepgramConnection.getReadyState();
+              if (dgReady === 1) {
+                console.log(`[WS] Draining Deepgram for session ${state.sessionId} (1.5s)...`);
+                await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+              }
+              state.deepgramConnection.requestClose();
+            } catch { /* ignore */ }
           }
           if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
           if (state.keepaliveTimer) clearInterval(state.keepaliveTimer);
@@ -599,8 +614,8 @@ export function setupWebSocketServer(server: HttpServer) {
           const finalElapsed = Math.floor((Date.now() - state.startTime) / 1000);
           state.elapsedSeconds = finalElapsed;
           activeSessions.delete(ws);
-          send({ type: "session_ended", data: { sessionId: state.sessionId, durationSeconds: finalElapsed } });
-          console.log(`[WS] Session ${state.sessionId} ended after ${finalElapsed}s`);
+          send({ type: "session_ended", data: { sessionId: state.sessionId, durationSeconds: finalElapsed, dbFailCount: state.dbFailCount } });
+          console.log(`[WS] Session ${state.sessionId} ended after ${finalElapsed}s (DB failures: ${state.dbFailCount})`);
           break;
         }
       }

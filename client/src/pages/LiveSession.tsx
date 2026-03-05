@@ -688,9 +688,20 @@ export default function LiveSession() {
       recognitionRef.current = null;
     }
 
-    // Stop media recorder
-    if (mediaRecorderRef.current?.state !== "inactive") {
-      mediaRecorderRef.current?.stop();
+    // Stop media recorder (guard: only stop if it was actually started and is still recording)
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (err) {
+        console.warn("[Pipeline] MediaRecorder.stop() failed:", err);
+      }
+    } else if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      try {
+        mediaRecorderRef.current.resume();
+        mediaRecorderRef.current.stop();
+      } catch (err) {
+        console.warn("[Pipeline] MediaRecorder resume+stop failed:", err);
+      }
     }
 
     // Stop stream
@@ -768,9 +779,17 @@ export default function LiveSession() {
       try {
         await generateGrade.mutateAsync({ sessionId });
         toast.success("Session graded successfully!");
-      } catch {
-        toast.warning("Grade generation failed. You can retry from the session detail page.");
+      } catch (gradeErr) {
+        const errMsg = gradeErr instanceof Error ? gradeErr.message : String(gradeErr);
+        if (errMsg.includes("transcript") || errMsg.includes("empty") || errMsg.includes("no data")) {
+          toast.error("Grading failed: No transcript data was saved. The audio recording is preserved — you can re-transcribe from the session detail page.", { duration: 10000 });
+        } else {
+          toast.warning(`Grade generation failed: ${errMsg}. You can retry from the session detail page.`, { duration: 8000 });
+        }
+        console.error("[Pipeline] Grade generation error:", gradeErr);
       }
+    } else {
+      toast.warning("No transcript entries captured during this session. Grading skipped.", { duration: 8000 });
     }
 
     navigate(`/session/${sessionId}`);

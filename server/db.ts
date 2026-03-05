@@ -28,9 +28,13 @@ export async function getDb() {
     try {
       _db = drizzle(process.env.DATABASE_URL);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
+      throw new Error(`Database connection failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+  if (!_db) {
+    console.error("[Database] getDb() called but DATABASE_URL is not set or connection is null");
   }
   return _db;
 }
@@ -168,10 +172,19 @@ export async function insertTranscript(data: {
   endTime?: number;
   confidence?: number;
   isFinal?: boolean;
-}) {
-  const db = await getDb();
-  if (!db) return;
-  await db.insert(transcripts).values(data);
+}): Promise<boolean> {
+  return withRetry(async () => {
+    const db = await getDb();
+    if (!db) {
+      console.error("[Database] insertTranscript: DB unavailable");
+      return false;
+    }
+    await db.insert(transcripts).values(data);
+    return true;
+  }).catch((err) => {
+    console.error("[Database] insertTranscript failed after retries:", err);
+    return false;
+  });
 }
 
 export async function getTranscriptsBySession(sessionId: number) {

@@ -52,6 +52,8 @@ interface StreamSession {
   // Buffer audio chunks that arrive before Deepgram is ready
   audioBuffer: Buffer[];
   lastFinalText: string;
+  // DB failure tracking
+  dbFailCount: number;
 }
 
 // Active HTTP-stream sessions keyed by token
@@ -258,20 +260,24 @@ function createDeepgramConnection(state: StreamSession) {
     state.elapsedSeconds = Math.floor((Date.now() - state.startTime) / 1000);
     console.log(`[HTTP-Stream] Deepgram transcript (session ${state.sessionId}): "${text.substring(0, 60)}" [${speaker}] final=${isFinal}`);
 
-    // DB inserts and analysis in try/catch to prevent server crashes
-    try {
-      await insertTranscript({
-        sessionId: state.sessionId,
-        speaker,
-        text,
-        startTime,
-        endTime,
-        confidence,
-        isFinal: true,
-      });
-    } catch (err) {
-      console.error("[HTTP-Stream] insertTranscript error:", err);
+    // Persist to DB with retry (insertTranscript now returns boolean)
+    const dbOk = await insertTranscript({
+      sessionId: state.sessionId,
+      speaker,
+      text,
+      startTime,
+      endTime,
+      confidence,
+      isFinal: true,
+    });
+    if (!dbOk) {
+      state.dbFailCount++;
+      console.error(`[HTTP-Stream] insertTranscript failed (total failures: ${state.dbFailCount}) for session ${state.sessionId}`);
+      if (state.dbFailCount % 3 === 1) {
+        broadcast(state, "error", { message: `Transcript save failed (${state.dbFailCount} failures). Audio recording is still active.` });
+      }
     }
+
 
     try {
       if (speaker === "manager") {
@@ -399,6 +405,7 @@ export function createHttpStreamRouter(): Router {
       audioChunkCount: 0,
       audioBuffer: [],
       lastFinalText: "",
+      dbFailCount: 0,
     };
 
     state.deepgramConnection = createDeepgramConnection(state);
@@ -566,15 +573,23 @@ export function createHttpStreamRouter(): Router {
   });
 
   // POST /api/session/end — End the HTTP-stream session
-  router.post("/end", (req: Request, res: Response) => {
+  router.post("/end", async (req: Request, res: Response) => {
     const token = req.headers["x-stream-token"] as string || req.body?.token;
     const state = token ? httpSessions.get(token) : undefined;
     if (!state) {
       return res.status(404).json({ error: "Session not found" });
     }
 
+    // Give Deepgram 1.5s to drain any final transcripts before closing
     if (state.deepgramConnection) {
-      try { state.deepgramConnection.requestClose(); } catch { /* ignore */ }
+      try {
+        const dgReady = state.deepgramConnection.getReadyState();
+        if (dgReady === 1) {
+          console.log(`[HTTP-Stream] Draining Deepgram for session ${state.sessionId} (1.5s)...`);
+          await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+        }
+        state.deepgramConnection.requestClose();
+      } catch { /* ignore */ }
     }
     if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
     if (state.keepaliveTimer) clearInterval(state.keepaliveTimer);
@@ -583,7 +598,7 @@ export function createHttpStreamRouter(): Router {
     const finalElapsed = Math.floor((Date.now() - state.startTime) / 1000);
     state.elapsedSeconds = finalElapsed;
 
-    broadcast(state, "session_ended", { sessionId: state.sessionId, durationSeconds: finalElapsed });
+    broadcast(state, "session_ended", { sessionId: state.sessionId, durationSeconds: finalElapsed, dbFailCount: state.dbFailCount });
 
     // Close all SSE connections
     state.sseClients.forEach((client) => {

@@ -372,3 +372,22 @@
 - [x] Write comprehensive diagnostic report
 - [x] Validate end-to-end with tests — 174/174 passing, 0 TypeScript errors
 - [x] Save checkpoint and deliver
+
+## Critical Bug: Live Recording Still Not Working (Mar 5 - Round 2)
+- [ ] Collect server logs from user's live session attempt
+- [ ] Collect browser console logs from user's live session attempt
+- [ ] Collect network request logs from user's live session attempt
+- [ ] Identify exact failure point in the pipeline
+- [ ] Implement fix
+- [ ] Verify end-to-end
+- [x] Save checkpoint and deliver
+
+## HANDOFF Fixes: Live Session Transcript Pipeline (Mar 5 - Round 3)
+- [x] Fix 1: insertTranscript() retry with boolean return (server/db.ts)
+- [x] Fix 2: getDb() error surfacing (server/db.ts)
+- [x] Fix 3: WS failure tracking + client notification (server/websocket.ts)
+- [x] Fix 4: 1.5s Deepgram drain window (server/websocket.ts)
+- [x] Fix 5: HTTP-stream mirror of all WS fixes (server/http-stream.ts)
+- [x] Fix 6: Client-side MediaRecorder guard + grading error differentiation (LiveSession.tsx)
+- [x] Run tests and verify TypeScript — 174/174 pass, 0 TS errors
+- [x] Save checkpoint and deliver
