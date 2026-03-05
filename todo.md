@@ -284,3 +284,26 @@
 - [x] Wire compliance engine into WebSocket/HTTP stream live detection — already wired in both handlers
 - [x] Wire compliance engine into grading engine — now uses deterministic calculateComplianceScore() merged with LLM score (takes lower)
 - [x] Tests for compliance engine rules — already existed with 37 tests covering all 8 categories, score calculator, checklist mapping, product disclosures
+
+## Feature: Real-Time Compliance Alert Banners (Mar 5)
+- [x] Add prominent red/yellow compliance alert banner in Live Session UI
+- [x] Show remediation script text when critical violation fires
+- [x] Auto-dismiss after 10s or manual dismiss
+- [x] Animate banner entrance/exit for visibility without distraction
+
+## Feature: Manager Scorecard Page (Mar 5)
+- [x] DB queries: weekly/monthly aggregates for PVR, PPD, compliance score, word track usage
+- [x] Backend: tRPC procedures for scorecard data
+- [x] Frontend: Scorecard page with sparkline trend charts
+- [x] Frontend: Period selector (7d, 30d, 90d)
+- [x] Frontend: Add to sidebar navigation
+
+## Feature: Session Recording Playback (Mar 5)
+- [x] Audio capture: send recorded audio to S3 on session end
+- [x] DB: store audio URL on session record
+- [x] Backend: tRPC procedure to get audio URL for a session
+- [x] Frontend: Audio player on Session Detail page
+- [x] Frontend: Synchronized transcript highlighting during playback
+- [x] Frontend: Auto-scroll transcript to follow playback position
+- [x] Frontend: Click transcript entry to seek to timestamp
+- [x] Frontend: Cleanup audio on unmount

@@ -56,6 +56,7 @@ import {
   redeemInvitation,
   getInvitationsByDealership,
   revokeInvitation,
+  getManagerScorecard,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -787,6 +788,12 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const userId = ctx.user.role === "admin" ? undefined : ctx.user.id;
         return getSessionVolume(userId, input.weeks);
+      }),
+    managerScorecard: protectedProcedure
+      .input(z.object({ userId: z.number().optional(), weeks: z.number().default(12) }))
+      .query(async ({ ctx, input }) => {
+        const targetUserId = ctx.user.role === "admin" && input.userId ? input.userId : ctx.user.id;
+        return getManagerScorecard(targetUserId, input.weeks);
       }),
   }),
 

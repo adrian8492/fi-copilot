@@ -967,3 +967,141 @@ export async function revokeInvitation(id: number) {
   // Mark as used with a sentinel value to prevent redemption
   await db.update(invitations).set({ usedAt: new Date(), usedBy: -1 }).where(eq(invitations.id, id));
 }
+
+// ─── Manager Scorecard ──────────────────────────────────────────────────────
+export async function getManagerScorecard(userId: number, weeks = 12) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const since = new Date();
+  since.setDate(since.getDate() - weeks * 7);
+
+  // Get all sessions for this user in the time range
+  const userSessions = await db.select().from(sessions)
+    .where(and(eq(sessions.userId, userId), eq(sessions.status, "completed"), gte(sessions.startedAt, since)))
+    .orderBy(sessions.startedAt);
+
+  // Get all grades for this user
+  const grades = await db.select().from(performanceGrades)
+    .where(eq(performanceGrades.userId, userId))
+    .orderBy(performanceGrades.gradedAt);
+
+  // Get all compliance flags for this user's sessions
+  const sessionIds = userSessions.map((s) => s.id);
+  const allFlags = sessionIds.length > 0
+    ? await db.select().from(complianceFlags)
+    : [];
+  const userFlags = allFlags.filter((f) => sessionIds.includes(f.sessionId));
+
+  // Get all suggestions for utilization
+  const allSuggestions = sessionIds.length > 0
+    ? await db.select({ sessionId: copilotSuggestions.sessionId, wasActedOn: copilotSuggestions.wasActedOn })
+        .from(copilotSuggestions)
+    : [];
+  const userSuggestions = allSuggestions.filter((s) => sessionIds.includes(s.sessionId));
+
+  // Build weekly buckets
+  const weeklyData: Record<string, {
+    label: string;
+    sessions: number;
+    avgScore: number;
+    avgPvr: number;
+    avgPpd: number;
+    avgCompliance: number;
+    avgScriptFidelity: number;
+    criticalFlags: number;
+    utilizationRate: number;
+    scores: number[];
+    pvrs: number[];
+    ppds: number[];
+    complianceScores: number[];
+    scriptFidelityScores: number[];
+    suggestions: { total: number; used: number };
+  }> = {};
+
+  for (const session of userSessions) {
+    const d = new Date(session.startedAt);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const weekStart = new Date(d);
+    weekStart.setDate(diff);
+    const key = weekStart.toISOString().slice(0, 10);
+    const label = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    if (!weeklyData[key]) {
+      weeklyData[key] = {
+        label, sessions: 0, avgScore: 0, avgPvr: 0, avgPpd: 0,
+        avgCompliance: 0, avgScriptFidelity: 0, criticalFlags: 0,
+        utilizationRate: 0, scores: [], pvrs: [], ppds: [],
+        complianceScores: [], scriptFidelityScores: [],
+        suggestions: { total: 0, used: 0 },
+      };
+    }
+
+    const week = weeklyData[key];
+    week.sessions++;
+
+    const grade = grades.find((g) => g.sessionId === session.id);
+    if (grade) {
+      if (grade.overallScore != null) week.scores.push(grade.overallScore);
+      if (grade.pvr != null) week.pvrs.push(grade.pvr);
+      if (grade.productsPerDeal != null) week.ppds.push(grade.productsPerDeal);
+      if (grade.complianceScore != null) week.complianceScores.push(grade.complianceScore);
+      if (grade.scriptFidelityScore != null) week.scriptFidelityScores.push(grade.scriptFidelityScore);
+    }
+
+    const sessionFlags = userFlags.filter((f) => f.sessionId === session.id);
+    week.criticalFlags += sessionFlags.filter((f) => f.severity === "critical" && !f.resolved).length;
+
+    const sessionSuggestions = userSuggestions.filter((s) => s.sessionId === session.id);
+    week.suggestions.total += sessionSuggestions.length;
+    week.suggestions.used += sessionSuggestions.filter((s) => s.wasActedOn).length;
+  }
+
+  // Calculate averages
+  const weeklyTrend = Object.entries(weeklyData)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, w]) => ({
+      label: w.label,
+      sessions: w.sessions,
+      avgScore: w.scores.length > 0 ? Math.round(w.scores.reduce((a, b) => a + b, 0) / w.scores.length * 10) / 10 : 0,
+      avgPvr: w.pvrs.length > 0 ? Math.round(w.pvrs.reduce((a, b) => a + b, 0) / w.pvrs.length) : 0,
+      avgPpd: w.ppds.length > 0 ? Math.round(w.ppds.reduce((a, b) => a + b, 0) / w.ppds.length * 10) / 10 : 0,
+      avgCompliance: w.complianceScores.length > 0 ? Math.round(w.complianceScores.reduce((a, b) => a + b, 0) / w.complianceScores.length * 10) / 10 : 0,
+      avgScriptFidelity: w.scriptFidelityScores.length > 0 ? Math.round(w.scriptFidelityScores.reduce((a, b) => a + b, 0) / w.scriptFidelityScores.length * 10) / 10 : 0,
+      criticalFlags: w.criticalFlags,
+      utilizationRate: w.suggestions.total > 0 ? Math.round((w.suggestions.used / w.suggestions.total) * 100) : 0,
+    }));
+
+  // Overall summary
+  const allScores = grades.filter((g) => sessionIds.includes(g.sessionId) && g.overallScore != null);
+  const totalSessions = userSessions.length;
+  const overallAvgScore = allScores.length > 0 ? Math.round(allScores.reduce((s, g) => s + (g.overallScore ?? 0), 0) / allScores.length * 10) / 10 : 0;
+  const overallAvgPvr = allScores.length > 0 ? Math.round(allScores.reduce((s, g) => s + (g.pvr ?? 0), 0) / allScores.length) : 0;
+  const overallAvgPpd = allScores.length > 0 ? Math.round(allScores.reduce((s, g) => s + (g.productsPerDeal ?? 0), 0) / allScores.length * 10) / 10 : 0;
+  const overallAvgCompliance = allScores.length > 0 ? Math.round(allScores.reduce((s, g) => s + (g.complianceScore ?? 0), 0) / allScores.length * 10) / 10 : 0;
+  const overallAvgScriptFidelity = allScores.length > 0 ? Math.round(allScores.reduce((s, g) => s + (g.scriptFidelityScore ?? 0), 0) / allScores.length * 10) / 10 : 0;
+  const totalCriticalFlags = userFlags.filter((f) => f.severity === "critical" && !f.resolved).length;
+  const overallUtilization = userSuggestions.length > 0 ? Math.round((userSuggestions.filter((s) => s.wasActedOn).length / userSuggestions.length) * 100) : 0;
+
+  // Trend direction (compare last 2 weeks)
+  const lastTwo = weeklyTrend.slice(-2);
+  const scoreTrend = lastTwo.length === 2 ? (lastTwo[1].avgScore - lastTwo[0].avgScore > 0 ? "up" : lastTwo[1].avgScore - lastTwo[0].avgScore < 0 ? "down" : "flat") : "flat";
+  const pvrTrend = lastTwo.length === 2 ? (lastTwo[1].avgPvr - lastTwo[0].avgPvr > 0 ? "up" : lastTwo[1].avgPvr - lastTwo[0].avgPvr < 0 ? "down" : "flat") : "flat";
+
+  return {
+    summary: {
+      totalSessions,
+      overallAvgScore,
+      overallAvgPvr,
+      overallAvgPpd,
+      overallAvgCompliance,
+      overallAvgScriptFidelity,
+      totalCriticalFlags,
+      overallUtilization,
+      scoreTrend,
+      pvrTrend,
+    },
+    weeklyTrend,
+  };
+}

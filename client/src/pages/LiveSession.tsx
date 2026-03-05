@@ -44,9 +44,18 @@ interface Suggestion {
 interface ComplianceFlag {
   severity: "critical" | "warning" | "info";
   rule: string;
+  ruleId?: string;
+  category?: string;
   description: string;
   excerpt: string;
+  remediation?: string;
   timestamp: number;
+}
+
+interface ComplianceAlert {
+  flag: ComplianceFlag;
+  id: string;
+  dismissedAt?: number;
 }
 
 type SpeakerMode = "manager" | "customer" | "auto";
@@ -182,9 +191,14 @@ export default function LiveSession() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const keepaliveRef = useRef<NodeJS.Timeout | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   // Expanded word tracks
   const [expandedScripts, setExpandedScripts] = useState<Record<number, boolean>>({});
+
+  // Compliance alert banners
+  const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
+  const alertTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Checklist state
   const [checklist, setChecklist] = useState<ChecklistState>({});
@@ -198,6 +212,7 @@ export default function LiveSession() {
   const upsertChecklist = trpc.checklists.upsert.useMutation();
   const logObjection = trpc.objections.log.useMutation();
   const markUsedMutation = trpc.transcripts.markUsed.useMutation();
+  const uploadRecording = trpc.recordings.upload.useMutation();
 
   const handleMarkUsed = (suggIdx: number, suggId?: number) => {
     setSuggestions(prev => prev.map((s, i) => i === suggIdx ? { ...s, wasActedOn: true } : s));
@@ -265,9 +280,22 @@ export default function LiveSession() {
         break;
       case "compliance_flag":
         if (data) {
-          setComplianceFlags((prev) => [{ ...(data as unknown as ComplianceFlag), timestamp: Date.now() }, ...prev]);
-          if (data.severity === "critical") {
-            toast.error(`Compliance: ${data.rule}`, { description: data.description as string });
+          const newFlag: ComplianceFlag = { ...(data as unknown as ComplianceFlag), timestamp: Date.now() };
+          setComplianceFlags((prev) => [newFlag, ...prev]);
+          // Show prominent alert banner for critical and warning violations
+          if (data.severity === "critical" || data.severity === "warning") {
+            const alertId = `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const alert: ComplianceAlert = { flag: newFlag, id: alertId };
+            setComplianceAlerts((prev) => [alert, ...prev].slice(0, 3)); // max 3 banners
+            // Auto-dismiss after 15s for warnings, 20s for critical
+            const dismissMs = data.severity === "critical" ? 20000 : 15000;
+            alertTimersRef.current[alertId] = setTimeout(() => {
+              setComplianceAlerts((prev) => prev.filter((a) => a.id !== alertId));
+              delete alertTimersRef.current[alertId];
+            }, dismissMs);
+            if (data.severity === "critical") {
+              toast.error(`⚠️ COMPLIANCE: ${data.rule}`, { description: data.description as string, duration: 8000 });
+            }
             setActiveTab("compliance");
           }
         }
@@ -561,6 +589,8 @@ export default function LiveSession() {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size <= 0) return;
         chunkCount++;
+        // Save chunk for recording playback
+        recordedChunksRef.current.push(e.data);
         if (chunkCount <= 5 || chunkCount % 20 === 0) {
           console.log(`[Pipeline] Step 3: Audio chunk #${chunkCount} (${e.data.size} bytes) — mode: ${wsRef.current?.readyState === WebSocket.OPEN ? "WS" : httpTokenRef.current ? "HTTP" : "NONE"}`);
         }
@@ -676,6 +706,38 @@ export default function LiveSession() {
     setConnectionMode("pending");
 
     setIsRecording(false);
+
+    // Upload recording to S3 if we captured audio
+    if (recordedChunksRef.current.length > 0) {
+      try {
+        const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+        const ext = mimeType.includes("webm") ? "webm" : mimeType.includes("mp4") ? "mp4" : "webm";
+        const audioBlob = new Blob(recordedChunksRef.current, { type: mimeType });
+        console.log(`[Recording] Uploading ${audioBlob.size} bytes (${recordedChunksRef.current.length} chunks)`);
+        toast.info("Saving session recording...");
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]); // strip data:audio/webm;base64, prefix
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(audioBlob);
+        });
+        await uploadRecording.mutateAsync({
+          sessionId,
+          fileName: `session-${sessionId}.${ext}`,
+          mimeType,
+          fileSizeBytes: audioBlob.size,
+          fileDataBase64: base64,
+        });
+        console.log("[Recording] Upload complete");
+      } catch (err) {
+        console.error("[Recording] Upload failed:", err);
+        toast.warning("Recording upload failed. Audio may not be available for playback.");
+      }
+      recordedChunksRef.current = [];
+    }
 
     // End session in DB
     await endSessionMutation.mutateAsync({ id: sessionId, durationSeconds: elapsed });
@@ -1020,6 +1082,112 @@ export default function LiveSession() {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Live Transcript</span>
               <Badge variant="outline" className="text-[10px] ml-auto">{transcripts.length} entries</Badge>
             </div>
+
+            {/* ─── Compliance Alert Banners ──────────────────────────── */}
+            {complianceAlerts.length > 0 && (
+              <div className="space-y-1 px-2 pt-2">
+                {complianceAlerts.map((alert) => {
+                  const isCritical = alert.flag.severity === "critical";
+                  return (
+                    <div
+                      key={alert.id}
+                      className={cn(
+                        "relative rounded-xl border-2 px-4 py-3 shadow-lg animate-in slide-in-from-top-2 fade-in duration-300",
+                        isCritical
+                          ? "bg-red-950/80 border-red-500/60 shadow-red-500/20"
+                          : "bg-amber-950/80 border-amber-500/60 shadow-amber-500/20"
+                      )}
+                    >
+                      {/* Pulsing indicator */}
+                      <div className={cn(
+                        "absolute top-3 left-3 w-2 h-2 rounded-full animate-pulse",
+                        isCritical ? "bg-red-500" : "bg-amber-500"
+                      )} />
+                      <div className="ml-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className={cn(
+                              "w-4 h-4",
+                              isCritical ? "text-red-400" : "text-amber-400"
+                            )} />
+                            <span className={cn(
+                              "text-xs font-bold uppercase tracking-wider",
+                              isCritical ? "text-red-400" : "text-amber-400"
+                            )}>
+                              {isCritical ? "COMPLIANCE VIOLATION" : "COMPLIANCE WARNING"}
+                            </span>
+                            <Badge variant="outline" className={cn(
+                              "text-[9px] px-1.5 py-0 h-4",
+                              isCritical ? "border-red-500/40 text-red-300" : "border-amber-500/40 text-amber-300"
+                            )}>
+                              {alert.flag.ruleId || alert.flag.rule}
+                            </Badge>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setComplianceAlerts((prev) => prev.filter((a) => a.id !== alert.id));
+                              if (alertTimersRef.current[alert.id]) {
+                                clearTimeout(alertTimersRef.current[alert.id]);
+                                delete alertTimersRef.current[alert.id];
+                              }
+                            }}
+                            className={cn(
+                              "p-0.5 rounded-md transition-colors",
+                              isCritical ? "hover:bg-red-500/20 text-red-400" : "hover:bg-amber-500/20 text-amber-400"
+                            )}
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <p className={cn(
+                          "text-sm font-semibold mb-1",
+                          isCritical ? "text-red-200" : "text-amber-200"
+                        )}>
+                          {alert.flag.rule}
+                        </p>
+                        <p className="text-xs text-muted-foreground mb-2">{alert.flag.description}</p>
+                        {alert.flag.remediation && (
+                          <div className={cn(
+                            "rounded-lg p-2.5 border",
+                            isCritical
+                              ? "bg-red-500/5 border-red-500/20"
+                              : "bg-amber-500/5 border-amber-500/20"
+                          )}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <BookOpen className={cn(
+                                "w-3 h-3",
+                                isCritical ? "text-red-400" : "text-amber-400"
+                              )} />
+                              <span className={cn(
+                                "text-[10px] font-bold uppercase tracking-wider",
+                                isCritical ? "text-red-400" : "text-amber-400"
+                              )}>SAY THIS INSTEAD:</span>
+                            </div>
+                            <p className="text-xs text-foreground leading-relaxed italic">
+                              &ldquo;{alert.flag.remediation}&rdquo;
+                            </p>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(alert.flag.remediation!);
+                                toast.success("Remediation script copied!");
+                              }}
+                              className={cn(
+                                "mt-1.5 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
+                                isCritical
+                                  ? "text-red-300 hover:bg-red-500/15"
+                                  : "text-amber-300 hover:bg-amber-500/15"
+                              )}
+                            >
+                              <Copy className="w-2.5 h-2.5" /> Copy Script
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {transcripts.length === 0 ? (

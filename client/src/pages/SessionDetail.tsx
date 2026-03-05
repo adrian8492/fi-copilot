@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,11 @@ export default function SessionDetail() {
   const { data: coachingReport } = trpc.reports.get.useQuery({ sessionId });
   const { data: sessionFull } = trpc.sessions.getWithDetails.useQuery({ id: sessionId });
   const { data: utilization, refetch: refetchUtilization } = trpc.transcripts.getUtilization.useQuery({ sessionId });
+  const { data: recordings } = trpc.recordings.getBySession.useQuery({ sessionId });
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const markUsedMutation = trpc.transcripts.markUsed.useMutation({
     onSuccess: () => refetchUtilization(),
   });
@@ -72,6 +77,32 @@ export default function SessionDetail() {
     onSuccess: () => toast.success("Coaching report generated!"),
     onError: () => toast.error("Report generation failed."),
   });
+
+  // Auto-scroll transcript during playback
+  useEffect(() => {
+    if (!isPlaying || !transcripts || transcripts.length === 0) return;
+    const activeIdx = transcripts.findIndex((entry, idx) => {
+      const entryTime = entry.startTime ?? 0;
+      const nextTime = idx < transcripts.length - 1 ? (transcripts[idx + 1].startTime ?? Infinity) : Infinity;
+      return currentPlaybackTime >= entryTime && currentPlaybackTime < nextTime;
+    });
+    if (activeIdx >= 0) {
+      const el = document.getElementById(`transcript-${transcripts[activeIdx].id}`);
+      if (el && transcriptScrollRef.current) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [currentPlaybackTime, isPlaying, transcripts]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -311,41 +342,130 @@ export default function SessionDetail() {
           </TabsContent>
 
           {/* Transcript Tab */}
-          <TabsContent value="transcript" className="mt-4">
+          <TabsContent value="transcript" className="mt-4 space-y-4">
+            {/* Audio Player */}
+            {recordings && recordings.length > 0 && (
+              <Card className="bg-card border-border">
+                <CardContent className="pt-4 pb-3">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 w-9 p-0 shrink-0"
+                      onClick={() => {
+                        if (!audioRef.current) {
+                          const audio = new Audio(recordings[0].fileUrl);
+                          audioRef.current = audio;
+                          audio.ontimeupdate = () => setCurrentPlaybackTime(audio.currentTime);
+                          audio.onended = () => setIsPlaying(false);
+                          audio.onpause = () => setIsPlaying(false);
+                          audio.onplay = () => setIsPlaying(true);
+                        }
+                        if (isPlaying) {
+                          audioRef.current.pause();
+                        } else {
+                          audioRef.current.play();
+                        }
+                      }}
+                    >
+                      {isPlaying ? (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+                      ) : (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
+                      )}
+                    </Button>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Mic className="w-3 h-3" /> Session Recording
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {Math.floor(currentPlaybackTime / 60)}:{String(Math.floor(currentPlaybackTime % 60)).padStart(2, "0")}
+                          {audioRef.current?.duration ? ` / ${Math.floor(audioRef.current.duration / 60)}:${String(Math.floor(audioRef.current.duration % 60)).padStart(2, "0")}` : ""}
+                        </span>
+                      </div>
+                      <div
+                        className="h-2 rounded-full bg-border cursor-pointer overflow-hidden"
+                        onClick={(e) => {
+                          if (!audioRef.current) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const pct = (e.clientX - rect.left) / rect.width;
+                          audioRef.current.currentTime = pct * audioRef.current.duration;
+                        }}
+                      >
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-200"
+                          style={{ width: `${audioRef.current?.duration ? (currentPlaybackTime / audioRef.current.duration) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Transcript with synchronized highlighting */}
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">Full Transcript</CardTitle>
-                  <Badge variant="outline" className="text-xs">{transcripts?.length ?? 0} entries</Badge>
+                  <div className="flex items-center gap-2">
+                    {recordings && recordings.length > 0 && isPlaying && (
+                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px] animate-pulse">SYNCED</Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">{transcripts?.length ?? 0} entries</Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
                 {transcripts && transcripts.length > 0 ? (
-                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                    {transcripts.map((entry) => (
-                      <div key={entry.id} className={cn("flex gap-3", entry.speaker === "customer" && "flex-row-reverse")}>
-                        <div className={cn(
-                          "w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold",
-                          entry.speaker === "manager" ? "bg-primary/20 text-primary" :
-                          entry.speaker === "customer" ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"
-                        )}>
-                          {entry.speaker === "manager" ? "M" : entry.speaker === "customer" ? "C" : "?"}
-                        </div>
-                        <div className={cn("flex-1 max-w-[80%]", entry.speaker === "customer" && "flex flex-col items-end")}>
+                  <div ref={transcriptScrollRef} className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                    {transcripts.map((entry, idx) => {
+                      const entryTime = entry.startTime ?? 0;
+                      const nextTime = idx < transcripts.length - 1 ? (transcripts[idx + 1].startTime ?? Infinity) : Infinity;
+                      const isActive = isPlaying && currentPlaybackTime >= entryTime && currentPlaybackTime < nextTime;
+                      return (
+                        <div
+                          key={entry.id}
+                          id={`transcript-${entry.id}`}
+                          className={cn(
+                            "flex gap-3 transition-all duration-300 rounded-lg p-1 -m-1",
+                            entry.speaker === "customer" && "flex-row-reverse",
+                            isActive && "bg-primary/5 ring-1 ring-primary/20"
+                          )}
+                          onClick={() => {
+                            if (audioRef.current && recordings && recordings.length > 0) {
+                              audioRef.current.currentTime = entryTime;
+                              if (!isPlaying) audioRef.current.play();
+                            }
+                          }}
+                          style={{ cursor: recordings && recordings.length > 0 ? "pointer" : "default" }}
+                        >
                           <div className={cn(
-                            "inline-block px-3 py-2 rounded-xl text-sm",
-                            entry.speaker === "manager" ? "bg-primary/10 border border-primary/15 text-foreground" :
-                            entry.speaker === "customer" ? "bg-green-500/10 border border-green-500/15 text-foreground" :
-                            "bg-card border border-border text-foreground"
+                            "w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors",
+                            isActive ? "bg-primary text-primary-foreground" :
+                            entry.speaker === "manager" ? "bg-primary/20 text-primary" :
+                            entry.speaker === "customer" ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"
                           )}>
-                            {entry.text}
+                            {entry.speaker === "manager" ? "M" : entry.speaker === "customer" ? "C" : "?"}
                           </div>
-                          <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                            {entry.speaker} • {entry.startTime !== null ? `${Math.floor((entry.startTime ?? 0) / 60)}:${String((entry.startTime ?? 0) % 60).padStart(2, "0")}` : "—"}
-                          </span>
+                          <div className={cn("flex-1 max-w-[80%]", entry.speaker === "customer" && "flex flex-col items-end")}>
+                            <div className={cn(
+                              "inline-block px-3 py-2 rounded-xl text-sm transition-colors",
+                              isActive ? "bg-primary/15 border border-primary/30 text-foreground font-medium" :
+                              entry.speaker === "manager" ? "bg-primary/10 border border-primary/15 text-foreground" :
+                              entry.speaker === "customer" ? "bg-green-500/10 border border-green-500/15 text-foreground" :
+                              "bg-card border border-border text-foreground"
+                            )}>
+                              {entry.text}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                              {entry.speaker} • {entry.startTime !== null ? `${Math.floor(entryTime / 60)}:${String(Math.floor(entryTime % 60)).padStart(2, "0")}` : "—"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8">
