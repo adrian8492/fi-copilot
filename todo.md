@@ -351,3 +351,11 @@
 - [x] Mark remaining overnight build items as complete where already done
 - [x] Expand test suite to 157 tests (33 new overnight sprint tests)
 - [x] Final overnight sprint checkpoint
+
+## Grading Rubric & Engine Integration (Mar 5)
+- [x] Extract verbatim scripts from ASURA_Delphi_Clone and CompleteMenuPresentation documents (23 Delphi scripts identified)
+- [x] Design grading rubric: scoring categories, weights, per-stage criteria, deviation taxonomy (7 stages, 6 deviation types)
+- [x] Write complete grading rubric and implementation guide document (667-line grading-rubric.md)
+- [x] Integrate rubric into Co-Pilot grading engine (asura-scripts.ts rewritten with 23 scripts, LLM prompt updated with Delphi rubric)
+- [x] Update tests — 42 rubric-grading tests + 157 existing = all passing, 0 TypeScript errors
+- [ ] Final checkpoint and delivery

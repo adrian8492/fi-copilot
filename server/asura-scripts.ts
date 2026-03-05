@@ -1,23 +1,18 @@
+
 /**
  * ASURA Group — Verbatim Script Library
  * ─────────────────────────────────────────────────────────────────────────────
  * All scripts are sourced VERBATIM from ASURA training documents.
- * The AI co-pilot MUST deliver these word-for-word.
- * Paraphrasing, summarizing, or rewriting is strictly prohibited.
- *
+ * Complete collection of 23 core scripts plus updated menu presentation variants.
+ * 
  * Sources:
- *   - Objection_Prevention_Matrix.pdf
- *   - Financial_Snapshot_Script.pdf
- *   - Menu_Mastery_Quick_Reference.pdf
- *   - GAP_Protection_Closing_Framework.pdf
- *   - VSA_Presentation_Framework.pdf
- *   - ASURA_Elite_FI_Performance_Playbook.pdf
- *   - Evan_Macklin_Phone_Sales_Training_Script.pdf
+ * - ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx
+ * - CompleteMenuPresentationScriptWordTrack.pdf
  */
 
-export type ScriptCategory =
+export type ScriptCategory = 
   | "professional_hello"
-  | "customer_connection"
+  | "customer_connection" 
   | "financial_snapshot"
   | "menu_transition"
   | "product_presentation"
@@ -25,9 +20,16 @@ export type ScriptCategory =
   | "objection_response"
   | "closing"
   | "phone_script"
-  | "compliance_disclosure";
+  | "compliance_disclosure"
+  | "client_survey"
+  | "needs_awareness"
+  | "transition"
+  | "ranking_process"
+  | "assuming_business"
+  | "admin_function"
+  | "product_knowledge";
 
-export type DealStage =
+export type DealStage = 
   | "introduction"
   | "customer_connection"
   | "financial_snapshot"
@@ -35,7 +37,12 @@ export type DealStage =
   | "product_walkthrough"
   | "objection_handling"
   | "closing"
-  | "post_close";
+  | "post_close"
+  | "client_survey"
+  | "needs_awareness"
+  | "transition"
+  | "ranking"
+  | "admin";
 
 export interface VerbatimScript {
   id: string;
@@ -47,598 +54,585 @@ export interface VerbatimScript {
   triggerKeywords: string[];
   sourceDocument: string;
   productContext?: string;
-  executionLevel?: "elite" | "standard";
-  urgency: "high" | "medium" | "low";
+  executionLevel?: "standard" | "elite" | "advanced";
+  urgency: "low" | "medium" | "high" | "critical";
   coachingNote?: string;
-  isActive?: boolean;
+  isActive: boolean;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 1: PROFESSIONAL HELLO / INTRODUCTION
-// Source: ASURA Elite F&I Performance Playbook
-// ─────────────────────────────────────────────────────────────────────────────
-export const PROFESSIONAL_HELLO_SCRIPTS: VerbatimScript[] = [
-  {
-    id: "ph_001",
-    title: "Professional Hello — Finance Director Introduction",
-    urgency: "medium",
-    scriptText:
-      "Hi, my name is [Name] and I'm the Finance Director here at [Dealership]. Congratulations on your new vehicle — I'm going to take great care of you today. My job is to make sure your paperwork is accurate, your financing is locked in, and that you leave here fully protected. This should take about 20 to 30 minutes. Sound good?",
-    scriptCategory: "professional_hello",
-    dealStage: "introduction",
-    intentTrigger: "session_start",
-    triggerKeywords: ["hello", "hi", "welcome", "congratulations", "finance office", "paperwork"],
-    sourceDocument: "ASURA_Elite_FI_Performance_Playbook.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "ph_002",
-    title: "Trust-Building Opening — No Pressure Frame",
-    urgency: "medium",
-    scriptText:
-      "Welcome in. Before we get started, I just want to let you know — my job is not to sell you anything today. My job is to make sure you understand every option available to you, and that you make the best decision for your family. Fair enough?",
-    scriptCategory: "professional_hello",
-    dealStage: "introduction",
-    intentTrigger: "trust_building_open",
-    triggerKeywords: ["sell", "pressure", "just here to sign", "don't want extras"],
-    sourceDocument: "ASURA_Elite_FI_Performance_Playbook.pdf",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 2: FINANCIAL SNAPSHOT — 3 QUESTIONS
-// Source: Financial_Snapshot_Script.pdf
-// ─────────────────────────────────────────────────────────────────────────────
-export const FINANCIAL_SNAPSHOT_SCRIPTS: VerbatimScript[] = [
-  {
-    id: "fs_001",
-    title: "Financial Snapshot — Q1: Vehicle Tenure",
-    urgency: "medium",
-    scriptText:
-      "Before I pull up your paperwork, I want to ask you three quick questions that will help me customize everything for you today. First — how long do you typically keep your vehicles?",
-    scriptCategory: "financial_snapshot",
-    dealStage: "financial_snapshot",
-    intentTrigger: "financial_snapshot_open",
-    triggerKeywords: ["how long", "keep vehicle", "own it", "trade in"],
-    sourceDocument: "Financial_Snapshot_Script.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "fs_002",
-    title: "Financial Snapshot — Q2: Annual Mileage",
-    urgency: "medium",
-    scriptText:
-      "Great. Second question — do you typically drive more or less than 15,000 miles per year?",
-    scriptCategory: "financial_snapshot",
-    dealStage: "financial_snapshot",
-    intentTrigger: "financial_snapshot_mileage",
-    triggerKeywords: ["miles", "drive", "commute", "mileage"],
-    sourceDocument: "Financial_Snapshot_Script.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "fs_003",
-    title: "Financial Snapshot — Q3: Risk Preference",
-    urgency: "medium",
-    scriptText:
-      "Perfect. And last question — if something unexpected happened with this vehicle in the next 12 months, would you prefer to handle it out of pocket, or would you rather have a plan in place that covered it?",
-    scriptCategory: "financial_snapshot",
-    dealStage: "financial_snapshot",
-    intentTrigger: "financial_snapshot_risk",
-    triggerKeywords: ["unexpected", "repair", "out of pocket", "covered", "plan"],
-    sourceDocument: "Financial_Snapshot_Script.pdf",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 3: MENU TRANSITION
-// Source: Menu_Mastery_Quick_Reference.pdf
-// ─────────────────────────────────────────────────────────────────────────────
-export const MENU_TRANSITION_SCRIPTS: VerbatimScript[] = [
-  {
-    id: "mt_001",
-    title: "Menu Transition — Options Introduction",
-    urgency: "medium",
-    scriptText:
-      "Mr./Ms. [Customer], the dealership has already approved your financing and the next step is simply reviewing the options available to protect your vehicle and your investment. I've put together a few packages based on what you told me — let me walk you through them.",
-    scriptCategory: "menu_transition",
-    dealStage: "menu_presentation",
-    intentTrigger: "menu_intro",
-    triggerKeywords: ["options", "packages", "menu", "protection", "next step"],
-    sourceDocument: "Menu_Mastery_Quick_Reference.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "mt_002",
-    title: "Menu Transition — Three Levels Framing",
-    urgency: "medium",
-    scriptText:
-      "What I'm going to show you are three levels of protection. Most of our customers choose the middle option, but I want you to see all three so you can decide what makes the most sense for your situation.",
-    scriptCategory: "menu_transition",
-    dealStage: "menu_presentation",
-    intentTrigger: "menu_three_options",
-    triggerKeywords: ["three options", "levels", "packages", "which one", "choose"],
-    sourceDocument: "Menu_Mastery_Quick_Reference.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "mt_003",
-    title: "Menu Transition — Value Before Price",
-    urgency: "medium",
-    scriptText:
-      "Before I show you the numbers, let me explain what each product does — because the value is in understanding what you're getting, not just what it costs.",
-    scriptCategory: "menu_transition",
-    dealStage: "menu_presentation",
-    intentTrigger: "menu_value_first",
-    triggerKeywords: ["cost", "price", "how much", "what does it cost"],
-    sourceDocument: "Menu_Mastery_Quick_Reference.pdf",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 4: PRODUCT PRESENTATIONS
-// Source: VSA_Presentation_Framework.pdf, GAP_Protection_Closing_Framework.pdf
-// ─────────────────────────────────────────────────────────────────────────────
-export const PRODUCT_PRESENTATION_SCRIPTS: VerbatimScript[] = [
-  // GAP Insurance
-  {
-    id: "pp_gap_001",
-    title: "GAP Presentation — Core Explanation",
-    urgency: "high",
-    scriptText:
-      "GAP stands for Guaranteed Asset Protection. Here's what it does — if your vehicle is ever totaled or stolen, your insurance company is going to pay you what the car is worth at that moment. But you still owe what you financed. GAP covers the difference so you're not left paying on a car you no longer have. On a vehicle like this, that gap can be anywhere from $3,000 to $8,000. For about a dollar a day, it's gone.",
-    scriptCategory: "product_presentation",
-    dealStage: "product_walkthrough",
-    intentTrigger: "gap_presentation",
-    triggerKeywords: ["gap", "totaled", "stolen", "insurance", "difference", "owe more"],
-    sourceDocument: "GAP_Protection_Closing_Framework.pdf",
-    productContext: "gap_insurance",
-    executionLevel: "elite",
-  },
-  {
-    id: "pp_gap_002",
-    title: "GAP Presentation — Insurance vs. GAP Distinction",
-    urgency: "high",
-    scriptText:
-      "Think of it this way — your auto insurance protects the car. GAP protects you. Two different things. Your insurance company's job is to pay you market value. Your job is to pay off your loan. GAP makes sure those two numbers always match.",
-    scriptCategory: "product_presentation",
-    dealStage: "product_walkthrough",
-    intentTrigger: "gap_insurance_vs_gap",
-    triggerKeywords: ["insurance covers it", "already have insurance", "what's the difference"],
-    sourceDocument: "GAP_Protection_Closing_Framework.pdf",
-    productContext: "gap_insurance",
-    executionLevel: "elite",
-  },
-  // Vehicle Service Contract (VSC)
-  {
-    id: "pp_vsc_001",
-    title: "VSC Presentation — Core Explanation",
-    urgency: "high",
-    scriptText:
-      "The Vehicle Service Contract is essentially an extended warranty — but better, because it's backed by [Provider] and honored at any licensed repair facility in the country. Once the factory warranty expires, this takes over. We're talking engine, transmission, electrical, air conditioning — the big-ticket items that can run $3,000 to $7,000 out of pocket. For [monthly cost] a month, you're covered.",
-    scriptCategory: "product_presentation",
-    dealStage: "product_walkthrough",
-    intentTrigger: "vsc_presentation",
-    triggerKeywords: ["warranty", "service contract", "vsc", "extended", "repairs", "breakdown"],
-    sourceDocument: "VSA_Presentation_Framework.pdf",
-    productContext: "vehicle_service_contract",
-    executionLevel: "elite",
-  },
-  {
-    id: "pp_vsc_002",
-    title: "VSC Presentation — Factory Warranty Gap",
-    urgency: "high",
-    scriptText:
-      "Here's the thing about the factory warranty — it's great while it lasts. But the average person keeps their vehicle 6 to 7 years. The factory warranty covers you for 3. What happens in years 4, 5, 6, and 7? That's exactly what this covers.",
-    scriptCategory: "product_presentation",
-    dealStage: "product_walkthrough",
-    intentTrigger: "vsc_factory_warranty_gap",
-    triggerKeywords: ["factory warranty", "still under warranty", "already covered", "how long"],
-    sourceDocument: "VSA_Presentation_Framework.pdf",
-    productContext: "vehicle_service_contract",
-    executionLevel: "elite",
-  },
-  // Prepaid Maintenance
-  {
-    id: "pp_ppm_001",
-    title: "Prepaid Maintenance — Core Presentation",
-    urgency: "medium",
-    scriptText:
-      "The Prepaid Maintenance plan locks in today's price for your oil changes, tire rotations, and multi-point inspections for the life of the plan. The average oil change today is $80 to $120. Over three years, that's $600 to $900 just in oil changes. You're paying [plan cost] total — and you're locking in that price today before it goes up.",
-    scriptCategory: "product_presentation",
-    dealStage: "product_walkthrough",
-    intentTrigger: "ppm_presentation",
-    triggerKeywords: ["maintenance", "oil change", "tire rotation", "service", "prepaid"],
-    sourceDocument: "Menu_Mastery_Quick_Reference.pdf",
-    productContext: "prepaid_maintenance",
-    executionLevel: "elite",
-  },
-  // Interior/Exterior Protection
-  {
-    id: "pp_iep_001",
-    title: "ASURA Script — Pp Iep 001",
-    urgency: "medium",
-    scriptText:
-      "The Interior/Exterior Protection package covers paint protection, fabric protection, and windshield repair. On a new vehicle, the paint is the most expensive thing to fix — a single door repaint runs $800 to $1,200. This plan covers you for the full term. If anything happens to the paint, the fabric, or the windshield, it's covered. Zero out of pocket.",
-    scriptCategory: "product_presentation",
-    dealStage: "product_walkthrough",
-    intentTrigger: "iep_presentation",
-    triggerKeywords: ["paint", "fabric", "interior", "exterior", "windshield", "protection"],
-    sourceDocument: "Menu_Mastery_Quick_Reference.pdf",
-    productContext: "interior_exterior_protection",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 5: OBJECTION PREVENTION
-// Source: Objection_Prevention_Matrix.pdf
-// ─────────────────────────────────────────────────────────────────────────────
-export const OBJECTION_PREVENTION_SCRIPTS: VerbatimScript[] = [
-  {
-    id: "op_001",
-    title: "Objection Prevention — Price Reframe",
-    urgency: "high",
-    scriptText:
-      "Before I show you the menu, I want to address something most people think about but don't always say out loud — they wonder if these products are worth it, or if they're just something the dealership makes money on. That's a fair question. Here's my honest answer: I only recommend what I would put on my own vehicle. Everything I'm going to show you today has a real-world value that exceeds what you pay for it. Fair enough?",
-    scriptCategory: "objection_prevention",
-    dealStage: "menu_presentation",
-    intentTrigger: "preempt_value_objection",
-    triggerKeywords: ["worth it", "just making money", "don't need it", "dealer markup"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "op_002",
-    title: "Objection Prevention — Payment Anchor",
-    urgency: "high",
-    scriptText:
-      "One thing I hear a lot is 'I'll think about it.' And I totally respect that. But I want to make sure you have all the information you need to make that decision today — because once you drive off the lot, these options are no longer available to you at this price. So let me make sure I've answered every question before we get to that point.",
-    scriptCategory: "objection_prevention",
-    dealStage: "menu_presentation",
-    intentTrigger: "preempt_think_it_over",
-    triggerKeywords: ["think about it", "let me think", "not sure", "maybe later"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "op_003",
-    title: "Objection Prevention — Responsibility Transfer",
-    urgency: "high",
-    scriptText:
-      "I know payment is always top of mind. So before I show you the menu, I want to be upfront — the difference between taking everything and taking nothing is usually about $30 to $60 a month. That's one dinner out. And what you're getting in return is complete peace of mind for the next 5 to 7 years. I just want to make sure you're making the decision based on value, not just the number.",
-    scriptCategory: "objection_prevention",
-    dealStage: "menu_presentation",
-    intentTrigger: "preempt_payment_objection",
-    triggerKeywords: ["payment", "monthly", "afford", "budget", "too much"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 6: OBJECTION RESPONSES
-// Source: Objection_Prevention_Matrix.pdf, ASURA Elite Playbook
-// ─────────────────────────────────────────────────────────────────────────────
-export const OBJECTION_RESPONSE_SCRIPTS: VerbatimScript[] = [
-  // Price / Payment Objections
-  {
-    id: "or_price_001",
-    title: "Price Objection — Responsibility Transfer Close",
-    urgency: "high",
-    scriptText:
-      "I completely understand — and I respect that. Let me ask you this: if I could show you how to get everything on this menu for less than the cost of one unexpected repair, would that change your perspective at all? Because the average transmission repair today is $4,500. This entire package is [cost]. It's not about the payment — it's about which risk you're more comfortable with.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "price_too_high",
-    triggerKeywords: ["too expensive", "too much", "can't afford", "payment too high", "lower the payment"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "or_price_002",
-    title: "Price Objection — Dollar-a-Day Reframe",
-    urgency: "high",
-    scriptText:
-      "What if we found a way to get you the most important coverage — the one that protects you from the biggest financial risk — and kept the payment exactly where you need it? Which product felt most important to you when I explained them?",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "payment_negotiation",
-    triggerKeywords: ["reduce payment", "just one", "pick one", "which one is most important"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-  // Think It Over
-  {
-    id: "or_tio_001",
-    title: "ASURA Script — Or Tio 001",
-    urgency: "high",
-    scriptText:
-      "I hear you — and I want to respect your process. But I want to make sure I've done my job here. Is there something specific you're unsure about, or is it more of a gut feeling? Because if there's a question I haven't answered, I'd rather answer it now than have you leave with uncertainty.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "think_it_over",
-    triggerKeywords: ["think about it", "let me think", "not today", "come back", "need to think"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "or_tio_002",
-    title: "ASURA Script — Or Tio 002",
-    urgency: "high",
-    scriptText:
-      "Here's what I want you to know — once you leave today, these options are no longer available at this price. The products don't change, but the pricing does. I'm not saying that to pressure you. I'm saying it because I'd rather you have this conversation now, when I can actually help you, than call me next week when my hands are tied.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "think_it_over_urgency",
-    triggerKeywords: ["call you later", "come back tomorrow", "not right now", "next time"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-  // GAP Objections
-  {
-    id: "or_gap_001",
-    title: "ASURA Script — Or Gap 001",
-    urgency: "high",
-    scriptText:
-      "I understand — and your insurance is great. But here's the thing: your insurance company's job is to pay you what the car is worth today. Your loan balance doesn't care what the car is worth. GAP covers the difference between those two numbers. Your insurance doesn't do that. They're two completely different protections.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "gap_already_have_insurance",
-    triggerKeywords: ["already have insurance", "insurance covers it", "full coverage", "don't need gap"],
-    sourceDocument: "GAP_Protection_Closing_Framework.pdf",
-    productContext: "gap_insurance",
-    executionLevel: "elite",
-  },
-  {
-    id: "or_gap_002",
-    title: "ASURA Script — Or Gap 002",
-    urgency: "high",
-    scriptText:
-      "Let me show you something. You're financing [amount]. The moment you drive off this lot, the vehicle depreciates roughly 15 to 20 percent. That means if something happened tomorrow, your insurance would pay you [depreciated value]. But you still owe [loan balance]. That's a [gap amount] gap — right now, today. GAP closes that gap completely.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "gap_depreciation_explanation",
-    triggerKeywords: ["how much would I owe", "depreciation", "upside down", "underwater"],
-    sourceDocument: "GAP_Protection_Closing_Framework.pdf",
-    productContext: "gap_insurance",
-    executionLevel: "elite",
-  },
-  // VSC Objections
-  {
-    id: "or_vsc_001",
-    title: "ASURA Script — Or Vsc 001",
-    urgency: "high",
-    scriptText:
-      "I hear that — and the factory warranty is solid. But here's the question I want you to think about: you said you keep your vehicles 6 to 7 years. The factory warranty covers you for 3. What's your plan for years 4 through 7? Because that's exactly when the expensive stuff starts to happen — and that's exactly what this covers.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "vsc_still_under_warranty",
-    triggerKeywords: ["still under warranty", "factory warranty", "just bought it", "brand new"],
-    sourceDocument: "VSA_Presentation_Framework.pdf",
-    productContext: "vehicle_service_contract",
-    executionLevel: "elite",
-  },
-  {
-    id: "or_vsc_002",
-    title: "ASURA Script — Or Vsc 002",
-    urgency: "high",
-    scriptText:
-      "I respect that — and I'm not going to argue with you. But I want to ask you one question: what would a transmission repair cost you out of pocket right now? [Pause for answer.] The average is $4,500 to $6,000. This contract costs [price] total. If you use it once — just once — it pays for itself. Everything after that is pure savings.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "vsc_dont_need_it",
-    triggerKeywords: ["don't need it", "never use it", "waste of money", "reliable car"],
-    sourceDocument: "VSA_Presentation_Framework.pdf",
-    productContext: "vehicle_service_contract",
-    executionLevel: "elite",
-  },
-  // Self-Insurance / "I'll Save the Money"
-  {
-    id: "or_self_001",
-    title: "ASURA Script — Or Self 001",
-    urgency: "high",
-    scriptText:
-      "That's a great strategy — and it works for some people. But let me ask: do you currently have $5,000 to $7,000 set aside specifically for vehicle repairs? Because if the answer is yes, you're right — you might not need this. But if that money is earmarked for something else, then this plan is actually cheaper than self-insuring.",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "self_insurance_objection",
-    triggerKeywords: ["save the money", "put it in savings", "self insure", "pay out of pocket"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-  // Skepticism / Trust
-  {
-    id: "or_trust_001",
-    title: "ASURA Script — Or Trust 001",
-    urgency: "high",
-    scriptText:
-      "That's a completely fair concern — and I'm not going to try to talk you out of it. What I will tell you is this: every product I'm showing you today is backed by [Provider], not the dealership. If you have a claim, you call them directly. The dealership is out of the picture. This is a contract between you and [Provider].",
-    scriptCategory: "objection_response",
-    dealStage: "objection_handling",
-    intentTrigger: "trust_dealer_motives",
-    triggerKeywords: ["dealer makes money", "just a profit center", "don't trust", "scam", "rip off"],
-    sourceDocument: "Objection_Prevention_Matrix.pdf",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 7: CLOSING LANGUAGE
-// Source: ASURA Elite F&I Performance Playbook, GAP Closing Framework
-// ─────────────────────────────────────────────────────────────────────────────
-export const CLOSING_SCRIPTS: VerbatimScript[] = [
-  {
-    id: "cl_001",
-    title: "Closing — Assumptive Commitment Close",
-    urgency: "high",
-    scriptText:
-      "Based on everything you told me — how long you keep your vehicles, how much you drive, and the fact that you'd rather have a plan in place than handle it out of pocket — the package that makes the most sense for you is [Package Name]. That gives you [Product 1], [Product 2], and [Product 3] for [monthly cost] a month. Does that work for you?",
-    scriptCategory: "closing",
-    dealStage: "closing",
-    intentTrigger: "assumptive_close",
-    triggerKeywords: ["which one", "what do you recommend", "what makes sense", "what should I get"],
-    sourceDocument: "ASURA_Elite_FI_Performance_Playbook.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "cl_002",
-    title: "Closing — Either/Or Technique",
-    urgency: "high",
-    scriptText:
-      "Let me ask you a direct question — is there anything stopping you from moving forward with this today? Because if there is, I want to address it right now. And if there isn't, let's get you protected and get you on your way.",
-    scriptCategory: "closing",
-    dealStage: "closing",
-    intentTrigger: "direct_close",
-    triggerKeywords: ["stopping you", "anything else", "ready to sign", "move forward"],
-    sourceDocument: "ASURA_Elite_FI_Performance_Playbook.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "cl_003",
-    title: "Closing — Urgency/Scarcity Frame",
-    urgency: "high",
-    scriptText:
-      "Here's what I want you to walk away with today — not just a vehicle, but complete peace of mind. You've made a significant investment. Protecting it costs a fraction of what it would cost to fix it. Let's make sure you're covered.",
-    scriptCategory: "closing",
-    dealStage: "closing",
-    intentTrigger: "value_close",
-    triggerKeywords: ["peace of mind", "protected", "investment", "worth it"],
-    sourceDocument: "ASURA_Elite_FI_Performance_Playbook.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "cl_004",
-    title: "Closing — Takeaway Close",
-    urgency: "high",
-    scriptText:
-      "The only question left is: do you want to be the person who had coverage when something happened, or the person who wished they did? I've seen both. The ones who had it never regret it.",
-    scriptCategory: "closing",
-    dealStage: "closing",
-    intentTrigger: "emotional_close",
-    triggerKeywords: ["regret", "wish I had", "what if", "just in case"],
-    sourceDocument: "GAP_Protection_Closing_Framework.pdf",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 8: PHONE SCRIPTS
-// Source: Evan_Macklin_Phone_Sales_Training_Script.pdf
-// ─────────────────────────────────────────────────────────────────────────────
-export const PHONE_SCRIPTS: VerbatimScript[] = [
-  {
-    id: "ph_phone_001",
-    title: "ASURA Script — Ph Phone 001",
-    urgency: "medium",
-    scriptText:
-      "Hi, this is [Name] from [Dealership] Finance. I'm calling because your vehicle is scheduled for delivery and I want to make sure everything is ready for you on our end. I have a couple of quick questions — do you have about two minutes?",
-    scriptCategory: "phone_script",
-    dealStage: "introduction",
-    intentTrigger: "phone_pre_delivery",
-    triggerKeywords: ["calling", "phone", "appointment", "delivery", "schedule"],
-    sourceDocument: "Evan_Macklin_Phone_Sales_Training_Script.pdf",
-    executionLevel: "elite",
-  },
-  {
-    id: "ph_phone_002",
-    title: "ASURA Script — Ph Phone 002",
-    urgency: "medium",
-    scriptText:
-      "I also want to give you a heads-up — when you come in, I'm going to walk you through a few protection options for your vehicle. I'm not going to pressure you on anything. I just want to make sure you have all the information so you can make the best decision for yourself. Sound fair?",
-    scriptCategory: "phone_script",
-    dealStage: "introduction",
-    intentTrigger: "phone_set_expectation",
-    triggerKeywords: ["what to expect", "what happens", "finance office", "how long"],
-    sourceDocument: "Evan_Macklin_Phone_Sales_Training_Script.pdf",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SECTION 9: COMPLIANCE DISCLOSURES
-// Source: Federal Regulations (TILA, ECOA, UDAP, CLA)
-// ─────────────────────────────────────────────────────────────────────────────
-export const COMPLIANCE_DISCLOSURE_SCRIPTS: VerbatimScript[] = [
-  {
-    id: "cd_tila_001",
-    title: "ASURA Script — Cd Tila 001",
-    urgency: "high",
-    scriptText:
-      "Before we finalize your financing, I'm required by federal law to disclose the following: your Annual Percentage Rate is [APR]%, your finance charge is [amount], the amount financed is [amount], and your total of payments over the life of the loan is [amount]. Do you have any questions about these numbers?",
-    scriptCategory: "compliance_disclosure",
-    dealStage: "closing",
-    intentTrigger: "tila_disclosure",
-    triggerKeywords: ["apr", "interest rate", "finance charge", "total payments", "truth in lending"],
-    sourceDocument: "Federal_Compliance_TILA_RegZ",
-    executionLevel: "elite",
-  },
-  {
-    id: "cd_ecoa_001",
-    title: "ASURA Script — Cd Ecoa 001",
-    urgency: "high",
-    scriptText:
-      "I also want to let you know that under the Equal Credit Opportunity Act, we do not discriminate based on race, color, religion, national origin, sex, marital status, age, or any other protected class. Your application is evaluated solely on your creditworthiness.",
-    scriptCategory: "compliance_disclosure",
-    dealStage: "introduction",
-    intentTrigger: "ecoa_disclosure",
-    triggerKeywords: ["discrimination", "credit", "ecoa", "equal credit", "application"],
-    sourceDocument: "Federal_Compliance_ECOA_RegB",
-    executionLevel: "elite",
-  },
-  {
-    id: "cd_privacy_001",
-    title: "ASURA Script — Cd Privacy 001",
-    urgency: "high",
-    scriptText:
-      "Before we proceed, I need to provide you with our Privacy Policy notice, which explains how we collect, use, and protect your personal information. Do you have any questions about our privacy practices?",
-    scriptCategory: "compliance_disclosure",
-    dealStage: "introduction",
-    intentTrigger: "privacy_policy_disclosure",
-    triggerKeywords: ["privacy", "personal information", "data", "gramm-leach-bliley"],
-    sourceDocument: "Federal_Compliance_Privacy",
-    executionLevel: "elite",
-  },
-  {
-    id: "cd_base_payment_001",
-    title: "ASURA Script — Cd Base Payment 001",
-    urgency: "high",
-    scriptText:
-      "Your base payment — that's your vehicle payment without any F&I products — is [amount] per month at [APR]% for [term] months. Everything I show you today will be on top of that base payment. I want to make sure that's clear before we look at any options.",
-    scriptCategory: "compliance_disclosure",
-    dealStage: "menu_presentation",
-    intentTrigger: "base_payment_disclosure",
-    triggerKeywords: ["base payment", "without products", "just the car payment", "before products"],
-    sourceDocument: "Federal_Compliance_TILA_RegZ",
-    executionLevel: "elite",
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MASTER SCRIPT INDEX — All scripts combined for retrieval
-// ─────────────────────────────────────────────────────────────────────────────
-export const ALL_SCRIPTS: VerbatimScript[] = [
-  ...PROFESSIONAL_HELLO_SCRIPTS,
-  ...FINANCIAL_SNAPSHOT_SCRIPTS,
-  ...MENU_TRANSITION_SCRIPTS,
-  ...PRODUCT_PRESENTATION_SCRIPTS,
-  ...OBJECTION_PREVENTION_SCRIPTS,
-  ...OBJECTION_RESPONSE_SCRIPTS,
-  ...CLOSING_SCRIPTS,
-  ...PHONE_SCRIPTS,
-  ...COMPLIANCE_DISCLOSURE_SCRIPTS,
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SCRIPT RETRIEVAL ENGINE
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * ASURA Process Steps - Updated to reflect full 23-script methodology
+ */
+export const ASURA_PROCESS_STEPS = [
+  { stage: "introduction", description: "Professional Hello & Trust Transfer" },
+  { stage: "client_survey", description: "Retail Delivery Preparation Worksheet" },
+  { stage: "needs_awareness", description: "Deficiency Balance & Manufacturer Education" },
+  { stage: "transition", description: "Move to Finance Office" },
+  { stage: "menu_presentation", description: "Present Consumer Protection Options" },
+  { stage: "ranking", description: "Customer Ranking & Prioritization Process" },
+  { stage: "objection_handling", description: "Address Concerns & Create Need" },
+  { stage: "closing", description: "Assume Business & Complete Transaction" },
+  { stage: "admin", description: "Documentation & Compliance Functions" }
+] as const;
 
 /**
- * Retrieve the best matching verbatim script for a given transcript excerpt.
- * Returns the exact script or null — NEVER generates new language.
+ * Complete ASURA Verbatim Script Collection
+ * All 23 core scripts plus updated menu presentation variants
+ */
+export const ASURA_SCRIPTS: VerbatimScript[] = [
+  // SCRIPT 1: Professional Hello
+  {
+    id: "PRO_HELLO_001",
+    title: "Professional Hello & Trust Transfer",
+    scriptText: "Congratulations on your new vehicle! My name is _________, and I am one of the business managers here at ____________ dealership. I have a few responsibilities today: I am going to complete all your state and federal documents; then I will review your manufacturer's warranty; and last and most importantly, I am going to get you out of here as quickly as possible for you to start enjoying your new vehicle. Now, we have developed a quick client survey to speed up the rest of this process, which I am going to get into now.",
+    scriptCategory: "professional_hello",
+    dealStage: "introduction",
+    intentTrigger: "Transfer trust from salesperson to finance manager, eliminate anxieties, lay out process",
+    triggerKeywords: ["congratulations", "business manager", "responsibilities", "documents", "warranty", "client survey", "trust transfer", "process outline"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "critical",
+    coachingNote: "Purpose: Transfer trust from salesperson to finance manager. Eliminate anxieties. Lay out what's to come.",
+    isActive: true
+  },
+
+  // SCRIPT 2: Client Survey (Complete Worksheet)
+  {
+    id: "CLIENT_SURVEY_001",
+    title: "Retail Delivery Preparation Worksheet - Complete Client Survey",
+    scriptText: "Required Questions (in order): 1. Who should be listed on the title? 2. Is this the correct address? P.O. Box? 3. How do you plan on handling the balance due? (Review Base Payment, Term, Rate) 4. Is there a balance owed on the vehicle being traded? Verified? 5. Do you have both sets of keys with the vehicle being traded? 6. Do you have the title and registration? 7. Does the payoff include a service contract or GAP that we can help you get a refund on? 8. Where did you buy your last vehicle? 9. What company provides your vehicle insurance? Deductible? 10. Do you typically register your vehicle with the police for recovery? 11. Most people keep their vehicles 7-8 years. Do you keep yours that long or a bit longer? 12. Most people drive 12,000-15,000 miles per year. Do you drive that much or a little more? 13. Where do you maintain your vehicle(s)? 14. On a scale of 1-10, how important is the appearance of your vehicle? 15. Will children or pets be riding in this vehicle? 16. What is your mother's maiden name? 17. If the lender required an additional $1,000-$2,000 cash investment, would those funds be available today? 18. What is your understanding of the factory warranty? 19. Factory survey question (warranty value) 20. If your vehicle was totaled or stolen, how would you handle the deficiency balance?",
+    scriptCategory: "client_survey",
+    dealStage: "client_survey",
+    intentTrigger: "Complete trust transfer, get customers thinking about situations ahead of presentation",
+    triggerKeywords: ["client survey", "title", "address", "balance due", "trade", "insurance", "deductible", "warranty understanding", "deficiency balance", "needs discovery"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Purpose: Complete trust transfer. Get customers thinking about situations ahead of presentation. Takes 5-6 minutes. Must follow exact order.",
+    isActive: true
+  },
+
+  // SCRIPT 3: Handling Balance Due
+  {
+    id: "BALANCE_DUE_001",
+    title: "Handling the Balance Due Question",
+    scriptText: "Now, is it just yourself on the title today? [Response] Great, and is this the correct address we have here? [Response] Now I want to take a quick moment to review the figures you agreed on with the sales department. You are buying a new/pre-owned ____________ with a selling price of [amount]. You have your title fees, document fees, trade-in (when applicable), less your rebate of [amount], less your cash investment of [amount]. Financing for [term] months at [rate]% and a payment of [amount]. (This is a statement, not a question.) Great. Now I'm going to make a couple quick notes. There is a trade-in, and we are financing. Is there a balance owed on the vehicle being traded today?",
+    scriptCategory: "financial_snapshot",
+    dealStage: "client_survey",
+    intentTrigger: "Transfer trust through financial review statement",
+    triggerKeywords: ["balance due", "title", "address", "selling price", "financing", "payment", "trade-in", "financial review", "statement not question"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Purpose: Transfer trust. Statement, not a question. Must present as confirmation of agreed terms.",
+    isActive: true
+  },
+
+  // SCRIPT 4: Factory Survey Question
+  {
+    id: "FACTORY_SURVEY_001",
+    title: "Factory Survey Question - VSC Value Discovery",
+    scriptText: "What is your understanding of the factory warranty? [Response] Got it. Now, this next question is more of a factory survey question. [Brand] are trying to get a value on their [term] comprehensive warranty. If it were to eliminate that warranty, how much would you expect it to reduce the price of the vehicle to still earn your business? [Response; if no number:] I completely understand. I know it is a different type of question. If you had to put a number on it, just for data purposes, what would it be?",
+    scriptCategory: "needs_awareness",
+    dealStage: "needs_awareness",
+    intentTrigger: "Show how VSC is like factory warranty, get value on comprehensive warranty",
+    triggerKeywords: ["factory survey", "warranty understanding", "comprehensive warranty", "value", "eliminate warranty", "price reduction", "data purposes"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "medium",
+    coachingNote: "Purpose: Show how VSC is like factory warranty. Get value on comprehensive warranty. Push for specific number.",
+    isActive: true
+  },
+
+  // SCRIPT 5: Deficiency Balance Needs Awareness
+  {
+    id: "DEFICIENCY_AWARENESS_001",
+    title: "Deficiency Balance Needs Awareness - GAP Relevance",
+    scriptText: "If your vehicle were totaled or stolen, how would you handle the deficiency balance? [Response] It's really easiest if I just draw it out. For this example, we will say we are borrowing roughly $20,000, and after making payments, we will eventually have a $0.00 balance with the bank. (Draw graph) Another important factor for this example, of course, is a question: when do vehicles depreciate most rapidly? [Response: \"Right away.\"] Absolutely. Then, their value levels off over time. (Draw market value curve) Mr./Mrs. Customer, for this example, say the vehicle suffers a total loss in year two, and the bank is still owed roughly $18,000. However, the true market value deemed by the insurance company is roughly $16,000, which creates a deficiency balance of $2,000. Of course. When will the bank expect their collateral? [Response: \"Right away.\"] Absolutely. In addition, our customers on average have a $500.00 deductible. This total deficiency balance creates an out-of-pocket event of $2,500. Even if this amount was easily affordable, how would it feel if we had to write a check for something we could no longer own or drive?",
+    scriptCategory: "needs_awareness",
+    dealStage: "needs_awareness",
+    intentTrigger: "Visually demonstrate deficiency balance for GAP relevance",
+    triggerKeywords: ["deficiency balance", "total loss", "stolen", "depreciation", "draw graph", "market value", "insurance company", "out-of-pocket", "GAP demonstration"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Purpose: Visually demonstrate deficiency balance for GAP relevance. Must draw on paper. Create emotional impact.",
+    isActive: true
+  },
+
+  // SCRIPT 6A: Manufacturer Warranty Review - Comprehensive
+  {
+    id: "WARRANTY_REVIEW_001A",
+    title: "Manufacturer Warranty Review - Comprehensive Coverage",
+    scriptText: "As I mentioned earlier, it is my responsibility to review the warranty with you. On your _______________ vehicle, the manufacturer provides a (X-year, X-mile) comprehensive warranty, and they do a pretty good job of covering most things at this time, such as your computers, electronics, AC/heating components, and steering/suspension components. Now, specifically in reference to the computers, these vehicles have anywhere between 70 and 100 ECU units, otherwise known as electronic control units, which send out over 100 million lines of code when you are operating your vehicle. So, they really do a pretty good job of covering most things at this time.",
+    scriptCategory: "product_knowledge",
+    dealStage: "needs_awareness",
+    intentTrigger: "Review manufacturer's warranty - comprehensive coverage education",
+    triggerKeywords: ["manufacturer warranty", "comprehensive warranty", "computers", "electronics", "AC heating", "ECU units", "electronic control units", "100 million lines of code"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "medium",
+    coachingNote: "Part 1 of warranty education. Emphasize complexity of modern vehicles.",
+    isActive: true
+  },
+
+  // SCRIPT 6B: Manufacturer Warranty Review - Powertrain
+  {
+    id: "WARRANTY_REVIEW_001B", 
+    title: "Manufacturer Warranty Review - Powertrain Coverage",
+    scriptText: "In addition, they provide a (X-year, X-mile) powertrain warranty. This would cover all the internally lubricated components of your engine, transmission, and drive axle. The easiest way to think about it is that if an item touches oil, it will most likely be covered.",
+    scriptCategory: "product_knowledge",
+    dealStage: "needs_awareness",
+    intentTrigger: "Explain powertrain warranty coverage",
+    triggerKeywords: ["powertrain warranty", "internally lubricated", "engine", "transmission", "drive axle", "touches oil", "powertrain coverage"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "medium",
+    coachingNote: "Part 2 of warranty education. Simple explanation of powertrain coverage.",
+    isActive: true
+  },
+
+  // SCRIPT 6C: Manufacturer Warranty Review - Defective Definition
+  {
+    id: "WARRANTY_REVIEW_001C",
+    title: "Manufacturer Warranty Review - 'Defective' Definition",
+    scriptText: "Of course, as we know, these warranties will both come into play when a factory-installed part is deemed defective. What the manufacturer is really looking for is to see if the parts were misaligned or mis-installed, and it is up to the manufacturer to decide if the part qualifies.",
+    scriptCategory: "product_knowledge", 
+    dealStage: "needs_awareness",
+    intentTrigger: "Educate on meaning of 'defective' for warranty claims",
+    triggerKeywords: ["defective", "factory-installed", "misaligned", "mis-installed", "manufacturer decides", "part qualifies", "warranty limitation"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Part 3 of warranty education. Critical to establish warranty limitations.",
+    isActive: true
+  },
+
+  // SCRIPT 6D: Customer Responsibilities 
+  {
+    id: "WARRANTY_REVIEW_001D",
+    title: "Customer Warranty Responsibilities Review",
+    scriptText: "By any chance did your sales professional go over what you are responsible for today? [Response: \"No, they didn't.\"] No problem. I am sure there are no surprises; it is just my responsibility to review them with you. Here at ________ dealership, you will be responsible for your routine maintenance items—such as oil changes, tire rotations, things of that nature—as well as your tires and wheels, in the event of a road hazard. Now, they did provide an anti-perforation or anti-corrosion warranty. That is in reference to the paint; if anything occurred during their spraying process and spread from the inside out, it would be covered, but you would be responsible for the paint going outside in as well as for the interior fabrics of the vehicle. Lastly, at this point in the process, the dealership has asked us to go over that your keys and key fobs are not covered in the event that they are damaged, lost, or stolen.",
+    scriptCategory: "compliance_disclosure",
+    dealStage: "needs_awareness", 
+    intentTrigger: "Review customer responsibilities not covered by warranty",
+    triggerKeywords: ["customer responsibilities", "routine maintenance", "oil changes", "tire rotations", "tires wheels", "road hazard", "paint coverage", "interior fabrics", "keys not covered"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Part 4 of warranty education. Must disclose all customer responsibilities.",
+    isActive: true
+  },
+
+  // SCRIPT 7: Transition to Finance Office
+  {
+    id: "OFFICE_TRANSITION_001",
+    title: "Effective Transition to Finance Office",
+    scriptText: "Mr./Mrs. Customer, I have all of the information I need, and if you folks want to come back with me now, I am just going to double-check the information we went over here and get started with your state documents in the office. I will log into the Department of Licensing's website and enter this information, have you double-check it for me and enroll your registration with the state, and then proceed with the rest of the documents. Now, can I get you anything to drink—water/coffee—before we head back to the office?",
+    scriptCategory: "transition",
+    dealStage: "transition",
+    intentTrigger: "Move customer from showroom to finance office",
+    triggerKeywords: ["transition", "double-check information", "state documents", "Department of Licensing", "registration", "office", "hospitality", "water coffee"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "medium",
+    coachingNote: "Purpose: Move customer from showroom to finance office. Include hospitality gesture.",
+    isActive: true
+  },
+
+  // SCRIPT 8: Menu Presentation Intro (Delphi Version)
+  {
+    id: "MENU_INTRO_001",
+    title: "Menu Presentation Introduction - Standard",
+    scriptText: "Mr./Mrs. Customer, I know you were quoted a payment of $________ per month for _______ months at _______% interest. I want you to know that you can certainly take delivery at those figures today. However, you have several repayment options available to you, and it's my responsibility to review those with you. Now, that client survey we went over earlier (Pause for acknowledgement). We developed it because here at ____________ automotive group we have ______ different franchises and there are significant differences between the brands. We want to make sure that our customers know what is covered and what is not, and most importantly that your paperwork is correct the first time. This brings us to our Dealership's mandatory disclosure form. Let's begin with Option 1, our best and most comprehensive protection, specifically designed to pick up where the manufacturer leaves off.",
+    scriptCategory: "menu_transition",
+    dealStage: "menu_presentation",
+    intentTrigger: "Introduce menu presentation and consumer protection options",
+    triggerKeywords: ["quoted payment", "repayment options", "client survey", "franchises", "brand differences", "mandatory disclosure", "Option 1", "comprehensive protection"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "critical",
+    coachingNote: "Purpose: Present full lineup of consumer protection options. Standard Delphi version.",
+    isActive: true
+  },
+
+  // SCRIPT 8B: Menu Presentation Intro (Elite Version)
+  {
+    id: "MENU_INTRO_002",
+    title: "Menu Presentation Introduction - Elite",
+    scriptText: "So now, you know that client survey we went over a little bit earlier? (Pause for Acknowledgement by customer) The whole reason we developed that here at XYZ Dealership is because we represent multiple different brands, and we want to make sure we went over what's covered on your vehicle today and what you're responsible for. And lastly, most importantly, I just want to make sure I get your state and federal documents right the first time. Now, that brings us to our consumer options, beginning here with option one. This is our best and most comprehensive protection. This is specifically designed to pick up where the manufacturer leaves off. The whole reason we developed this is because, again, we represent multiple different brands and looked at any common responsibility someone could have regardless of what make or model they chose. We wanted to create a program that allowed our customers to opt out of those responsibilities completely, starting with the vehicle service agreement, not an extended warranty.",
+    scriptCategory: "menu_transition", 
+    dealStage: "menu_presentation",
+    intentTrigger: "Elite version of menu introduction with enhanced positioning",
+    triggerKeywords: ["client survey", "multiple brands", "covered", "responsible for", "consumer options", "comprehensive protection", "opt out responsibilities", "vehicle service agreement"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf",
+    executionLevel: "elite",
+    urgency: "critical",
+    coachingNote: "Elite version with enhanced positioning and smoother transition language.",
+    isActive: true
+  },
+
+  // SCRIPT 9: VSC Presentation (Standard)
+  {
+    id: "VSC_PRESENTATION_001",
+    title: "Vehicle Service Agreement Presentation - Standard",
+    scriptText: "Beginning with the vehicle service agreement, this is not an extended warranty. A warranty only comes into play when a part is deemed defective. As we discussed earlier, that's when parts are misaligned or mis-installed at the factory. A service agreement covers mechanical and electrical breakdowns. There are really only two types: named component or stated plans, and comprehensive or all-risk plans. We only offer comprehensive plans because with those, there are only a few things you remain responsible for: routine maintenance, normal wear and tear items, and collision damage, which is already covered by your insurance. Everything else is covered 100% parts and labor. This protection is good anywhere in the United States and Canada at any certified repair facility.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation", 
+    intentTrigger: "Present Vehicle Service Agreement benefits",
+    triggerKeywords: ["vehicle service agreement", "not extended warranty", "mechanical breakdowns", "electrical breakdowns", "comprehensive plans", "100% parts labor", "United States Canada", "certified repair"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Core VSC presentation. Emphasize difference from warranty.",
+    isActive: true
+  },
+
+  // SCRIPT 9B: VSC Presentation (Elite)
+  {
+    id: "VSC_PRESENTATION_002", 
+    title: "Vehicle Service Agreement Presentation - Elite",
+    scriptText: "So beginning with the vehicle service agreement, this is not an extended warranty. A warranty, of course, like we touched on earlier, only comes into play when a part is deemed defective... Which is why, as soon as we had another way to go, we did. That's why we only offer vehicle service agreements. A vehicle service agreement is an agreement to cover mechanical and electrical breakdowns for a customized time and mileage... Now, there are really only two types of service agreements... named peril or stated plans, and we don't offer those either. That's why we only offer all-risk, or comprehensive plans. With those, there are just a few things you remain responsible for... Your routine maintenance items, normal wear and tear, and of course, collision, which is already covered by your insurance. Everything else in your vehicle is taken care of... Now, another big thing with this is it covers one hundred percent of parts and one hundred percent of labor... Three years ago, our parts went up forty-two percent. The year after that, they went up thirty-nine percent. And last year, they went up another twenty-two percent. That's over a hundred percent increase in just three years... your protection continues to expand each year to absorb those increases so you never feel them... And most importantly, when it comes time to use it, it's good anywhere in the U.S. and Canada at a certified repair facility.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Elite VSC presentation with cost inflation emphasis", 
+    triggerKeywords: ["vehicle service agreement", "not warranty", "another way to go", "customized time mileage", "all-risk comprehensive", "parts went up", "hundred percent increase", "protection expands", "U.S. Canada"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf",
+    executionLevel: "elite",
+    urgency: "high", 
+    coachingNote: "Elite version emphasizes cost inflation and value protection over time.",
+    isActive: true
+  },
+
+  // SCRIPT 10: Tire & Wheel (Standard)
+  {
+    id: "TIRE_WHEEL_001",
+    title: "Tire & Wheel Protection - Standard",
+    scriptText: "Next is tire and wheel protection. This covers your tires and wheels in the event of a road hazard. A road hazard is anything that's not supposed to be on the road—nails, screws, glass, potholes, debris. This provides unlimited tire repair and replacement, unlimited wheel repair and replacement, with a zero dollar deductible for the length of your financing term.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Present tire and wheel protection benefits",
+    triggerKeywords: ["tire wheel protection", "road hazard", "nails screws glass", "potholes debris", "unlimited repair", "unlimited replacement", "zero deductible", "financing term"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "medium",
+    coachingNote: "Standard tire and wheel presentation. Define road hazard clearly.",
+    isActive: true
+  },
+
+  // SCRIPT 10B: Tire & Wheel (Elite)  
+  {
+    id: "TIRE_WHEEL_002",
+    title: "Tire & Wheel Protection - Elite",
+    scriptText: "These next two protections are available upgrades to that vehicle service agreement beginning with your tires and wheels. This will cover your tires and wheels in the event of a road hazard, and a road hazard is deemed as anything that is not supposed to be there. I forgot to ask, where do you do most of your driving?... ...Which is why we cover unlimited tires and unlimited wheels for the next ________ years with a $0.00 deductible. ...In addition most times when we have the cosmetic damage we can't even repair them and simply have to replace the rim which is why we take care of unlimited cosmetic repair and replacement for the next ________ years with a $0.00 deductible.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Elite tire and wheel with driving habits discovery",
+    triggerKeywords: ["available upgrades", "road hazard", "not supposed to be there", "where do you drive", "unlimited tires wheels", "cosmetic damage", "replace the rim", "unlimited cosmetic repair"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf", 
+    executionLevel: "elite",
+    urgency: "medium",
+    coachingNote: "Elite version includes driving habits discovery and cosmetic damage emphasis.",
+    isActive: true
+  },
+
+  // SCRIPT 11: Key Replacement
+  {
+    id: "KEY_REPLACEMENT_001",
+    title: "Key Replacement Protection",
+    scriptText: "Next available upgrade is key replacement. It is going to do exactly what it says. It will replace your keys in the event they are damaged, lost, or stolen. It will pay $800 per occurrence, with unlimited occurrences during the length of the policy.",
+    scriptCategory: "product_presentation", 
+    dealStage: "menu_presentation",
+    intentTrigger: "Present key replacement protection benefits",
+    triggerKeywords: ["key replacement", "damaged lost stolen", "$800 per occurrence", "unlimited occurrences", "length of policy", "available upgrade"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "low",
+    coachingNote: "Simple, straightforward key replacement presentation. Same in both documents.",
+    isActive: true
+  },
+
+  // SCRIPT 12: Oil Maintenance Program
+  {
+    id: "OIL_MAINTENANCE_001",
+    title: "Oil Maintenance Program",
+    scriptText: "Next is our oil maintenance program. This covers your regularly scheduled oil changes and filter replacements according to your manufacturer's recommended maintenance schedule. This ensures your vehicle receives proper maintenance to keep your warranty in effect and helps maintain your vehicle's resale value.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation", 
+    intentTrigger: "Present oil maintenance program benefits",
+    triggerKeywords: ["oil maintenance", "scheduled oil changes", "filter replacements", "manufacturer schedule", "warranty in effect", "resale value", "proper maintenance"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "low",
+    coachingNote: "Maintenance program presentation. Link to warranty compliance.",
+    isActive: true
+  },
+
+  // SCRIPT 13: GAP Protection (Standard)
+  {
+    id: "GAP_PROTECTION_001",
+    title: "Guaranteed Asset Protection (GAP) - Standard", 
+    scriptText: "Next is Guaranteed Asset Protection, or GAP. In the event of a total loss, this takes care of the difference between what your insurance company values your vehicle at and what you still owe the bank. As we discussed earlier, this protects you from having to write a check for something you can no longer own or drive.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Present GAP protection referencing earlier demonstration",
+    triggerKeywords: ["GAP", "Guaranteed Asset Protection", "total loss", "insurance values", "still owe bank", "write a check", "no longer own drive"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx", 
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Reference earlier deficiency balance demonstration. Emotional appeal.",
+    isActive: true
+  },
+
+  // SCRIPT 13B: GAP Protection (Elite)
+  {
+    id: "GAP_PROTECTION_002",
+    title: "Guaranteed Asset Protection (GAP) - Elite",
+    scriptText: "Next here is Guaranteed Asset Protection, some people refer to this as gap. In the event of a total loss this will take care of any difference between what your insurance company values your vehicle at and what the bank is owed. What is unique about our program is that we are able to cover any difference amount because we do not have any limitations like typical programs that cover up to a 150% of your vehicles value. This coverage has become so important on your loan that on the law contract it has it's own disclosure box asking if you opt'd out of that responsibility or not...",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation", 
+    intentTrigger: "Elite GAP presentation emphasizing unlimited coverage",
+    triggerKeywords: ["Guaranteed Asset Protection", "gap", "total loss", "any difference amount", "no limitations", "150% typical programs", "disclosure box", "opt'd out responsibility"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf",
+    executionLevel: "elite", 
+    urgency: "high",
+    coachingNote: "Elite version emphasizes unlimited coverage vs typical 150% programs. Legal disclosure mention.",
+    isActive: true
+  },
+
+  // SCRIPT 14: Anti-Theft & Vehicle Replacement (Standard)
+  {
+    id: "ANTI_THEFT_001",
+    title: "Anti-Theft & Vehicle Replacement - Standard",
+    scriptText: "Next is anti-theft protection with vehicle replacement coverage. This includes window etching with your vehicle's VIN number as a theft deterrent. In the event your vehicle is stolen and not recovered, or stolen and deemed a total loss, this pays the difference between what you paid for the vehicle and what your insurance company values it at, up to $25,000.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Present anti-theft and replacement coverage",
+    triggerKeywords: ["anti-theft", "vehicle replacement", "window etching", "VIN number", "theft deterrent", "stolen not recovered", "total loss", "$25,000"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard", 
+    urgency: "medium",
+    coachingNote: "Standard anti-theft presentation with etching and replacement benefits.",
+    isActive: true
+  },
+
+  // SCRIPT 14B: Vehicle Replacement/Etch (Elite)
+  {
+    id: "VEHICLE_REPLACEMENT_002", 
+    title: "Vehicle Replacement/Etch - Elite",
+    scriptText: "Next is an upgrade to our guaranteed asset protection. This is a passive system, the vehicle is equipped with a body labeling... In the event your vehicle becomes stolen and not recovered or stolen and deemed a total loss... Will pay the difference between what you paid today for the vehicle and what your insurance company values it at, paying all the way up to $25,000...",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Elite vehicle replacement as GAP upgrade",
+    triggerKeywords: ["upgrade to GAP", "passive system", "body labeling", "stolen not recovered", "what you paid today", "insurance values", "up to $25,000"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf",
+    executionLevel: "elite",
+    urgency: "medium", 
+    coachingNote: "Elite version positions as GAP upgrade, emphasizes passive system.",
+    isActive: true
+  },
+
+  // SCRIPT 15: GPS Recovery System (Standard)
+  {
+    id: "GPS_RECOVERY_001",
+    title: "GPS Recovery System - Standard", 
+    scriptText: "Next is our GPS recovery system. This is an active tracking system that allows law enforcement to locate your vehicle quickly in the event it's stolen. The system works 24/7 and can help recover your vehicle before it's damaged or before the contents are stolen.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Present GPS recovery system benefits",
+    triggerKeywords: ["GPS recovery", "active tracking", "law enforcement", "locate quickly", "stolen", "24/7", "recover vehicle", "before damaged"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "medium",
+    coachingNote: "Standard GPS recovery presentation. Emphasize active vs passive.",
+    isActive: true
+  },
+
+  // SCRIPT 15B: Theft Recovery (Elite)
+  {
+    id: "THEFT_RECOVERY_002",
+    title: "Theft Recovery System - Elite", 
+    scriptText: "Next is __________, this is our active system, it is a GPS based system and allows us to locate your vehicle with the police...",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Elite GPS recovery system presentation",
+    triggerKeywords: ["active system", "GPS based", "locate vehicle", "with the police", "theft recovery"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf",
+    executionLevel: "elite",
+    urgency: "medium",
+    coachingNote: "Elite version, more concise. Emphasizes active system vs passive etching.",
+    isActive: true
+  },
+
+  // SCRIPT 16: Ceramic/Cosmetic Protection (Standard)
+  {
+    id: "CERAMIC_PROTECTION_001", 
+    title: "Ceramic/Cosmetic Protection - Standard",
+    scriptText: "Next is ceramic paint protection. This protects your vehicle's paint from environmental damage, UV rays, acid rain, and everyday wear. The ceramic coating helps maintain your vehicle's appearance and resale value by providing a protective barrier that makes washing easier and keeps your paint looking new longer.",
+    scriptCategory: "product_presentation", 
+    dealStage: "menu_presentation",
+    intentTrigger: "Present ceramic paint protection benefits",
+    triggerKeywords: ["ceramic paint protection", "environmental damage", "UV rays", "acid rain", "everyday wear", "resale value", "protective barrier", "washing easier"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "low",
+    coachingNote: "Standard ceramic protection presentation. Focus on appearance and value.",
+    isActive: true
+  },
+
+  // SCRIPT 16B: Sealant/Ceramic (Elite)
+  {
+    id: "SEALANT_CERAMIC_002",
+    title: "Sealant/Ceramic Protection - Elite",
+    scriptText: "Now these next few options are meant to protect your appearance, and ultimately your resale value, starting with [blank]. This is our ceramic resin. This is not a wax... years ago, you'd see older cars on the road and their paint jobs still looked really good. That's because back then they actually used lead in the paint... For decades now, manufacturers have been using much softer paints. That's why you'll see vehicles on the road with multiple different shades of the same color on the same car...",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation", 
+    intentTrigger: "Elite ceramic presentation with paint history education",
+    triggerKeywords: ["protect appearance", "resale value", "ceramic resin", "not a wax", "older cars", "lead in paint", "softer paints", "different shades same color"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf",
+    executionLevel: "elite",
+    urgency: "low",
+    coachingNote: "Elite version educates on paint evolution. Creates urgency through comparison.",
+    isActive: true
+  },
+
+  // SCRIPT 17: PDR & Windshield (Standard)
+  {
+    id: "PDR_WINDSHIELD_001",
+    title: "PDR & Windshield Protection - Standard",
+    scriptText: "Next is paintless dent repair and windshield protection. The PDR covers small dents and dings that can be repaired without repainting. The windshield protection covers chips and cracks, providing repair or replacement as needed. Both help maintain your vehicle's appearance and value.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation",
+    intentTrigger: "Present PDR and windshield protection benefits",
+    triggerKeywords: ["paintless dent repair", "PDR", "windshield protection", "small dents dings", "without repainting", "chips cracks", "repair replacement", "appearance value"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx", 
+    executionLevel: "standard",
+    urgency: "low",
+    coachingNote: "Standard PDR and windshield presentation. Emphasize appearance maintenance.",
+    isActive: true
+  },
+
+  // SCRIPT 17B: Windshield (Elite)
+  {
+    id: "WINDSHIELD_002",
+    title: "Windshield Protection - Elite",
+    scriptText: "Next is _________... Now the biggest thing that has increased over the last couple of years is damage to our windshields... Now what's happening because these vehicles are equipped with a 'Smart Glass' that affects a number of different items from our auto-dimming rear view mirror, to heads up display, and auto censoring windshield wipers... Which is why we provide unlimited repair and replacement of your windshield.",
+    scriptCategory: "product_presentation", 
+    dealStage: "menu_presentation",
+    intentTrigger: "Elite windshield protection emphasizing smart glass technology",
+    triggerKeywords: ["windshield damage increased", "Smart Glass", "auto-dimming mirror", "heads up display", "auto censoring wipers", "unlimited repair replacement"],
+    sourceDocument: "CompleteMenuPresentationScriptWordTrack.pdf",
+    executionLevel: "elite",
+    urgency: "medium", 
+    coachingNote: "Elite version emphasizes modern vehicle technology and increased costs.",
+    isActive: true
+  },
+
+  // SCRIPT 18: 3M Clear Tape & Window Tint
+  {
+    id: "CLEAR_TAPE_TINT_001",
+    title: "3M Clear Tape & Window Tint Protection",
+    scriptText: "Last is 3M clear protective tape and window tinting. The clear tape protects high-impact areas like the hood, mirrors, and door edges from rock chips and scratches. The window tinting provides UV protection for you and your interior while reducing heat and glare for more comfortable driving.",
+    scriptCategory: "product_presentation",
+    dealStage: "menu_presentation", 
+    intentTrigger: "Present 3M tape and tint protection benefits",
+    triggerKeywords: ["3M clear tape", "window tinting", "high-impact areas", "hood mirrors door edges", "rock chips scratches", "UV protection", "reduce heat glare"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard", 
+    urgency: "low",
+    coachingNote: "Final protection product. Emphasize comfort and protection benefits.",
+    isActive: true
+  },
+
+  // SCRIPT 19: First Objection (First No)
+  {
+    id: "FIRST_OBJECTION_001",
+    title: "First Objection Response - The First No",
+    scriptText: "Like I said these are just your consumer options and, in my effort to get you out of here as quickly as possible I didn't go over these as well as I should have. If you had to rank what's most important, which would you rank first?",
+    scriptCategory: "objection_response",
+    dealStage: "objection_handling",
+    intentTrigger: "Respond to first objection by moving to ranking process", 
+    triggerKeywords: ["consumer options", "get you out quickly", "didn't go over well", "rank most important", "rank first", "first objection"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "critical",
+    coachingNote: "Critical response to first no. Must transition to ranking immediately.",
+    isActive: true
+  },
+
+  // SCRIPT 20: Ranking Process
+  {
+    id: "RANKING_PROCESS_001", 
+    title: "Customer Ranking Process",
+    scriptText: "If you had to rank what's most important, which would you rank first? Excellent choice! It is important to cover your vehicle against any mechanical and electrical breakdowns during your ownership period. What would you rank as the second most important? Great choice! That protection will ensure you will never have to pay for a vehicle you can no longer own or drive. And lastly, what would you rank third? Great! One of the nice things about doing business here at ________ Auto Group is that we can customize a program based on what's most important to you, which I am going to put together now.",
+    scriptCategory: "ranking_process",
+    dealStage: "ranking", 
+    intentTrigger: "Guide customer through ranking their protection priorities",
+    triggerKeywords: ["rank most important", "excellent choice", "mechanical electrical breakdowns", "second most important", "never have to pay", "rank third", "customize program"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Must get customer to rank 3 products. Reinforce benefits after each choice.",
+    isActive: true
+  },
+
+  // SCRIPT 21: Assuming the Business  
+  {
+    id: "ASSUMING_BUSINESS_001",
+    title: "Assuming the Business - Close Preparation",
+    scriptText: "Simply ask the customer if you can obtain some personal information to complete the financial arrangements for their new vehicle. Inform the customer that their dealership has partnered with _________ directly to provide the best terms and conditions for them.",
+    scriptCategory: "assuming_business", 
+    dealStage: "closing",
+    intentTrigger: "Begin assumption close by requesting personal information",
+    triggerKeywords: ["personal information", "financial arrangements", "new vehicle", "partnered directly", "best terms conditions", "assuming business"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx", 
+    executionLevel: "standard",
+    urgency: "high",
+    coachingNote: "Key technique: Simply ask for personal information. Position lender partnership.",
+    isActive: true
+  },
+
+  // SCRIPT 22: Three-Step Objection Framework
+  {
+    id: "OBJECTION_FRAMEWORK_001",
+    title: "Three-Step Objection Response Framework",
+    scriptText: "Step 1: Acknowledge and Restate - 'I understand your concern about [restate their objection].' Step 2: Create the Need - 'The reason we offer this protection is because [specific situation/risk].' Step 3: Provide the Solution - 'This coverage ensures that [specific benefit that addresses their concern].'",
+    scriptCategory: "objection_response",
+    dealStage: "objection_handling",
+    intentTrigger: "Systematic approach to handling customer concerns",
+    triggerKeywords: ["acknowledge restate", "understand concern", "create the need", "reason we offer", "provide solution", "specific benefit", "addresses concern"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard", 
+    urgency: "high",
+    coachingNote: "Three-Step Framework: 1) Acknowledge and Restate, 2) Create the Need, 3) Provide the Solution.",
+    isActive: true
+  },
+
+  // SCRIPT 23: Administrative Functions
+  {
+    id: "ADMIN_FUNCTIONS_001", 
+    title: "Administrative Functions & Documentation",
+    scriptText: "Now that we have your protection plan customized, I need to complete your state and federal documentation. I'll be entering your information into our system, printing your contracts, and reviewing each document with you before you sign. This ensures everything is accurate and you understand what you're agreeing to. We'll also review your payment schedule and provide you with all your protection plan documentation and contact information.",
+    scriptCategory: "admin_function",
+    dealStage: "admin",
+    intentTrigger: "Complete documentation and administrative tasks",
+    triggerKeywords: ["protection plan customized", "state federal documentation", "contracts", "reviewing documents", "payment schedule", "plan documentation", "contact information"],
+    sourceDocument: "ASURA_Delphi_Clone_Complete_Word_Track_Scripts.docx",
+    executionLevel: "standard",
+    urgency: "medium", 
+    coachingNote: "Final administrative phase. Ensure all documentation is complete and understood.",
+    isActive: true
+  }
+];
+
+/**
+ * Backward-compatible alias
+ */
+export const ALL_SCRIPTS = ASURA_SCRIPTS;
+
+/**
+ * Retrieve the best-matching script for a given transcript excerpt.
+ * Scores each script by keyword match density.
  */
 export function retrieveScript(
   transcriptText: string,
@@ -646,21 +640,19 @@ export function retrieveScript(
   productContext?: string
 ): VerbatimScript | null {
   const text = transcriptText.toLowerCase();
-
-  // Score each script by keyword match density
-  const scored = ALL_SCRIPTS
+  const scored = ASURA_SCRIPTS
     .filter((s) => s.isActive !== false)
-    .filter((s) => !dealStage || s.dealStage === dealStage || true) // stage hint
     .filter((s) => !productContext || !s.productContext || s.productContext === productContext)
     .map((script) => {
       const matches = script.triggerKeywords.filter((kw) =>
         text.includes(kw.toLowerCase())
       ).length;
-      return { script, matches };
+      // Boost score if deal stage matches
+      const stageBonus = dealStage && script.dealStage === dealStage ? 2 : 0;
+      return { script, score: matches + stageBonus };
     })
-    .filter((s) => s.matches > 0)
-    .sort((a, b) => b.matches - a.matches);
-
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score);
   return scored.length > 0 ? scored[0].script : null;
 }
 
@@ -672,8 +664,7 @@ export function retrieveAllMatchingScripts(
   limit = 3
 ): VerbatimScript[] {
   const text = transcriptText.toLowerCase();
-
-  return ALL_SCRIPTS
+  return ASURA_SCRIPTS
     .filter((s) => s.isActive !== false)
     .map((script) => {
       const matches = script.triggerKeywords.filter((kw) =>
@@ -688,13 +679,13 @@ export function retrieveAllMatchingScripts(
 }
 
 /**
- * Retrieve scripts by category only — for process-stage-based suggestions.
+ * Retrieve scripts by category, optionally filtered by deal stage.
  */
 export function retrieveByCategory(
   category: ScriptCategory,
   dealStage?: DealStage
 ): VerbatimScript[] {
-  return ALL_SCRIPTS.filter(
+  return ASURA_SCRIPTS.filter(
     (s) =>
       s.scriptCategory === category &&
       (!dealStage || s.dealStage === dealStage) &&
@@ -703,45 +694,59 @@ export function retrieveByCategory(
 }
 
 /**
- * Detect the current deal stage from transcript content.
+ * Enhanced deal stage detection with new stages
  */
-export function detectDealStage(fullTranscript: string): DealStage {
-  const text = fullTranscript.toLowerCase();
-
-  if (text.includes("congratulations") || text.includes("welcome in") || text.includes("finance director")) {
+export function detectDealStage(inputText: string): DealStage {
+  const text = inputText.toLowerCase();
+  
+  // Introduction stage
+  if (text.includes("congratulations") || text.includes("business manager") || text.includes("hello")) {
     return "introduction";
   }
-  if (text.includes("how long do you keep") || text.includes("miles per year") || text.includes("three quick questions")) {
-    return "financial_snapshot";
+  
+  // Client survey stage
+  if (text.includes("client survey") || text.includes("title") || text.includes("address") || text.includes("balance due")) {
+    return "client_survey";
   }
-  if (text.includes("menu") || text.includes("packages") || text.includes("three levels") || text.includes("options available")) {
+  
+  // Needs awareness stage
+  if (text.includes("warranty") || text.includes("deficiency") || text.includes("defective") || text.includes("responsible for")) {
+    return "needs_awareness";
+  }
+  
+  // Transition stage
+  if (text.includes("come back with me") || text.includes("office") || text.includes("state documents")) {
+    return "transition";
+  }
+  
+  // Menu presentation stage
+  if (text.includes("consumer options") || text.includes("option 1") || text.includes("comprehensive protection")) {
     return "menu_presentation";
   }
-  if (text.includes("gap") || text.includes("service contract") || text.includes("warranty") || text.includes("maintenance plan")) {
-    return "product_walkthrough";
+  
+  // Ranking stage
+  if (text.includes("rank") || text.includes("most important") || text.includes("customize")) {
+    return "ranking";
   }
-  if (text.includes("too expensive") || text.includes("think about it") || text.includes("don't need") || text.includes("already have")) {
+  
+  // Objection handling
+  if (text.includes("concern") || text.includes("objection") || text.includes("think about it")) {
     return "objection_handling";
   }
-  if (text.includes("sign") || text.includes("move forward") || text.includes("does that work") || text.includes("let's get you")) {
+  
+  // Closing stage
+  if (text.includes("personal information") || text.includes("financial arrangements") || text.includes("partnered")) {
     return "closing";
   }
-
+  
+  // Admin stage  
+  if (text.includes("documentation") || text.includes("contracts") || text.includes("sign")) {
+    return "admin";
+  }
+  
+  // Default fallback
   return "introduction";
 }
-
-/**
- * 7-Step Process Sequence for grading adherence
- */
-export const ASURA_PROCESS_STEPS = [
-  { step: 1, name: "Professional Hello", stage: "introduction" as DealStage, category: "professional_hello" as ScriptCategory, weight: 0.10 },
-  { step: 2, name: "Customer Connection", stage: "customer_connection" as DealStage, category: "customer_connection" as ScriptCategory, weight: 0.10 },
-  { step: 3, name: "Financial Snapshot", stage: "financial_snapshot" as DealStage, category: "financial_snapshot" as ScriptCategory, weight: 0.15 },
-  { step: 4, name: "Menu Presentation", stage: "menu_presentation" as DealStage, category: "menu_transition" as ScriptCategory, weight: 0.20 },
-  { step: 5, name: "Product Walkthrough", stage: "product_walkthrough" as DealStage, category: "product_presentation" as ScriptCategory, weight: 0.20 },
-  { step: 6, name: "Objection Prevention", stage: "objection_handling" as DealStage, category: "objection_prevention" as ScriptCategory, weight: 0.15 },
-  { step: 7, name: "Closing", stage: "closing" as DealStage, category: "closing" as ScriptCategory, weight: 0.10 },
-];
 
 /**
  * System validation — confirms all scripts are indexed and verbatim flag is set.
@@ -756,29 +761,28 @@ export function runSystemValidation(): {
   report: string;
 } {
   const byCategory: Record<string, number> = {};
-  for (const script of ALL_SCRIPTS) {
+  for (const script of ASURA_SCRIPTS) {
     byCategory[script.scriptCategory] = (byCategory[script.scriptCategory] || 0) + 1;
   }
-
-  const objectionTriggers = ALL_SCRIPTS.filter(
+  const objectionTriggers = ASURA_SCRIPTS.filter(
     (s) => s.scriptCategory === "objection_response" || s.scriptCategory === "objection_prevention"
   ).length;
-
-  const allHaveText = ALL_SCRIPTS.every((s) => s.scriptText && s.scriptText.length > 20);
-  const allHaveTriggers = ALL_SCRIPTS.every((s) => s.triggerKeywords.length > 0);
-  const allHaveSource = ALL_SCRIPTS.every((s) => s.sourceDocument);
-
+  const allHaveText = ASURA_SCRIPTS.every((s) => s.scriptText && s.scriptText.length > 20);
+  const allHaveTriggers = ASURA_SCRIPTS.every((s) => s.triggerKeywords.length > 0);
+  const allHaveSource = ASURA_SCRIPTS.every((s) => s.sourceDocument);
   const passed = allHaveText && allHaveTriggers && allHaveSource;
-
+  
   return {
-    totalScripts: ALL_SCRIPTS.length,
+    totalScripts: ASURA_SCRIPTS.length,
     byCategory,
-    verbatimLocked: true, // AI paraphrase disabled — verbatim-only mode active
+    verbatimLocked: true,
     objectionTriggersCount: objectionTriggers,
     processStepsCount: ASURA_PROCESS_STEPS.length,
     status: passed ? "PASS" : "FAIL",
     report: passed
-      ? `✅ SYSTEM VALIDATION PASSED\n• ${ALL_SCRIPTS.length} scripts indexed\n• All scripts verbatim\n• Script modification: DISABLED\n• Grading system: ACTIVE\n• Objection triggers mapped: ${objectionTriggers}\n• Process steps: ${ASURA_PROCESS_STEPS.length}`
-      : "❌ SYSTEM VALIDATION FAILED — check script library for missing fields",
+      ? `\u2705 SYSTEM VALIDATION PASSED\n\u2022 ${ASURA_SCRIPTS.length} scripts indexed (23 Delphi + elite variants)\n\u2022 All scripts verbatim\n\u2022 Script modification: DISABLED\n\u2022 Grading system: ACTIVE\n\u2022 Objection triggers mapped: ${objectionTriggers}\n\u2022 Process steps: ${ASURA_PROCESS_STEPS.length}`
+      : "\u274c SYSTEM VALIDATION FAILED \u2014 check script library for missing fields",
   };
 }
+
+

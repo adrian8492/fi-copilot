@@ -182,7 +182,7 @@ function generateQuickSuggestion(
       title: matched.title,
       content: matched.coachingNote ?? "Use the ASURA verbatim script below.",
       script: matched.scriptText,
-      urgency: matched.urgency,
+      urgency: (matched.urgency === "critical" ? "high" : matched.urgency) as "high" | "medium" | "low",
       framework: matched.sourceDocument,
       dealStage: dealStage ?? matched.dealStage,
     };

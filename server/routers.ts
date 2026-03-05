@@ -193,54 +193,108 @@ function calculateScriptFidelityScores(fullTranscript: string): {
   objectionResponseScore: number;
   transitionAccuracyScore: number;
 } {
-  const text = fullTranscript.toLowerCase();
+  const transcript = fullTranscript.toLowerCase();
 
-  // 1. Process Adherence — check which of the 7 ASURA steps are present
-  const stepsCompleted = ASURA_PROCESS_STEPS.filter(step => {
-    const scripts = ALL_SCRIPTS.filter(s => s.scriptCategory === step.category);
-    return scripts.some(s =>
-      s.triggerKeywords.some(kw => text.includes(kw.toLowerCase()))
-    );
+  // Script keyword phrases for verbatim checking (all 23 Delphi scripts)
+  const scriptPhrases: Record<number, string[]> = {
+    1: ["congratulations on your new vehicle", "business managers", "state and federal documents", "manufacturer's warranty", "client survey"],
+    2: ["listed on the title", "correct address", "balance owed", "sets of keys", "register your vehicle with the police", "scale of 1-10", "mother's maiden name"],
+    3: ["review the figures", "selling price", "financing for", "months at", "balance owed on the vehicle being traded"],
+    4: ["understanding of the factory warranty", "factory survey question", "comprehensive warranty", "reduce the price"],
+    5: ["totaled or stolen", "deficiency balance", "depreciate most rapidly", "true market value", "out-of-pocket event"],
+    6: ["comprehensive warranty", "powertrain warranty", "internally lubricated", "deemed defective", "misaligned or mis-installed", "routine maintenance", "tires and wheels", "anti-perforation", "keys and key fobs"],
+    7: ["come back with me", "double-check the information", "department of licensing", "anything to drink"],
+    8: ["quoted a payment", "repayment options", "mandatory disclosure form", "option 1", "most comprehensive protection", "pick up where the manufacturer leaves off"],
+    9: ["consumer options", "rank what's most important"],
+    10: ["rank first", "excellent choice", "second most important", "customize a program"],
+    11: ["personal information", "financial arrangements"],
+    12: ["acknowledge", "create the need", "provide the solution"],
+  };
+
+  const productPhrases: Record<string, string[]> = {
+    vsc: ["vehicle service agreement", "not an extended warranty", "deemed defective", "peril and comprehensive", "100% of parts", "100% of labor", "ase-certified", "u.s. or canada"],
+    tw: ["tires and wheels", "road hazard", "anything that is not supposed to be there", "$0.00 deductible", "cosmetic repair"],
+    key: ["key replacement", "damaged, lost, or stolen", "$800 per occurrence", "unlimited occurrences", "reprogram"],
+    oil: ["oil maintenance program", "oil changes and filters", "regularly scheduled intervals", "manufacturer warranty intact"],
+    gap: ["guaranteed asset protection", "total loss", "deficiency balance", "150%", "not an insurance", "$1,000 of your deductible"],
+    antitheft: ["vehicle anti-theft", "vehicle replacement", "stolen and deemed a total loss", "$25,000 benefit"],
+    gps: ["active system", "register your vehicle with the police", "notification", "911", "first place the thief will go"],
+    ceramic: ["ceramic resin", "not a wax", "bird droppings", "tree sap", "acid rain", "oxidation", "stains, spills"],
+    pdr: ["door dings", "doesn't break the paint", "windshield gets chipped", "$0.00 deductible"],
+    threemm: ["chip-sealed", "rock chips", "leading edges", "3m clear tape", "window tint"],
+  };
+
+  // 1. Script Fidelity Score — check all scripts for verbatim keyword presence
+  let totalScriptMatches = 0;
+  let totalScriptPhrases = 0;
+
+  Object.values(scriptPhrases).forEach(phrases => {
+    phrases.forEach(phrase => {
+      totalScriptPhrases++;
+      if (transcript.includes(phrase.toLowerCase())) {
+        totalScriptMatches++;
+      }
+    });
   });
-  const processAdherenceScore = Math.round((stepsCompleted.length / ASURA_PROCESS_STEPS.length) * 100);
 
-  // 2. Script Fidelity — keyword overlap with verbatim scripts
-  const totalScripts = ALL_SCRIPTS.length;
-  const matchedScripts = ALL_SCRIPTS.filter(s =>
-    s.triggerKeywords.some(kw => text.includes(kw.toLowerCase()))
-  ).length;
-  const scriptFidelityScore = Math.round((matchedScripts / Math.max(totalScripts, 1)) * 100);
+  Object.values(productPhrases).forEach(phrases => {
+    phrases.forEach(phrase => {
+      totalScriptPhrases++;
+      if (transcript.includes(phrase.toLowerCase())) {
+        totalScriptMatches++;
+      }
+    });
+  });
 
-  // 3. Menu Sequence — check for correct menu presentation order
-  const menuKeywords = ["base payment", "options", "levels", "package", "menu"];
-  const productKeywords = ["gap", "service contract", "warranty", "maintenance", "tire"];
-  const menuPresent = menuKeywords.some(kw => text.includes(kw));
-  const productsPresent = productKeywords.filter(kw => text.includes(kw)).length;
-  const menuSequenceScore = menuPresent
-    ? Math.min(100, 50 + (productsPresent * 10))
-    : Math.min(100, productsPresent * 15);
+  const scriptFidelityScore = Math.round((totalScriptMatches / totalScriptPhrases) * 100);
 
-  // 4. Objection Response — check for objection handling scripts
-  const objectionTriggers = ["think about it", "too expensive", "don't need", "already have", "credit union", "spouse", "never use"];
-  const objectionResponses = ["let me ask", "what specifically", "put it in perspective", "dollar a day", "responsibility", "per month"];
-  const objectionDetected = objectionTriggers.some(kw => text.includes(kw));
-  const objectionHandled = objectionResponses.some(kw => text.includes(kw));
-  const objectionResponseScore = objectionDetected
-    ? (objectionHandled ? 85 : 30)
-    : 100; // No objections = full score
+  // 2. Process Adherence — check which ASURA process stages are present
+  const completedSteps = ASURA_PROCESS_STEPS.filter(step => {
+    const stepKeywords = step.description.toLowerCase().split(' ');
+    return stepKeywords.some(keyword => transcript.includes(keyword));
+  }).length;
+  const processAdherenceScore = Math.round((completedSteps / ASURA_PROCESS_STEPS.length) * 100);
 
-  // 5. Transition Accuracy — stage transitions (intro → snapshot → menu → products → close)
-  const stages = [
-    ["congratulations", "welcome in", "finance director"],
-    ["three quick questions", "how long do you keep", "miles per year"],
-    ["menu", "options", "packages", "levels"],
-    ["gap", "service contract", "warranty"],
-    ["sign", "move forward", "does that work", "let's get you"],
-  ];
-  const stagesPresent = stages.filter(stageKws =>
-    stageKws.some(kw => text.includes(kw))
-  ).length;
-  const transitionAccuracyScore = Math.round((stagesPresent / stages.length) * 100);
+  // 3. Menu Sequence — check correct product presentation order
+  const productSequence = ['vsc', 'tw', 'key', 'oil', 'gap', 'antitheft', 'gps', 'ceramic', 'pdr', 'threemm'];
+  const productPositions: Record<string, number> = {};
+
+  productSequence.forEach(product => {
+    const phrases = productPhrases[product];
+    let earliestPosition = transcript.length;
+    phrases.forEach(phrase => {
+      const position = transcript.indexOf(phrase.toLowerCase());
+      if (position !== -1 && position < earliestPosition) {
+        earliestPosition = position;
+      }
+    });
+    if (earliestPosition < transcript.length) {
+      productPositions[product] = earliestPosition;
+    }
+  });
+
+  let sequenceMatches = 0;
+  const foundProducts = Object.keys(productPositions).sort((a, b) => productPositions[a] - productPositions[b]);
+
+  for (let i = 0; i < foundProducts.length - 1; i++) {
+    const currentIndex = productSequence.indexOf(foundProducts[i]);
+    const nextIndex = productSequence.indexOf(foundProducts[i + 1]);
+    if (currentIndex < nextIndex) {
+      sequenceMatches++;
+    }
+  }
+
+  const menuSequenceScore = foundProducts.length > 1 ? Math.round((sequenceMatches / (foundProducts.length - 1)) * 100) : 0;
+
+  // 4. Objection Response — check for ranking process and first-no scripts
+  const rankingUsed = scriptPhrases[10].some(phrase => transcript.includes(phrase.toLowerCase()));
+  const firstNoUsed = scriptPhrases[9].some(phrase => transcript.includes(phrase.toLowerCase()));
+  const objectionResponseScore = Math.round(((rankingUsed ? 50 : 0) + (firstNoUsed ? 50 : 0)));
+
+  // 5. Transition Accuracy — check stage transition phrases
+  const transitionPhrases = scriptPhrases[7];
+  const transitionsFound = transitionPhrases.filter(phrase => transcript.includes(phrase.toLowerCase())).length;
+  const transitionAccuracyScore = Math.round((transitionsFound / transitionPhrases.length) * 100);
 
   return {
     scriptFidelityScore: Math.min(100, scriptFidelityScore),
@@ -328,25 +382,63 @@ async function runGradingEngine(fullTranscript: string, sessionData: { customerN
   const allViolations = [...complianceViolations, ...customViolations];
   const deterministicComplianceScore = calculateComplianceScore(allViolations);
 
-  const prompt = `You are an expert F&I performance evaluator using the ASURA Group methodology. Grade the following complete F&I interaction transcript.
+  const prompt = `You are an expert F&I trainer evaluating a business manager's performance against the ASURA Delphi rubric. Grade this F&I presentation transcript across 5 categories with these exact weights:
+
+**GRADING CATEGORIES & WEIGHTS:**
+- Rapport Building: 15%
+- Product Presentation: 25%
+- Objection Handling: 20%
+- Closing Techniques: 20%
+- Compliance: 20%
+
+**THE 23 ASURA DELPHI SCRIPTS TO EVALUATE:**
+1. Professional Hello
+2. Client Survey (Retail Delivery Preparation Worksheet)
+3. Balance Due Presentation
+4. Factory Survey Question
+5. Deficiency Balance Script
+6. Manufacturer Needs Assessment (10 product categories)
+7. Transition Script
+8. Menu Presentation (10 products: VSC, T&W, Key, Oil, GAP, Anti-Theft, GPS, Ceramic, PDR, 3M)
+9. First No Response (Consumer Options)
+10. Ranking Process
+11. Assuming Business
+12. Addressing Concerns Framework (Three-Step: Acknowledge, Create Need, Provide Solution)
+
+**VERBATIM PHRASE REQUIREMENTS (check for EXACT phrases, not paraphrases):**
+- Professional Hello: "congratulations on your new vehicle", "business managers", "state and federal documents"
+- Client Survey: "listed on the title", "scale of 1-10", "mother's maiden name"
+- VSC Product: "vehicle service agreement", "not an extended warranty", "deemed defective", "100% of parts", "100% of labor"
+- GAP Product: "guaranteed asset protection", "deficiency balance", "150%", "not an insurance"
+- Ranking Process: "rank first", "excellent choice", "second most important", "customize a program"
+- Transition: "come back with me", "double-check the information", "Department of Licensing"
+- Menu: "quoted a payment", "repayment options", "mandatory disclosure form", "most comprehensive protection"
+
+**SEQUENCE REQUIREMENTS:**
+- Products must be presented in order: VSC > T&W > Key > Oil > GAP > Anti-Theft > GPS > Ceramic > PDR > 3M
+- Process flow: Hello > Survey > Balance > Factory Survey > Needs > Transition > Menu > Objections > Close
+
+**DEVIATION TAXONOMY (flag each script deviation as):**
+- VERBATIM_MATCH: Exact phrase usage (100 points)
+- ACCEPTABLE_PARAPHRASE: Close to script intent (80 points)
+- SIGNIFICANT_DEVIATION: Major changes from script (50 points)
+- CRITICAL_MISS: Script not attempted (0 points)
+- SEQUENCE_ERROR: Correct content, wrong order (-20 points)
+
+**COMPLIANCE REQUIREMENTS:**
+- All mandatory disclosures present
+- No misrepresentations about products
+- Proper documentation references
+- Customer consent obtained appropriately
+- Base payment disclosed before options
+
 Customer: ${sessionData.customerName ?? "Unknown"}
 Deal Type: ${sessionData.dealType ?? "retail_finance"}
 
-Full Transcript:
+**TRANSCRIPT TO GRADE:**
 ${fullTranscript}
 
-Grade on the ASURA F&I Performance Rubric (0-100 each):
-1. Rapport Building: Did the manager build genuine connection, use the Professional Hello, ask discovery questions, establish trust?
-2. Product Presentation: Were all products presented clearly with value-based selling (not just price)? Were GAP, VSC, PPM, Tire/Wheel covered?
-3. Objection Handling: Were objections addressed with ASURA objection response scripts? Was empathy + reframe used?
-4. Closing Technique: Were ASURA closing techniques used (assumptive, either/or, takeaway)? Was commitment obtained?
-5. Compliance: Were all required disclosures made (base payment, TILA, risk-based pricing, privacy policy, product optional-nature)?
-
-Also provide:
-- Overall score (weighted average: Rapport 15%, Product 25%, Objection 20%, Closing 20%, Compliance 20%)
-- Key strengths (2-3 specific examples from transcript with quotes)
-- Areas for improvement (2-3 specific, actionable ASURA methodology items)
-- Coaching notes (personalized guidance paragraph referencing ASURA frameworks)
+Grade thoroughly against the ASURA Delphi standards. For each category (0-100), identify specific verbatim matches and deviations with their taxonomy classification.
 
 Return JSON:
 {
@@ -356,9 +448,9 @@ Return JSON:
   "closingTechniqueScore": number,
   "complianceScore": number,
   "overallScore": number,
-  "strengths": "string",
-  "improvements": "string",
-  "coachingNotes": "string"
+  "strengths": "string with specific quotes from transcript",
+  "improvements": "string with specific ASURA methodology items and deviation taxonomy",
+  "coachingNotes": "string with personalized guidance referencing specific Delphi scripts"
 }`;
   try {
     const response = await invokeLLM({
