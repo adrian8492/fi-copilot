@@ -64,6 +64,13 @@
       "when": 1772689829440,
       "tag": "0008_charming_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1772690786762,
+      "tag": "0009_woozy_oracle",
+      "breakpoints": true
     }
   ]
 }

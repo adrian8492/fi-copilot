@@ -99,6 +99,8 @@ export const copilotSuggestions = mysqlTable("copilot_suggestions", {
   framework: varchar("framework", { length: 255 }),
   priority: mysqlEnum("priority", ["high", "medium", "low"]).default("medium").notNull(),
   wasActedOn: boolean("wasActedOn").default(false),
+  usedAt: timestamp("usedAt"),
+  usedBy: varchar("usedBy", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

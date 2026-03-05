@@ -755,11 +755,15 @@ export async function deleteComplianceRule(id: number) {
 }
 
 // ─── Suggestion Utilization ───────────────────────────────────────────────────
-export async function markSuggestionUsed(suggestionId: number, wasActedOn: boolean) {
+export async function markSuggestionUsed(suggestionId: number, wasActedOn: boolean, userName?: string) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.update(copilotSuggestions)
-    .set({ wasActedOn })
+    .set({
+      wasActedOn,
+      usedAt: wasActedOn ? new Date() : null,
+      usedBy: wasActedOn ? (userName ?? "unknown") : null,
+    })
     .where(eq(copilotSuggestions.id, suggestionId));
 }
 

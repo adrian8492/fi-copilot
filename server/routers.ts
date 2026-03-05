@@ -64,6 +64,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { ASURA_PROCESS_STEPS, detectDealStage, ALL_SCRIPTS, retrieveAllMatchingScripts } from "./asura-scripts";
+import { scanTranscriptForViolations, calculateComplianceScore } from "./compliance-engine";
 
 // ─── Helper: admin guard ──────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -245,6 +246,10 @@ async function runGradingEngine(fullTranscript: string, sessionData: { customerN
   // Calculate Script Fidelity Scores deterministically (no LLM needed)
   const scriptFidelityScores = calculateScriptFidelityScores(fullTranscript);
 
+  // Calculate deterministic compliance score from federal compliance engine
+  const complianceViolations = scanTranscriptForViolations(fullTranscript, 0);
+  const deterministicComplianceScore = calculateComplianceScore(complianceViolations);
+
   const prompt = `You are an expert F&I performance evaluator using the ASURA Group methodology. Grade the following complete F&I interaction transcript.
 Customer: ${sessionData.customerName ?? "Unknown"}
 Deal Type: ${sessionData.dealType ?? "retail_finance"}
@@ -307,8 +312,27 @@ Return JSON:
     const content = response.choices?.[0]?.message?.content;
     if (!content || typeof content !== 'string') return null;
     const llmGrade = JSON.parse(content);
-    // Merge LLM grades with deterministic Script Fidelity Scores
-    return { ...llmGrade, ...scriptFidelityScores };
+    // Use the more conservative (lower) of LLM and deterministic compliance scores
+    const finalComplianceScore = Math.min(
+      llmGrade.complianceScore ?? 100,
+      deterministicComplianceScore
+    );
+    // Recalculate overall score with the corrected compliance score
+    const overallScore = Math.round(
+      (llmGrade.rapportScore ?? 0) * 0.15 +
+      (llmGrade.productPresentationScore ?? 0) * 0.25 +
+      (llmGrade.objectionHandlingScore ?? 0) * 0.20 +
+      (llmGrade.closingTechniqueScore ?? 0) * 0.20 +
+      finalComplianceScore * 0.20
+    );
+    // Merge LLM grades with deterministic Script Fidelity Scores + corrected compliance
+    return {
+      ...llmGrade,
+      ...scriptFidelityScores,
+      complianceScore: finalComplianceScore,
+      overallScore,
+      complianceViolationCount: complianceViolations.length,
+    };
   } catch (e) {
     console.error("[Grading] Engine failed:", e);
     return null;
@@ -486,8 +510,8 @@ export const appRouter = router({
       }),
     markUsed: protectedProcedure
       .input(z.object({ suggestionId: z.number(), wasActedOn: z.boolean().default(true) }))
-      .mutation(async ({ input }) => {
-        await markSuggestionUsed(input.suggestionId, input.wasActedOn);
+      .mutation(async ({ ctx, input }) => {
+        await markSuggestionUsed(input.suggestionId, input.wasActedOn, ctx.user.name ?? ctx.user.openId);
         return { success: true };
       }),
     getUtilization: protectedProcedure

@@ -262,3 +262,25 @@
 - [x] Step 5: DB enum fixed — added 10 missing types (professional_hello, financial_snapshot, menu_transition, product_presentation, objection_prevention, objection_response, closing, compliance_disclosure, phone_script, customer_connection)
 - [x] Step 6: Session end returns correct duration (8s, 13s — no longer 0s), all DB inserts wrapped in try/catch
 - [x] Step 7: All 100 tests pass, 0 TypeScript errors, checkpoint saved
+
+## Feature: Mark as Used + Utilization Tracking (Mar 5)
+- [x] DB: Add usedAt (timestamp) and usedBy (varchar) columns to copilot_suggestions
+- [x] Backend: markSuggestionUsed mutation (sets usedAt + usedBy + wasActedOn)
+- [x] Backend: getUtilizationRate query (used/total per session) — already existed
+- [x] Frontend: "Mark as Used" button on Live Session co-pilot suggestion cards — already existed
+- [x] Frontend: "Mark as Used" in Session Detail Suggestions tab — already existed with utilization rate display
+- [x] Frontend: Utilization rate badge on grade report — already existed
+- [x] Frontend: Word Track Usage KPI on dashboard uses real utilization data — already existed
+
+## Feature: Federal Compliance Engine (Mar 5)
+- [x] TILA / Reg Z rules (5 rules: APR, finance charge, base payment, payment packing, right of rescission)
+- [x] ECOA / Reg B rules (4 rules: adverse action, discrimination, risk-based pricing, privacy notice)
+- [x] UDAP / UDAAP rules (4 rules: deceptive acts, unfair packing, abusive pressure, mandatory bundling)
+- [x] Consumer Leasing Act / Reg M rules (4 rules: signing amount, money factor, residual/mileage, early termination)
+- [x] GAP product compliance (3 rules: optional disclosure, coverage limitations, cancellation/refund)
+- [x] VSC/VSA compliance (4 rules: not-a-warranty, exclusions/deductible, cancellation, 4-pillar presentation)
+- [x] Aftermarket product disclosures (3 rules: optional nature, separate cost, prepaid maintenance)
+- [x] Contract elements (4 rules: offer/acceptance, consideration, payment terms, prepayment penalty)
+- [x] Wire compliance engine into WebSocket/HTTP stream live detection — already wired in both handlers
+- [x] Wire compliance engine into grading engine — now uses deterministic calculateComplianceScore() merged with LLM score (takes lower)
+- [x] Tests for compliance engine rules — already existed with 37 tests covering all 8 categories, score calculator, checklist mapping, product disclosures
