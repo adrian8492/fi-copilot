@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { setupWebSocketServer } from "../websocket";
 import { registerPdfRoutes } from "../pdf-routes";
+import { createHttpStreamRouter } from "../http-stream";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -47,6 +48,9 @@ async function startServer() {
   );
   // PDF download routes (REST — not tRPC, because we stream binary)
   registerPdfRoutes(app);
+  // HTTP streaming fallback for live sessions (when WebSocket upgrade is blocked by proxy)
+  app.use("/api/session", express.raw({ type: "application/octet-stream", limit: "5mb" }));
+  app.use("/api/session", createHttpStreamRouter());
   // WebSocket server for real-time F&I sessions
   setupWebSocketServer(server);
 

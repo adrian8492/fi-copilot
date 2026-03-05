@@ -166,6 +166,11 @@ export default function LiveSession() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [audioChunksSent, setAudioChunksSent] = useState(0);
 
+  // Connection mode: "ws" (WebSocket) or "http" (HTTP streaming fallback)
+  const [connectionMode, setConnectionMode] = useState<"ws" | "http" | "pending">("pending");
+  const httpTokenRef = useRef<string | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
+
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -217,114 +222,187 @@ export default function LiveSession() {
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  // WebSocket connection
-  const connectWebSocket = useCallback((sid: number) => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/session`);
-    wsRef.current = ws;
+  // ─── Shared event handler for both WS and SSE messages ─────────────────────
+  const handleServerEvent = useCallback((type: string, data: Record<string, unknown>) => {
+    switch (type) {
+      case "transcript":
+        if (data?.text) {
+          const isFinalMsg: boolean = (data.isFinal as boolean) ?? true;
+          const tsSeconds: number = data.startTime != null
+            ? Math.round(data.startTime as number)
+            : elapsed;
+          setTranscripts((prev) => {
+            if (!isFinalMsg) {
+              const lastIdx = prev.length - 1;
+              if (lastIdx >= 0 && !prev[lastIdx].isFinal &&
+                  prev[lastIdx].speaker === ((data.speaker as string) ?? "unknown")) {
+                const updated = [...prev];
+                updated[lastIdx] = { ...updated[lastIdx], text: data.text as string };
+                return updated;
+              }
+            }
+            const entry: TranscriptEntry = {
+              id: `${Date.now()}-${Math.random()}`,
+              speaker: (data.speaker as TranscriptEntry["speaker"]) ?? "unknown",
+              text: data.text as string,
+              timestamp: tsSeconds,
+              isFinal: isFinalMsg,
+            };
+            return [...prev, entry];
+          });
+        }
+        break;
+      case "suggestion":
+        if (data) {
+          const sugg: Suggestion = {
+            ...(data as unknown as Suggestion),
+            priority: ((data.urgency ?? data.priority ?? "medium") as Suggestion["priority"]),
+            timestamp: Date.now(),
+          };
+          setSuggestions((prev) => [sugg, ...prev].slice(0, 10));
+          setActiveTab("copilot");
+        }
+        break;
+      case "compliance_flag":
+        if (data) {
+          setComplianceFlags((prev) => [{ ...(data as unknown as ComplianceFlag), timestamp: Date.now() }, ...prev]);
+          if (data.severity === "critical") {
+            toast.error(`Compliance: ${data.rule}`, { description: data.description as string });
+            setActiveTab("compliance");
+          }
+        }
+        break;
+      case "deepgram_status":
+        if (data?.connected) {
+          setDeepgramConnected(true);
+          setTranscriptionMode("deepgram");
+        } else {
+          setDeepgramConnected(false);
+          setTranscriptionMode("browser");
+        }
+        break;
+      case "connected":
+        if (data?.transcriptionMode === "deepgram") {
+          setTranscriptionMode("deepgram");
+        } else if (data?.transcriptionMode === "browser") {
+          setTranscriptionMode("browser");
+        }
+        break;
+      case "stage_update":
+        if (data?.stage) {
+          setCurrentDealStage(data.stage as string);
+        }
+        break;
+      case "session_ended":
+        setIsRecording(false);
+        break;
+    }
+  }, [elapsed]);
 
-    ws.onopen = () => {
+  // ─── HTTP Streaming Fallback ────────────────────────────────────────────────
+  const connectHttpStream = useCallback(async (sid: number) => {
+    try {
+      const resp = await fetch("/api/session/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sid, userId: user?.id }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const { token, transcriptionMode: mode } = await resp.json();
+      httpTokenRef.current = token;
+      setConnectionMode("http");
       setIsConnected(true);
-      ws.send(JSON.stringify({ type: "start_session", sessionId: sid, userId: user?.id }));
-      // Client-side keepalive: send ping every 30s to prevent proxy/network timeout
+      console.log("[HTTP-Stream] Connected with token", token.slice(0, 10), "mode:", mode);
+
+      if (mode === "deepgram") {
+        setTranscriptionMode("deepgram");
+        setDeepgramConnected(true);
+      }
+
+      // Open SSE for server → client events
+      const sse = new EventSource(`/api/session/events?token=${token}`);
+      sseRef.current = sse;
+
+      const eventTypes = ["transcript", "suggestion", "compliance_flag", "deepgram_status", "stage_update", "session_ended"];
+      eventTypes.forEach((evtType) => {
+        sse.addEventListener(evtType, (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            handleServerEvent(evtType, data);
+          } catch { /* ignore parse errors */ }
+        });
+      });
+
+      sse.onerror = () => {
+        console.warn("[HTTP-Stream] SSE connection error");
+      };
+
+      // Keepalive ping every 30s
       if (keepaliveRef.current) clearInterval(keepaliveRef.current);
       keepaliveRef.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "ping" }));
+        if (httpTokenRef.current) {
+          fetch("/api/session/ping", {
+            method: "POST",
+            headers: { "X-Stream-Token": httpTokenRef.current },
+          }).catch(() => {});
         }
       }, 30000);
-    };
 
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      switch (msg.type) {
-        case "transcript":
-          if (msg.data?.text) {
-            const isFinalMsg: boolean = msg.data.isFinal ?? true;
-            // Server sends startTime as elapsed seconds already — use directly
-            const tsSeconds: number = msg.data.startTime != null
-              ? Math.round(msg.data.startTime)
-              : elapsed;
-            setTranscripts((prev) => {
-              // Interim result: update the last non-final entry from the same speaker in place
-              if (!isFinalMsg) {
-                const lastIdx = prev.length - 1;
-                if (lastIdx >= 0 && !prev[lastIdx].isFinal &&
-                    prev[lastIdx].speaker === (msg.data.speaker ?? "unknown")) {
-                  const updated = [...prev];
-                  updated[lastIdx] = { ...updated[lastIdx], text: msg.data.text };
-                  return updated;
-                }
-              }
-              // Final result or no matching interim: append new entry
-              const entry: TranscriptEntry = {
-                id: `${Date.now()}-${Math.random()}`,
-                speaker: msg.data.speaker ?? "unknown",
-                text: msg.data.text,
-                timestamp: tsSeconds,
-                isFinal: isFinalMsg,
-              };
-              return [...prev, entry];
-            });
-          }
-          break;
-        case "suggestion":
-          if (msg.data) {
-            const sugg: Suggestion = {
-              ...msg.data,
-              priority: msg.data.urgency ?? msg.data.priority ?? "medium",
-              timestamp: Date.now(),
-            };
-            setSuggestions((prev) => [sugg, ...prev].slice(0, 10));
-            setActiveTab("copilot");
-          }
-          break;
-        case "compliance_flag":
-          if (msg.data) {
-            setComplianceFlags((prev) => [{ ...msg.data, timestamp: Date.now() }, ...prev]);
-            if (msg.data.severity === "critical") {
-              toast.error(`Compliance: ${msg.data.rule}`, { description: msg.data.description });
-              setActiveTab("compliance");
-            }
-          }
-          break;
-        case "deepgram_status":
-          if (msg.data?.connected) {
-            setDeepgramConnected(true);
-            setTranscriptionMode("deepgram");
-          } else {
-            setDeepgramConnected(false);
-            setTranscriptionMode("browser");
-          }
-          break;
-        case "connected":
-          if (msg.data?.transcriptionMode === "deepgram") {
-            setTranscriptionMode("deepgram");
-          } else if (msg.data?.transcriptionMode === "browser") {
-            setTranscriptionMode("browser");
-          }
-          break;
-        case "stage_update":
-          if (msg.data?.stage) {
-            setCurrentDealStage(msg.data.stage as string);
-          }
-          break;
-        case "session_ended":
-          setIsRecording(false);
-          break;
-      }
-    };
+      return true;
+    } catch (err) {
+      console.error("[HTTP-Stream] Failed to start:", err);
+      return false;
+    }
+  }, [user?.id, handleServerEvent]);
 
-    ws.onclose = () => {
-      setIsConnected(false);
-      setDeepgramConnected(false);
-      if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
-    };
+  // ─── WebSocket connection (primary) ─────────────────────────────────────────
+  const connectWebSocket = useCallback((sid: number) => {
+    return new Promise<boolean>((resolve) => {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/session`);
+      wsRef.current = ws;
 
-    ws.onerror = () => {
-      toast.error("Connection error. Transcript may be incomplete.");
-    };
-  }, [user?.id, elapsed]);
+      // Timeout: if WS doesn't open in 3s, reject and fall back to HTTP
+      const timeout = setTimeout(() => {
+        console.warn("[WS] Connection timeout — falling back to HTTP streaming");
+        ws.close();
+        resolve(false);
+      }, 3000);
+
+      ws.onopen = () => {
+        clearTimeout(timeout);
+        setIsConnected(true);
+        setConnectionMode("ws");
+        ws.send(JSON.stringify({ type: "start_session", sessionId: sid, userId: user?.id }));
+        // Client-side keepalive: send ping every 30s
+        if (keepaliveRef.current) clearInterval(keepaliveRef.current);
+        keepaliveRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 30000);
+        resolve(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleServerEvent(msg.type, msg.data ?? msg);
+        } catch { /* ignore */ }
+      };
+
+      ws.onclose = () => {
+        setIsConnected(false);
+        setDeepgramConnected(false);
+        if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
+      };
+
+      ws.onerror = () => {
+        clearTimeout(timeout);
+        resolve(false);
+      };
+    });
+  }, [user?.id, handleServerEvent]);
 
   // Speech recognition for live transcription
   const startSpeechRecognition = useCallback(() => {
@@ -350,6 +428,7 @@ export default function LiveSession() {
         const isFinal = result.isFinal;
         const speaker = speakerMode === "auto" ? "unknown" : speakerMode;
 
+        // Send via WebSocket or HTTP depending on connection mode
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: "transcript_chunk",
@@ -359,6 +438,21 @@ export default function LiveSession() {
             confidence: result[0].confidence,
             startTime: elapsed,
           }));
+        } else if (httpTokenRef.current) {
+          fetch("/api/session/text", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Stream-Token": httpTokenRef.current,
+            },
+            body: JSON.stringify({
+              text,
+              speaker,
+              isFinal,
+              confidence: result[0].confidence,
+              startTime: elapsed,
+            }),
+          }).catch(() => {});
         }
       }
     };
@@ -430,10 +524,25 @@ export default function LiveSession() {
         updateLevel();
       } catch { /* AudioContext not available — skip level meter */ }
 
-      // Connect WebSocket
-      connectWebSocket(session.id);
+      // Try WebSocket first, fall back to HTTP streaming if WS fails
+      let wsConnected = false;
+      try {
+        wsConnected = await connectWebSocket(session.id);
+      } catch {
+        wsConnected = false;
+      }
 
-       // Start recording — stream audio chunks to Deepgram via WebSocket
+      if (!wsConnected) {
+        console.log("[Session] WebSocket failed — switching to HTTP streaming");
+        const httpOk = await connectHttpStream(session.id);
+        if (!httpOk) {
+          toast.error("Failed to connect to server. Please try again.");
+          return;
+        }
+        toast.info("Using HTTP streaming mode (WebSocket unavailable).", { duration: 5000 });
+      }
+
+      // Start recording — stream audio chunks via WS or HTTP
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm")
@@ -442,16 +551,31 @@ export default function LiveSession() {
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(e.data); // Binary audio → server → Deepgram
+        if (e.data.size <= 0) return;
+        // WebSocket mode: send binary directly
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(e.data);
+          setAudioChunksSent((c) => c + 1);
+        }
+        // HTTP mode: POST binary audio chunk
+        else if (httpTokenRef.current) {
+          e.data.arrayBuffer().then((buf) => {
+            fetch("/api/session/audio", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/octet-stream",
+                "X-Stream-Token": httpTokenRef.current!,
+              },
+              body: buf,
+            }).catch(() => {});
+          });
           setAudioChunksSent((c) => c + 1);
         }
       };
       mediaRecorder.start(250); // 250ms chunks for low latency
       setIsRecording(true);
+
       // Browser SpeechRecognition fallback — only start if Deepgram is NOT active.
-      // We check after the WebSocket open + start_session round-trip (500ms is enough
-      // for the server to respond with transcriptionMode:"deepgram").
       setTimeout(() => {
         setTranscriptionMode((mode) => {
           if (mode !== "deepgram") {
@@ -459,7 +583,7 @@ export default function LiveSession() {
           }
           return mode;
         });
-      }, 500);
+      }, 1000);
 
       toast.success("Session started. Recording active.");
     } catch (e) {
@@ -506,11 +630,26 @@ export default function LiveSession() {
     // Stop keepalive
     if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
 
-    // Notify WebSocket
+    // Notify server via WebSocket or HTTP
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "end_session" }));
       wsRef.current.close();
+    } else if (httpTokenRef.current) {
+      try {
+        await fetch("/api/session/end", {
+          method: "POST",
+          headers: { "X-Stream-Token": httpTokenRef.current },
+        });
+      } catch { /* ignore */ }
     }
+
+    // Close SSE connection
+    if (sseRef.current) {
+      sseRef.current.close();
+      sseRef.current = null;
+    }
+    httpTokenRef.current = null;
+    setConnectionMode("pending");
 
     setIsRecording(false);
 
@@ -651,7 +790,11 @@ export default function LiveSession() {
 
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-card border border-border">
             <div className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-green-400" : "bg-red-400")} />
-            <span className="text-[10px] font-medium text-muted-foreground">{isConnected ? "Connected" : "Disconnected"}</span>
+            <span className="text-[10px] font-medium text-muted-foreground">
+              {isConnected
+                ? connectionMode === "http" ? "Connected (HTTP)" : "Connected"
+                : "Connecting..."}
+            </span>
           </div>
           {isRecording && (
             <div className={cn(

@@ -242,3 +242,6 @@
 
 ## Bug: Live Session No Transcript Appearing (Mar 4)
 - [x] Fix: Diagnosed root cause — Preview panel has no microphone access; added audio level indicator, client-side WebSocket keepalive (30s ping), fixed timestamp double-division bug (startTime already in seconds), improved getUserMedia error handling with clear toast message
+
+## Bug: WebSocket Shows Disconnected on Deployed Site (Mar 4)
+- [x] Fix: Hosting proxy blocks WebSocket upgrades (returns 200 instead of 101). Built HTTP streaming fallback: POST /api/session/audio + SSE /api/session/events. Client auto-detects WS failure in 3s and switches to HTTP mode. 14 new tests, all 100 tests passing.
