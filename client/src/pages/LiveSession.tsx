@@ -490,17 +490,19 @@ export default function LiveSession() {
       setSessionId(session.id);
       setShowSetup(false);
 
-      // Get microphone access
+      // Step 1: Get microphone access
+      console.log("[Pipeline] Step 1: Requesting microphone access...");
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("[Pipeline] Step 1: ✅ Microphone access granted. Tracks:", stream.getAudioTracks().length);
       } catch (micErr: unknown) {
         const errMsg = micErr instanceof Error ? micErr.message : String(micErr);
         toast.error(`Microphone access denied: ${errMsg}`, {
-          description: "Please allow microphone access in your browser settings and try again. The Preview panel may not support microphone — try opening the site directly.",
+          description: "Please allow microphone access in your browser settings and try again. The Preview panel may not support microphone \u2014 try opening the site directly.",
           duration: 10000,
         });
-        console.error("[Mic] getUserMedia failed:", micErr);
+        console.error("[Pipeline] Step 1: ❌ getUserMedia failed:", micErr);
         return;
       }
       streamRef.current = stream;
@@ -524,34 +526,44 @@ export default function LiveSession() {
         updateLevel();
       } catch { /* AudioContext not available — skip level meter */ }
 
-      // Try WebSocket first, fall back to HTTP streaming if WS fails
+      // Step 2: Connect to server (WebSocket first, then HTTP fallback)
+      console.log("[Pipeline] Step 2: Connecting to server...");
       let wsConnected = false;
       try {
         wsConnected = await connectWebSocket(session.id);
+        if (wsConnected) console.log("[Pipeline] Step 2: ✅ WebSocket connected");
       } catch {
         wsConnected = false;
       }
 
       if (!wsConnected) {
-        console.log("[Session] WebSocket failed — switching to HTTP streaming");
+        console.log("[Pipeline] Step 2: WebSocket failed — trying HTTP streaming fallback...");
         const httpOk = await connectHttpStream(session.id);
         if (!httpOk) {
+          console.error("[Pipeline] Step 2: ❌ Both WebSocket and HTTP streaming failed");
           toast.error("Failed to connect to server. Please try again.");
           return;
         }
-        toast.info("Using HTTP streaming mode (WebSocket unavailable).", { duration: 5000 });
+        console.log("[Pipeline] Step 2: ✅ HTTP streaming connected (token:", httpTokenRef.current?.slice(0, 10), ")");
+        toast.info("Using HTTP streaming mode.", { duration: 5000 });
       }
 
-      // Start recording — stream audio chunks via WS or HTTP
+      // Step 3: Start recording \u2014 stream audio chunks via WS or HTTP
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm")
         ? "audio/webm"
         : "audio/ogg";
+      console.log("[Pipeline] Step 3: Starting MediaRecorder with mimeType:", mimeType);
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
+      let chunkCount = 0;
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size <= 0) return;
+        chunkCount++;
+        if (chunkCount <= 5 || chunkCount % 20 === 0) {
+          console.log(`[Pipeline] Step 3: Audio chunk #${chunkCount} (${e.data.size} bytes) — mode: ${wsRef.current?.readyState === WebSocket.OPEN ? "WS" : httpTokenRef.current ? "HTTP" : "NONE"}`);
+        }
         // WebSocket mode: send binary directly
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(e.data);
@@ -559,32 +571,44 @@ export default function LiveSession() {
         }
         // HTTP mode: POST binary audio chunk
         else if (httpTokenRef.current) {
+          const token = httpTokenRef.current;
           e.data.arrayBuffer().then((buf) => {
             fetch("/api/session/audio", {
               method: "POST",
               headers: {
                 "Content-Type": "application/octet-stream",
-                "X-Stream-Token": httpTokenRef.current!,
+                "X-Stream-Token": token,
               },
               body: buf,
-            }).catch(() => {});
+            }).then((resp) => {
+              if (!resp.ok) console.error(`[Pipeline] Step 3: ❌ Audio POST failed: ${resp.status}`);
+            }).catch((err) => {
+              console.error("[Pipeline] Step 3: ❌ Audio POST error:", err);
+            });
           });
           setAudioChunksSent((c) => c + 1);
+        } else {
+          if (chunkCount <= 3) console.warn("[Pipeline] Step 3: ⚠️ No connection available to send audio chunk");
         }
       };
       mediaRecorder.start(250); // 250ms chunks for low latency
       setIsRecording(true);
+      console.log("[Pipeline] Step 3: ✅ MediaRecorder started (250ms chunks)");
 
-      // Browser SpeechRecognition fallback — only start if Deepgram is NOT active.
+      // Step 4: Browser SpeechRecognition fallback — only start if Deepgram is NOT active.
       setTimeout(() => {
         setTranscriptionMode((mode) => {
           if (mode !== "deepgram") {
+            console.log("[Pipeline] Step 4: Starting browser SpeechRecognition fallback");
             startSpeechRecognition();
+          } else {
+            console.log("[Pipeline] Step 4: Deepgram active — skipping browser SpeechRecognition");
           }
           return mode;
         });
       }, 1000);
 
+      console.log("[Pipeline] ✅ All steps complete. Session is live.");
       toast.success("Session started. Recording active.");
     } catch (e) {
       toast.error("Failed to start session. Check microphone permissions.");

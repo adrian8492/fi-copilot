@@ -236,61 +236,80 @@ function createDeepgramConnection(state: StreamSession) {
     if (!isFinal) return;
 
     state.elapsedSeconds = Math.floor((Date.now() - state.startTime) / 1000);
+    console.log(`[HTTP-Stream] Deepgram transcript (session ${state.sessionId}): "${text.substring(0, 60)}" [${speaker}] final=${isFinal}`);
 
-    await insertTranscript({
-      sessionId: state.sessionId,
-      speaker,
-      text,
-      startTime,
-      endTime,
-      confidence,
-      isFinal: true,
-    });
+    // DB inserts and analysis in try/catch to prevent server crashes
+    try {
+      await insertTranscript({
+        sessionId: state.sessionId,
+        speaker,
+        text,
+        startTime,
+        endTime,
+        confidence,
+        isFinal: true,
+      });
+    } catch (err) {
+      console.error("[HTTP-Stream] insertTranscript error:", err);
+    }
 
-    if (speaker === "manager") {
-      const flags = checkComplianceRules(text, state.elapsedSeconds);
-      for (const flag of flags) {
-        await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
-        broadcast(state, "compliance_flag", flag);
+    try {
+      if (speaker === "manager") {
+        const flags = checkComplianceRules(text, state.elapsedSeconds);
+        for (const flag of flags) {
+          try { await insertComplianceFlag({ sessionId: state.sessionId, ...flag }); } catch (e) { console.error("[HTTP-Stream] insertComplianceFlag error:", e); }
+          broadcast(state, "compliance_flag", flag);
+        }
       }
+    } catch (err) {
+      console.error("[HTTP-Stream] compliance error:", err);
     }
 
     state.analysisBuffer += ` ${text}`;
     state.transcriptBuffer.push(`${speaker.toUpperCase()}: ${text}`);
-    const fullTranscript = state.transcriptBuffer.join(" ");
-    const quickSuggestion = generateQuickSuggestion(state.analysisBuffer, fullTranscript, state);
-    if (quickSuggestion) {
-      const triggered = state.analysisBuffer.substring(0, 100);
-      await insertCopilotSuggestion({
-        sessionId: state.sessionId,
-        type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-        title: quickSuggestion.title as string,
-        content: quickSuggestion.content as string,
-        priority: (quickSuggestion.urgency ?? "medium") as "high" | "medium" | "low",
-        triggeredBy: triggered,
-      });
-      broadcast(state, "suggestion", { ...quickSuggestion, triggeredBy: triggered, dealStage: state.currentDealStage });
-      state.analysisBuffer = "";
-      state.lastAnalysisTime = Date.now();
-    } else {
-      const timeSince = Date.now() - state.lastAnalysisTime;
-      const wordCount = state.analysisBuffer.split(" ").length;
-      if (timeSince > 20000 || wordCount > 50) {
-        state.lastAnalysisTime = Date.now();
-        const llmSugg = await generateLLMSuggestion(state.transcriptBuffer, { elapsedSeconds: state.elapsedSeconds });
-        if (llmSugg) {
+
+    try {
+      const fullTranscript = state.transcriptBuffer.join(" ");
+      const quickSuggestion = generateQuickSuggestion(state.analysisBuffer, fullTranscript, state);
+      if (quickSuggestion) {
+        const triggered = state.analysisBuffer.substring(0, 100);
+        try {
           await insertCopilotSuggestion({
             sessionId: state.sessionId,
-            type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-            title: llmSugg.title,
-            content: llmSugg.content,
-            priority: llmSugg.urgency,
-            triggeredBy: llmSugg.triggeredBy.substring(0, 100),
+            type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+            title: quickSuggestion.title as string,
+            content: quickSuggestion.content as string,
+            priority: (quickSuggestion.urgency ?? "medium") as "high" | "medium" | "low",
+            triggeredBy: triggered,
           });
-          broadcast(state, "suggestion", { ...llmSugg, dealStage: state.currentDealStage });
-        }
+        } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion error:", e); }
+        broadcast(state, "suggestion", { ...quickSuggestion, triggeredBy: triggered, dealStage: state.currentDealStage });
         state.analysisBuffer = "";
+        state.lastAnalysisTime = Date.now();
+      } else {
+        const timeSince = Date.now() - state.lastAnalysisTime;
+        const wordCount = state.analysisBuffer.split(" ").length;
+        if (timeSince > 20000 || wordCount > 50) {
+          state.lastAnalysisTime = Date.now();
+          const llmSugg = await generateLLMSuggestion(state.transcriptBuffer, { elapsedSeconds: state.elapsedSeconds });
+          if (llmSugg) {
+            try {
+              await insertCopilotSuggestion({
+                sessionId: state.sessionId,
+                type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+                title: llmSugg.title,
+                content: llmSugg.content,
+                priority: llmSugg.urgency,
+                triggeredBy: llmSugg.triggeredBy.substring(0, 100),
+              });
+            } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion LLM error:", e); }
+            broadcast(state, "suggestion", { ...llmSugg, dealStage: state.currentDealStage });
+          }
+          state.analysisBuffer = "";
+        }
       }
+    } catch (err) {
+      console.error("[HTTP-Stream] suggestion processing error:", err);
     }
   });
 
@@ -396,7 +415,8 @@ export function createHttpStreamRouter(): Router {
     });
   });
 
-  // POST /api/session/audio — Receive binary audio chunk
+  // POST /api/session/audio \u2014 Receive binary audio chunk
+  let audioChunkCount = 0;
   router.post("/audio", (req: Request, res: Response) => {
     const token = req.headers["x-stream-token"] as string;
     const state = token ? httpSessions.get(token) : undefined;
@@ -404,15 +424,23 @@ export function createHttpStreamRouter(): Router {
       return res.status(404).json({ error: "Session not found" });
     }
 
+    audioChunkCount++;
+    const bodyLen = Buffer.isBuffer(req.body) ? req.body.length : 0;
+    if (audioChunkCount <= 5 || audioChunkCount % 40 === 0) {
+      console.log(`[HTTP-Stream] Audio chunk #${audioChunkCount} received (${bodyLen} bytes) for session ${state.sessionId}`);
+    }
+
     if (!state.deepgramConnection) {
+      if (audioChunkCount <= 2) console.log(`[HTTP-Stream] No Deepgram connection — browser fallback mode`);
       return res.status(200).json({ ok: true, mode: "browser" });
     }
 
     try {
       const readyState = state.deepgramConnection.getReadyState();
       if (readyState === 1) {
-        // req.body is a Buffer when express.raw() is used
         state.deepgramConnection.send(req.body as unknown as ArrayBuffer);
+      } else {
+        if (audioChunkCount <= 5) console.warn(`[HTTP-Stream] Deepgram not ready (state: ${readyState}) — dropping chunk`);
       }
     } catch (err) {
       console.error(`[HTTP-Stream] Error sending audio to Deepgram:`, err);
@@ -420,7 +448,6 @@ export function createHttpStreamRouter(): Router {
 
     res.status(200).json({ ok: true });
   });
-
   // POST /api/session/text — Browser SpeechRecognition text fallback
   router.post("/text", async (req: Request, res: Response) => {
     const token = req.headers["x-stream-token"] as string;

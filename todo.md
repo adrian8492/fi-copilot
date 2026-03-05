@@ -245,3 +245,11 @@
 
 ## Bug: WebSocket Shows Disconnected on Deployed Site (Mar 4)
 - [x] Fix: Hosting proxy blocks WebSocket upgrades (returns 200 instead of 101). Built HTTP streaming fallback: POST /api/session/audio + SSE /api/session/events. Client auto-detects WS failure in 3s and switches to HTTP mode. 14 new tests, all 100 tests passing.
+
+## Bug: Full Transcription Pipeline Not Working on Deployed Site (Mar 4)
+- [x] Verify HTTP fallback is actually activating on deployed site (not stuck on WS attempt)
+- [x] Verify audio chunks reach Deepgram through HTTP /api/session/audio endpoint
+- [x] Verify Deepgram transcripts are broadcast back via SSE /api/session/events
+- [x] Verify transcript lines appear in UI and are stored in DB
+- [x] Add comprehensive debug logging visible in browser console for each pipeline step
+- [x] Ensure the latest checkpoint was actually published before testing
