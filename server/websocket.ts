@@ -234,6 +234,7 @@ function createDeepgramConnection(
 
    connection.on(LiveTranscriptionEvents.Transcript, async (data) => {
     const alt = data?.channel?.alternatives?.[0];
+    console.log(`[WS] Deepgram transcript event: is_final=${data?.is_final}, speech_final=${(data as any)?.speech_final}, text="${alt?.transcript?.substring(0, 50) ?? '(empty)'}"`);
     if (!alt || !alt.transcript?.trim()) return;
     const isFinal: boolean = data.is_final ?? false;
     const speechFinal: boolean = (data as Record<string, unknown>).speech_final === true;
@@ -404,12 +405,20 @@ export function setupWebSocketServer(server: HttpServer) {
       // ── Binary audio → forward directly to Deepgram ───────────────────────
       if (isBinary) {
         const state = activeSessions.get(ws);
-        if (!state?.deepgramConnection) return;
+        if (!state?.deepgramConnection) {
+          console.log(`[WS] Binary chunk received but no Deepgram connection`);
+          return;
+        }
         try {
-          if (state.deepgramConnection.getReadyState() === 1) {
+          const readyState = state.deepgramConnection.getReadyState();
+          if (readyState === 1) {
             state.deepgramConnection.send(raw as unknown as ArrayBuffer);
+          } else {
+            console.log(`[WS] Deepgram not ready (state=${readyState}), dropping audio chunk`);
           }
-        } catch { /* Deepgram not ready — drop chunk silently */ }
+        } catch (err) {
+          console.error(`[WS] Error sending audio to Deepgram:`, err);
+        }
         return;
       }
 

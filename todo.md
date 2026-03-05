@@ -239,3 +239,6 @@
 - [ ] Fix: WebSocket shows Disconnected — add keepalive ping every 10s
 - [ ] Fix: Process % stuck at 0% — transcript entries not reaching process tracker
 - [ ] Fix: Timestamps all 00:00 — use server elapsed seconds correctly
+
+## Bug: Live Session No Transcript Appearing (Mar 4)
+- [x] Fix: Diagnosed root cause — Preview panel has no microphone access; added audio level indicator, client-side WebSocket keepalive (30s ping), fixed timestamp double-division bug (startTime already in seconds), improved getUserMedia error handling with clear toast message

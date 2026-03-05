@@ -162,6 +162,10 @@ export default function LiveSession() {
   const [deepgramConnected, setDeepgramConnected] = useState(false);
   const [transcriptionMode, setTranscriptionMode] = useState<"deepgram" | "browser" | "pending">("pending");
 
+  // Audio level indicator
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [audioChunksSent, setAudioChunksSent] = useState(0);
+
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -169,6 +173,10 @@ export default function LiveSession() {
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const keepaliveRef = useRef<NodeJS.Timeout | null>(null);
 
   // Expanded word tracks
   const [expandedScripts, setExpandedScripts] = useState<Record<number, boolean>>({});
@@ -218,6 +226,13 @@ export default function LiveSession() {
     ws.onopen = () => {
       setIsConnected(true);
       ws.send(JSON.stringify({ type: "start_session", sessionId: sid, userId: user?.id }));
+      // Client-side keepalive: send ping every 30s to prevent proxy/network timeout
+      if (keepaliveRef.current) clearInterval(keepaliveRef.current);
+      keepaliveRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 30000);
     };
 
     ws.onmessage = (event) => {
@@ -226,9 +241,9 @@ export default function LiveSession() {
         case "transcript":
           if (msg.data?.text) {
             const isFinalMsg: boolean = msg.data.isFinal ?? true;
-            // Convert Deepgram ms timestamps → elapsed seconds for display
+            // Server sends startTime as elapsed seconds already — use directly
             const tsSeconds: number = msg.data.startTime != null
-              ? Math.round(msg.data.startTime / 1000)
+              ? Math.round(msg.data.startTime)
               : elapsed;
             setTranscripts((prev) => {
               // Interim result: update the last non-final entry from the same speaker in place
@@ -303,6 +318,7 @@ export default function LiveSession() {
     ws.onclose = () => {
       setIsConnected(false);
       setDeepgramConnected(false);
+      if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
     };
 
     ws.onerror = () => {
@@ -381,8 +397,38 @@ export default function LiveSession() {
       setShowSetup(false);
 
       // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (micErr: unknown) {
+        const errMsg = micErr instanceof Error ? micErr.message : String(micErr);
+        toast.error(`Microphone access denied: ${errMsg}`, {
+          description: "Please allow microphone access in your browser settings and try again. The Preview panel may not support microphone — try opening the site directly.",
+          duration: 10000,
+        });
+        console.error("[Mic] getUserMedia failed:", micErr);
+        return;
+      }
       streamRef.current = stream;
+
+      // Set up audio level meter for visual feedback
+      try {
+        const audioCtx = new AudioContext();
+        audioContextRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const updateLevel = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const avg = dataArray.reduce((sum, v) => sum + v, 0) / dataArray.length;
+          setAudioLevel(Math.round(avg));
+          animFrameRef.current = requestAnimationFrame(updateLevel);
+        };
+        updateLevel();
+      } catch { /* AudioContext not available — skip level meter */ }
 
       // Connect WebSocket
       connectWebSocket(session.id);
@@ -398,6 +444,7 @@ export default function LiveSession() {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(e.data); // Binary audio → server → Deepgram
+          setAudioChunksSent((c) => c + 1);
         }
       };
       mediaRecorder.start(250); // 250ms chunks for low latency
@@ -450,6 +497,14 @@ export default function LiveSession() {
 
     // Stop stream
     streamRef.current?.getTracks().forEach((t) => t.stop());
+
+    // Stop audio level meter
+    if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = null; }
+    if (audioContextRef.current) { try { audioContextRef.current.close(); } catch {} audioContextRef.current = null; }
+    setAudioLevel(0);
+
+    // Stop keepalive
+    if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
 
     // Notify WebSocket
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -613,6 +668,27 @@ export default function LiveSession() {
               )} />
               {transcriptionMode === "deepgram" ? "Deepgram Nova-2" :
                transcriptionMode === "browser" ? "Browser Fallback" : "Connecting..."}
+            </div>
+          )}
+
+          {/* Audio Level Indicator */}
+          {isRecording && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-card border border-border">
+              <div className="flex items-end gap-px h-3">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "w-1 rounded-full transition-all duration-100",
+                      audioLevel > i * 20 ? "bg-green-400" : "bg-muted-foreground/30"
+                    )}
+                    style={{ height: `${Math.max(3, (i + 1) * 3)}px` }}
+                  />
+                ))}
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {audioLevel > 10 ? "Audio" : "Silent"}
+              </span>
             </div>
           )}
 
