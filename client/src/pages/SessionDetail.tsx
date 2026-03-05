@@ -13,6 +13,9 @@ import {
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
   Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag,
 } from "lucide-react";
+import AudioWaveform from "@/components/AudioWaveform";
+import { SessionNotes } from "@/components/SessionNotes";
+import { PrintReportButton } from "@/components/PrintReportButton";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -264,12 +267,14 @@ export default function SessionDetail() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {[
             { label: "Overall Score", value: overallScore !== null ? `${overallScore}%` : "—", icon: Star, color: scoreColor },
             { label: "Duration", value: session.durationSeconds ? `${Math.floor(session.durationSeconds / 60)}m ${session.durationSeconds % 60}s` : "—", icon: Clock, color: "text-blue-400" },
             { label: "Compliance Flags", value: `${criticalFlags.length} critical`, icon: AlertTriangle, color: criticalFlags.length > 0 ? "text-red-400" : "text-green-400" },
             { label: "Transcript Lines", value: transcripts?.length ?? 0, icon: FileText, color: "text-purple-400" },
+            { label: "Script Fidelity", value: grade?.scriptFidelityScore !== null && grade?.scriptFidelityScore !== undefined ? `${grade.scriptFidelityScore}%` : "—", icon: CheckCircle2, color: (grade?.scriptFidelityScore ?? 0) >= 70 ? "text-green-400" : "text-orange-400" },
+            { label: "Word Tracks Used", value: utilization ? `${utilization.used}/${utilization.total}` : "—", icon: ThumbsUp, color: (utilization?.utilizationRate ?? 0) >= 60 ? "text-green-400" : "text-yellow-400" },
           ].map((stat) => (
             <Card key={stat.label} className="bg-card border-border">
               <CardContent className="p-4">
@@ -284,6 +289,46 @@ export default function SessionDetail() {
             </Card>
           ))}
         </div>
+
+        {/* Quick Coaching Insights */}
+        {grade && (
+          <Card className="bg-gradient-to-r from-primary/5 to-transparent border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Lightbulb className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-primary">Quick Coaching Insights</p>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {grade.strengths && (
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-medium text-green-400 uppercase tracking-wider">Strength</p>
+                          <p className="text-xs text-muted-foreground">{grade.strengths}</p>
+                        </div>
+                      </div>
+                    )}
+                    {grade.improvements && (
+                      <div className="flex items-start gap-2">
+                        <TrendingUp className="w-3.5 h-3.5 text-yellow-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-medium text-yellow-400 uppercase tracking-wider">Focus Area</p>
+                          <p className="text-xs text-muted-foreground">{grade.improvements}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {grade.coachingNotes && (
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Action Items</p>
+                      <p className="text-xs text-muted-foreground">{grade.coachingNotes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="grade">
           <TabsList className="bg-card border border-border">
@@ -436,20 +481,18 @@ export default function SessionDetail() {
                           {audioRef.current?.duration ? ` / ${Math.floor(audioRef.current.duration / 60)}:${String(Math.floor(audioRef.current.duration % 60)).padStart(2, "0")}` : ""}
                         </span>
                       </div>
-                      <div
-                        className="h-2 rounded-full bg-border cursor-pointer overflow-hidden"
-                        onClick={(e) => {
-                          if (!audioRef.current) return;
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const pct = (e.clientX - rect.left) / rect.width;
-                          audioRef.current.currentTime = pct * audioRef.current.duration;
+                      <AudioWaveform
+                        audioUrl={recordings[0].fileUrl}
+                        currentTime={currentPlaybackTime}
+                        duration={audioRef.current?.duration ?? (session.durationSeconds ?? 0)}
+                        isPlaying={isPlaying}
+                        onSeek={(time) => {
+                          if (audioRef.current) {
+                            audioRef.current.currentTime = time;
+                          }
                         }}
-                      >
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-200"
-                          style={{ width: `${audioRef.current?.duration ? (currentPlaybackTime / audioRef.current.duration) * 100 : 0}%` }}
-                        />
-                      </div>
+                        height={40}
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -511,9 +554,21 @@ export default function SessionDetail() {
                             )}>
                               {entry.text}
                             </div>
-                            <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                              {entry.speaker} • {entry.startTime !== null ? `${Math.floor(entryTime / 60)}:${String(Math.floor(entryTime % 60)).padStart(2, "0")}` : "—"}
-                            </span>
+                            <div className="flex items-center gap-2 mt-1 px-1">
+                              <span className="text-[10px] text-muted-foreground">
+                                {entry.speaker} • {entry.startTime !== null ? `${Math.floor(entryTime / 60)}:${String(Math.floor(entryTime % 60)).padStart(2, "0")}` : "—"}
+                              </span>
+                              {entry.confidence !== null && entry.confidence !== undefined && (
+                                <span className={cn(
+                                  "text-[9px] font-medium px-1.5 py-0.5 rounded-full",
+                                  entry.confidence >= 0.9 ? "bg-green-500/15 text-green-400" :
+                                  entry.confidence >= 0.7 ? "bg-yellow-500/15 text-yellow-400" :
+                                  "bg-red-500/15 text-red-400"
+                                )}>
+                                  {Math.round(entry.confidence * 100)}%
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -712,6 +767,14 @@ export default function SessionDetail() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Session Notes */}
+        <SessionNotes sessionId={sessionId} initialNotes={session?.notes ?? null} />
+
+        {/* Print Report */}
+        <div className="flex justify-end">
+          <PrintReportButton />
+        </div>
       </div>
     </AppLayout>
   );

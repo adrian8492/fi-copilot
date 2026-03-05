@@ -20,6 +20,9 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { WelcomeScreen } from "@/components/WelcomeScreen";
+import { useState } from "react";
+import { Search } from "lucide-react";
 
 function getScoreColor(score: number) {
   if (score >= 85) return "text-green-400";
@@ -272,7 +275,52 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+        {/* Session Search */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-4">
+            <SessionSearchBar />
+          </CardContent>
+        </Card>
       </div>
+      <WelcomeScreen />
     </AppLayout>
+  );
+}
+
+function SessionSearchBar() {
+  const [query, setQuery] = useState("");
+  const [, navigate] = useLocation();
+  const { data: results } = trpc.sessions.search.useQuery(
+    { query, limit: 5 },
+    { enabled: query.length >= 2 }
+  );
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-2 bg-card border border-border rounded-md px-3 py-2">
+        <Search className="w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search sessions by customer, deal number..."
+          className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-sm"
+        />
+      </div>
+      {query.length >= 2 && results && results.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden">
+          {results.map((session: { id: number; customerName: string | null; dealNumber: string | null; startedAt: Date }) => (
+            <button
+              key={session.id}
+              onClick={() => { navigate(`/session/${session.id}`); setQuery(""); }}
+              className="w-full px-4 py-2.5 text-left hover:bg-accent flex items-center justify-between text-sm"
+            >
+              <span className="text-foreground">{session.customerName || `Session #${session.id}`}</span>
+              <span className="text-muted-foreground text-xs">{session.dealNumber || ''}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

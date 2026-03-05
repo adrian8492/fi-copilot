@@ -99,6 +99,13 @@ vi.mock("./db", () => ({
   assignUserToDealership: vi.fn().mockResolvedValue(undefined),
   getManagerScorecard: vi.fn().mockResolvedValue({ avgOverall: 82, avgPvr: 1400, avgCompliance: 88, avgWordTrack: 65, sessionCount: 12, avgScriptFidelity: 72, weeklyData: [{ week: "2026-W01", overall: 80, pvr: 1300, compliance: 85, wordTrack: 60, sessions: 3, scriptFidelity: 70 }] }),
   getActiveComplianceRules: vi.fn().mockResolvedValue([{ id: 1, category: "custom", title: "No Pressure Language", description: "Avoid pressure tactics", triggerKeywords: ["you must buy", "required purchase"], requiredPhrase: null, severity: "critical", weight: 1.0, isActive: true, dealStage: null, createdBy: 1, createdAt: new Date(), updatedAt: new Date() }]),
+  updateSessionNotes: vi.fn().mockResolvedValue(undefined),
+  searchSessions: vi.fn().mockResolvedValue([]),
+  getSessionComparison: vi.fn().mockResolvedValue({ session1: null, session2: null }),
+  getComplianceTrend: vi.fn().mockResolvedValue([]),
+  getSystemUsageStats: vi.fn().mockResolvedValue({ totalUsers: 5, activeSessions: 2, totalSessions: 50 }),
+  getSessionsByIds: vi.fn().mockResolvedValue([]),
+  getComplianceFlags: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("./storage", () => ({
@@ -906,5 +913,382 @@ describe("compliance.resolveFlag", () => {
   it("throws UNAUTHORIZED when not logged in", async () => {
     const caller = appRouter.createCaller(makeCtx({ user: null }));
     await expect(caller.compliance.resolveFlag({ flagId: 1 })).rejects.toThrow();
+  });
+});
+
+
+// ─── Overnight Sprint: New Feature Tests ────────────────────────────────────
+
+describe("sessions.updateNotes", () => {
+  it("should update session notes successfully", async () => {
+    const { updateSessionNotes } = await import("./db");
+    (updateSessionNotes as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.updateNotes({
+      sessionId: 1,
+      notes: "Customer was very interested in GAP insurance"
+    });
+    expect(updateSessionNotes).toHaveBeenCalledWith(1, "Customer was very interested in GAP insurance");
+    expect(result).toBeUndefined();
+  });
+
+  it("should handle empty notes", async () => {
+    const { updateSessionNotes } = await import("./db");
+    (updateSessionNotes as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.updateNotes({
+      sessionId: 1,
+      notes: ""
+    });
+    expect(updateSessionNotes).toHaveBeenCalledWith(1, "");
+    expect(result).toBeUndefined();
+  });
+});
+
+describe("sessions.search", () => {
+  it("should return search results", async () => {
+    const { searchSessions } = await import("./db");
+    const mockResults = [
+      { id: 1, userId: 1, status: "completed", customerName: "John Doe", dealNumber: "D12345", startedAt: new Date() }
+    ];
+    (searchSessions as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockResults);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.search({
+      query: "Toyota",
+      limit: 10
+    });
+    expect(searchSessions).toHaveBeenCalledWith("Toyota", 1, 10);
+    expect(result).toEqual(mockResults);
+  });
+
+  it("should use default limit when not specified", async () => {
+    const { searchSessions } = await import("./db");
+    (searchSessions as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.search({ query: "test" });
+    expect(searchSessions).toHaveBeenCalledWith("test", 1, 20);
+    expect(result).toEqual([]);
+  });
+});
+
+describe("sessions.compare", () => {
+  it("should return comparison of both sessions", async () => {
+    const { getSessionComparison } = await import("./db");
+    const mockComparison = {
+      session1: { sessions: { id: 1, customerName: "John" }, performance_grades: { overallScore: 85 } },
+      session2: { sessions: { id: 2, customerName: "Jane" }, performance_grades: { overallScore: 78 } }
+    };
+    (getSessionComparison as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockComparison);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.compare({ sessionId1: 1, sessionId2: 2 });
+    expect(getSessionComparison).toHaveBeenCalledWith(1, 2);
+    expect(result).toEqual(mockComparison);
+  });
+
+  it("should handle missing session", async () => {
+    const { getSessionComparison } = await import("./db");
+    const mockComparison = { session1: null, session2: null };
+    (getSessionComparison as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockComparison);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.compare({ sessionId1: 999, sessionId2: 998 });
+    expect(result.session1).toBeNull();
+    expect(result.session2).toBeNull();
+  });
+});
+
+describe("analytics.complianceTrend", () => {
+  it("should return compliance trend data", async () => {
+    const { getComplianceTrend } = await import("./db");
+    const mockTrend = [
+      { date: "2026-01-01", flagCount: 2, severity: "critical" },
+      { date: "2026-01-02", flagCount: 1, severity: "warning" }
+    ];
+    (getComplianceTrend as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockTrend);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.complianceTrend({ days: 7 });
+    expect(getComplianceTrend).toHaveBeenCalledWith(1, 7);
+    expect(result).toEqual(mockTrend);
+  });
+
+  it("should use default 30 days when not specified", async () => {
+    const { getComplianceTrend } = await import("./db");
+    (getComplianceTrend as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.complianceTrend({});
+    expect(getComplianceTrend).toHaveBeenCalledWith(1, 30);
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── Bulk Export ─────────────────────────────────────────────────────────────
+describe("sessions.bulkExport", () => {
+  it("exports sessions in JSON format", async () => {
+    const { getSessionsByIds } = await import("./db");
+    vi.mocked(getSessionsByIds).mockResolvedValueOnce([
+      { sessions: { id: 1, customerName: "John Smith", dealType: "retail_finance", status: "completed", startedAt: new Date(), dealNumber: "D001", durationSeconds: 600 }, performance_grades: { overallScore: 85 } },
+      { sessions: { id: 2, customerName: "Jane Doe", dealType: "lease", status: "active", startedAt: new Date(), dealNumber: "D002", durationSeconds: 300 }, performance_grades: null }
+    ] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.bulkExport({ sessionIds: [1, 2], format: "json" });
+    expect(result.filename).toContain("bulk-export");
+    expect(result.data).toContain("John Smith");
+  });
+
+  it("exports sessions in CSV format", async () => {
+    const { getSessionsByIds } = await import("./db");
+    vi.mocked(getSessionsByIds).mockResolvedValueOnce([
+      { sessions: { id: 1, customerName: "John Smith", dealType: "retail_finance", status: "completed", startedAt: new Date(), dealNumber: "D001", durationSeconds: 600 }, performance_grades: { overallScore: 85 } }
+    ] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.bulkExport({ sessionIds: [1], format: "csv" });
+    expect(typeof result.data).toBe("string");
+    expect(result.data).toContain("ID");
+    expect(result.data).toContain("John Smith");
+  });
+
+  it("handles empty session array", async () => {
+    const { getSessionsByIds } = await import("./db");
+    vi.mocked(getSessionsByIds).mockResolvedValueOnce([]);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.bulkExport({ sessionIds: [], format: "json" });
+    expect(result.data).toBeDefined();
+  });
+
+  it("throws unauthorized when not logged in", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: undefined as any }));
+    await expect(caller.sessions.bulkExport({ sessionIds: [1], format: "json" })).rejects.toThrow();
+  });
+});
+
+// ─── Audit Log Tests ────────────────────────────────────────────────────────
+describe("admin.auditLogs", () => {
+  it("returns audit logs for admin", async () => {
+    const { getAuditLogs } = await import("./db");
+    vi.mocked(getAuditLogs).mockResolvedValueOnce([
+      { id: 1, action: "session_created", userId: 1, details: "Session started", timestamp: new Date() },
+      { id: 2, action: "session_ended", userId: 1, details: "Session completed", timestamp: new Date() }
+    ] as any);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.auditLogs({ limit: 100, offset: 0 });
+    expect(result).toHaveLength(2);
+  });
+
+  it("returns empty when no logs", async () => {
+    const { getAuditLogs } = await import("./db");
+    vi.mocked(getAuditLogs).mockResolvedValueOnce([] as any);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.auditLogs({ limit: 100, offset: 0 });
+    expect(result).toEqual([]);
+  });
+
+  it("forbids access for non-admin users", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.admin.auditLogs({ limit: 100, offset: 0 })).rejects.toThrow();
+  });
+});
+
+// ─── Session Notes ───────────────────────────────────────────────────────────
+describe("sessions.updateNotes", () => {
+  it("updates session notes successfully", async () => {
+    const { updateSessionNotes } = await import("./db");
+    vi.mocked(updateSessionNotes).mockResolvedValueOnce(undefined);
+    const caller = appRouter.createCaller(makeCtx());
+    await caller.sessions.updateNotes({ sessionId: 1, notes: "Updated notes" });
+    expect(updateSessionNotes).toHaveBeenCalledWith(1, "Updated notes");
+  });
+
+  it("handles empty notes", async () => {
+    const { updateSessionNotes } = await import("./db");
+    vi.mocked(updateSessionNotes).mockResolvedValueOnce(undefined);
+    const caller = appRouter.createCaller(makeCtx());
+    await caller.sessions.updateNotes({ sessionId: 1, notes: "" });
+    expect(updateSessionNotes).toHaveBeenCalledWith(1, "");
+  });
+
+  it("throws unauthorized when not logged in", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: undefined as any }));
+    await expect(caller.sessions.updateNotes({ sessionId: 1, notes: "test" })).rejects.toThrow();
+  });
+});
+
+// ─── Session Search ──────────────────────────────────────────────────────────
+describe("sessions.search", () => {
+  it("searches sessions with query", async () => {
+    const { searchSessions } = await import("./db");
+    vi.mocked(searchSessions).mockResolvedValueOnce([
+      { id: 1, customerName: "John Smith", dealType: "retail_finance", status: "completed", startedAt: new Date() },
+      { id: 2, customerName: "John Doe", dealType: "lease", status: "active", startedAt: new Date() }
+    ]);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.search({ query: "John", limit: 10 });
+    expect(searchSessions).toHaveBeenCalledWith("John", 1, 10);
+    expect(result).toHaveLength(2);
+    expect(result[0].customerName).toBe("John Smith");
+  });
+
+  it("returns empty results when no matches", async () => {
+    const { searchSessions } = await import("./db");
+    vi.mocked(searchSessions).mockResolvedValueOnce([]);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.search({ query: "NonExistent", limit: 10 });
+    expect(result).toEqual([]);
+  });
+
+  it("uses default limit when not specified", async () => {
+    const { searchSessions } = await import("./db");
+    vi.mocked(searchSessions).mockResolvedValueOnce([]);
+    const caller = appRouter.createCaller(makeCtx());
+    await caller.sessions.search({ query: "test" });
+    expect(searchSessions).toHaveBeenCalledWith("test", 1, 20);
+  });
+});
+
+// ─── Admin All Sessions ──────────────────────────────────────────────────────
+describe("admin.allSessions", () => {
+  it("returns all sessions for admin", async () => {
+    const { getAllSessions } = await import("./db");
+    vi.mocked(getAllSessions).mockResolvedValueOnce([
+      { id: 1, customerName: "John", status: "completed" },
+      { id: 2, customerName: "Jane", status: "active" }
+    ] as any);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.allSessions({ limit: 100, offset: 0 });
+    expect(result).toHaveLength(2);
+  });
+
+  it("forbids access for non-admin users", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.admin.allSessions({ limit: 100, offset: 0 })).rejects.toThrow();
+  });
+});
+
+// ─── Manager Scorecard ───────────────────────────────────────────────────────
+describe("analytics.managerScorecard", () => {
+  it("returns manager scorecard with specified period", async () => {
+    const { getManagerScorecard } = await import("./db");
+    vi.mocked(getManagerScorecard).mockResolvedValueOnce({
+      avgOverall: 85, avgPvr: 1500, avgCompliance: 92, avgWordTrack: 70,
+      sessionCount: 20, avgScriptFidelity: 78,
+      weeklyData: [
+        { week: "2026-W01", overall: 82, pvr: 1400, compliance: 90, wordTrack: 68, sessions: 5, scriptFidelity: 75 },
+        { week: "2026-W02", overall: 88, pvr: 1600, compliance: 94, wordTrack: 72, sessions: 7, scriptFidelity: 81 }
+      ]
+    });
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.managerScorecard({ weeks: 8 });
+    expect(getManagerScorecard).toHaveBeenCalledWith(1, 8);
+    expect(result.avgOverall).toBe(85);
+    expect(result.weeklyData).toHaveLength(2);
+  });
+
+  it("uses default period when not specified", async () => {
+    const { getManagerScorecard } = await import("./db");
+    vi.mocked(getManagerScorecard).mockResolvedValueOnce({
+      avgOverall: 80, avgPvr: 1200, avgCompliance: 85, avgWordTrack: 65,
+      sessionCount: 10, avgScriptFidelity: 70, weeklyData: []
+    });
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.managerScorecard({});
+    expect(getManagerScorecard).toHaveBeenCalledWith(1, 12);
+    expect(result.avgOverall).toBe(80);
+  });
+
+  it("returns empty weekly data when no sessions", async () => {
+    const { getManagerScorecard } = await import("./db");
+    vi.mocked(getManagerScorecard).mockResolvedValueOnce({
+      avgOverall: 0, avgPvr: 0, avgCompliance: 0, avgWordTrack: 0,
+      sessionCount: 0, avgScriptFidelity: 0, weeklyData: []
+    });
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.managerScorecard({ weeks: 4 });
+    expect(result.sessionCount).toBe(0);
+    expect(result.weeklyData).toEqual([]);
+  });
+});
+
+// ─── Objection Analysis Tests ──────────────────────────────────────────────
+describe("objections.analysisByProduct", () => {
+  it("returns objection analysis by product", async () => {
+    const { getObjectionAnalysisByProduct } = await import("./db");
+    vi.mocked(getObjectionAnalysisByProduct).mockResolvedValueOnce([
+      { product: "gap_insurance", total: 15, resolved: 10, resolutionRate: 66.7 },
+      { product: "extended_warranty", total: 12, resolved: 9, resolutionRate: 75.0 }
+    ] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.objections.analysisByProduct({});
+    expect(result).toHaveLength(2);
+  });
+});
+
+describe("objections.analysisByConcern", () => {
+  it("returns objection analysis by concern type", async () => {
+    const { getObjectionAnalysisByConcern } = await import("./db");
+    vi.mocked(getObjectionAnalysisByConcern).mockResolvedValueOnce([
+      { concernType: "cost", total: 20, resolved: 12, resolutionRate: 60.0 },
+      { concernType: "value", total: 8, resolved: 6, resolutionRate: 75.0 }
+    ] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.objections.analysisByConcern({});
+    expect(result).toHaveLength(2);
+  });
+});
+
+describe("analytics.productMix", () => {
+  it("returns product mix data", async () => {
+    const { getProductMix } = await import("./db");
+    vi.mocked(getProductMix).mockResolvedValueOnce([
+      { product: "GAP", count: 25 },
+      { product: "Extended Warranty", count: 18 },
+      { product: "Paint Protection", count: 12 }
+    ] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.productMix();
+    expect(result).toHaveLength(3);
+  });
+});
+
+describe("analytics.sessionVolume", () => {
+  it("returns session volume trends", async () => {
+    const { getSessionVolume } = await import("./db");
+    vi.mocked(getSessionVolume).mockResolvedValueOnce([
+      { week: "2026-W01", count: 5 },
+      { week: "2026-W02", count: 8 },
+      { week: "2026-W03", count: 6 }
+    ]);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.sessionVolume({ weeks: 12 });
+    expect(getSessionVolume).toHaveBeenCalledWith(1, 12);
+    expect(result).toHaveLength(3);
+    expect(result[1].count).toBe(8);
+  });
+
+  it("handles empty volume data", async () => {
+    const { getSessionVolume } = await import("./db");
+    vi.mocked(getSessionVolume).mockResolvedValueOnce([]);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.sessionVolume({ weeks: 4 });
+    expect(result).toEqual([]);
+  });
+});
+
+describe("analytics.pvrTrend", () => {
+  it("returns PVR trend data with custom limit", async () => {
+    const { getPvrTrend } = await import("./db");
+    vi.mocked(getPvrTrend).mockResolvedValueOnce([
+      { week: "2026-W01", avgPvr: 1200, avgPpd: 2.4 },
+      { week: "2026-W02", avgPvr: 1350, avgPpd: 2.7 },
+      { week: "2026-W03", avgPvr: 1180, avgPpd: 2.2 }
+    ] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.analytics.pvrTrend({ limit: 8 });
+    expect(result).toHaveLength(3);
+  });
+
+  it("uses default limit when not specified", async () => {
+    const { getPvrTrend } = await import("./db");
+    vi.mocked(getPvrTrend).mockResolvedValueOnce([] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    await caller.analytics.pvrTrend({});
+    expect(getPvrTrend).toHaveBeenCalled();
   });
 });

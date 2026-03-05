@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Play,
   ClipboardList,
+  GitCompareArrows,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/scorecard", label: "Scorecard", icon: ClipboardList },
   { path: "/objections", label: "Objection Analysis", icon: AlertTriangle },
   { path: "/demo", label: "Demo Mode", icon: Play },
+  { path: "/compare", label: "Compare Sessions", icon: GitCompareArrows },
 ];
 
 const ADMIN_ITEMS = [

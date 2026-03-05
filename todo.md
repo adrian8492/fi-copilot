@@ -325,4 +325,29 @@
 - [x] Expand test suite with session end tests (3 tests: end, UNAUTHORIZED, NOT_FOUND)
 - [x] Expand test suite with checklist get + compliance resolve tests (4 tests)
 - [x] 124/124 total tests passing across 5 test files, 0 TypeScript errors
-- [ ] Final overnight checkpoint and 7 AM delivery report
+- [x] Final overnight checkpoint and 7 AM delivery report (cc3f6b1c)
+
+## Overnight Sprint — Mar 5 Evening → Mar 6 7AM
+- [x] Audio waveform visualization on Session Detail playback
+- [x] Confidence indicators on transcript entries (color-coded by Deepgram confidence)
+- [x] Session comparison view (side-by-side two sessions) — /compare route + nav item
+- [x] Quick coaching tips panel on Session Detail (AI-generated actionable tips)
+- [x] Post-session summary card on Session Detail (6 KPI cards + coaching insights card)
+- [x] Compliance alert owner notifications (notify dealership owner on critical violations) — notifyCriticalViolation helper
+- [x] Date range filter on Eagle Eye View leaderboard — DateRangeFilter component
+- [x] Session search by customer name / deal number across all sessions — Dashboard search bar
+- [x] Keyboard shortcuts for Live Session (start/stop, mark used, dismiss alert) — useKeyboardShortcuts hook + KeyboardShortcutsHelp overlay
+- [x] Print-friendly coaching report layout — PrintReportButton component
+- [x] Session notes editor (add/edit notes on completed sessions) — SessionNotes component on SessionDetail
+- [x] Bulk session export (export multiple sessions at once) — bulkExport tRPC procedure
+- [x] Dashboard sparkline mini-charts on KPI cards — SparklineChart component
+- [x] Analytics page: compliance trend chart (violations over time) — complianceTrend procedure + db function
+- [x] Analytics page: coaching score distribution histogram — ScoreHistogram component
+- [x] Admin: system usage stats (active users, sessions today/week/month) — getSystemUsageStats db function
+- [x] Admin: export audit log as CSV — exportAuditLog tRPC procedure
+- [x] Onboarding welcome screen for new users — WelcomeScreen component on Dashboard
+- [x] Empty state illustrations for pages with no data — EmptyState component
+- [x] Loading skeleton improvements across all pages — KPICardSkeleton, TableRowSkeleton, ChartSkeleton, TranscriptSkeleton
+- [x] Mark remaining overnight build items as complete where already done
+- [x] Expand test suite to 157 tests (33 new overnight sprint tests)
+- [x] Final overnight sprint checkpoint

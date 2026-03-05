@@ -17,6 +17,9 @@ import {
   ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen, ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
+import { Keyboard } from "lucide-react";
 
 interface TranscriptEntry {
   id: string;
@@ -204,6 +207,18 @@ export default function LiveSession() {
   const [checklist, setChecklist] = useState<ChecklistState>({});
   const [checklistExpanded, setChecklistExpanded] = useState<Record<string, boolean>>({ introduction: true, compliance: true, menu: true });
   const [showChecklist, setShowChecklist] = useState(false);
+
+  // Keyboard shortcuts
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  useKeyboardShortcuts({
+    onToggleRecording: () => {
+      if (!isRecording && !sessionId) return; // can't toggle if no session
+      // toggle is handled by the start/stop button click
+    },
+    onDismissAlert: () => setComplianceAlerts([]),
+    onEndSession: () => { if (sessionId && isRecording) handleEndSession(); },
+    enabled: !!sessionId,
+  });
 
   const createSession = trpc.sessions.create.useMutation();
   const endSessionMutation = trpc.sessions.end.useMutation();
@@ -991,8 +1006,17 @@ export default function LiveSession() {
               <Square className="w-3.5 h-3.5" />
               End Session
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 text-xs text-muted-foreground"
+              onClick={() => setShowShortcutsHelp(true)}
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+            </Button>
           </div>
         </div>
+        <KeyboardShortcutsHelp isOpen={showShortcutsHelp} onClose={() => setShowShortcutsHelp(false)} />
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">

@@ -1,7 +1,9 @@
+import { notifyOwner } from "./_core/notification";
 import { COOKIE_NAME } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+  getComplianceTrend,
   createSession,
   endSession,
   getAllSessions,
@@ -58,6 +60,12 @@ import {
   revokeInvitation,
   getManagerScorecard,
   getActiveComplianceRules,
+  updateSessionNotes,
+  searchSessions,
+  getSessionComparison,
+  getSystemUsageStats,
+  getSessionsByIds,
+  getComplianceFlags,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -589,6 +597,49 @@ export const appRouter = router({
 
         return { data: JSON.stringify(exportData, null, 2), format: "json", filename: `session-${input.sessionId}.json` };
       }),
+
+    updateNotes: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        notes: z.string()
+      }))
+      .mutation(async ({ input }) => {
+        return await updateSessionNotes(input.sessionId, input.notes);
+      }),
+
+    search: protectedProcedure
+      .input(z.object({
+        query: z.string(),
+        limit: z.number().optional()
+      }))
+      .query(async ({ input, ctx }) => {
+        return await searchSessions(input.query, ctx.user.id, input.limit ?? 20);
+      }),
+
+    bulkExport: protectedProcedure
+      .input(z.object({ sessionIds: z.array(z.number()), format: z.enum(["json", "csv"]) }))
+      .query(async ({ input }) => {
+        const { sessionIds, format } = input;
+        const sessionsData = await getSessionsByIds(sessionIds);
+        const currentDate = new Date().toISOString().split('T')[0];
+        if (format === "json") {
+          return { filename: `bulk-export-${currentDate}.json`, data: JSON.stringify(sessionsData, null, 2), mimeType: "application/json" };
+        }
+        const headers = ["ID", "Customer", "Deal Number", "Deal Type", "Status", "Score", "Duration", "Started At"];
+        const csvRows = [headers.join(",")];
+        for (const s of sessionsData) {
+          csvRows.push([s.sessions.id, `"${s.sessions.customerName || ''}"`, `"${s.sessions.dealNumber || ''}"`, `"${s.sessions.dealType || ''}"`, `"${s.sessions.status || ''}"`, s.performance_grades?.overallScore ?? '', s.sessions.durationSeconds ?? '', `"${s.sessions.startedAt || ''}"`].join(","));
+        }
+        return { filename: `bulk-export-${currentDate}.csv`, data: csvRows.join("\n"), mimeType: "text/csv" };
+      }),
+    compare: protectedProcedure
+      .input(z.object({
+        sessionId1: z.number(),
+        sessionId2: z.number()
+      }))
+      .query(async ({ input }) => {
+        return await getSessionComparison(input.sessionId1, input.sessionId2);
+      }),
   }),
 
   // ─── Transcripts ────────────────────────────────────────────────────────────
@@ -920,6 +971,11 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const targetUserId = ctx.user.role === "admin" && input.userId ? input.userId : ctx.user.id;
         return getManagerScorecard(targetUserId, input.weeks);
+      }),
+    complianceTrend: protectedProcedure
+      .input(z.object({ days: z.number().optional() }))
+      .query(async ({ ctx, input }) => {
+        return getComplianceTrend(ctx.user.id, input.days ?? 30);
       }),
   }),
 

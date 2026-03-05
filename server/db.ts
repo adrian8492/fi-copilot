@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
+import { and, avg, count, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -1104,4 +1104,162 @@ export async function getManagerScorecard(userId: number, weeks = 12) {
     },
     weeklyTrend,
   };
+}
+
+
+// ─── Overnight Sprint Additions ─────────────────────────────────────────────
+
+// ─── Overnight Sprint Additions ─────────────────────────────────────────────
+
+export async function updateSessionNotes(sessionId: number, notes: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(sessions)
+    .set({ notes })
+    .where(eq(sessions.id, sessionId));
+}
+
+export async function searchSessions(query: string, userId: number, limit: number = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.userId, userId),
+        or(
+          like(sessions.customerName, `%${query}%`),
+          like(sessions.dealNumber, `%${query}%`)
+        )
+      )
+    )
+    .orderBy(desc(sessions.startedAt))
+    .limit(limit);
+}
+
+export async function getComplianceTrend(userId: number, days: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  
+  const results = await db.select({
+    date: sql<string>`DATE(${complianceFlags.createdAt})`,
+    severity: complianceFlags.severity,
+    count: count()
+  })
+    .from(complianceFlags)
+    .innerJoin(sessions, eq(complianceFlags.sessionId, sessions.id))
+    .where(
+      and(
+        eq(sessions.userId, userId),
+        gte(complianceFlags.createdAt, startDate)
+      )
+    )
+    .groupBy(sql`DATE(${complianceFlags.createdAt})`, complianceFlags.severity);
+
+  const trend: { date: string; critical: number; warning: number; info: number }[] = [];
+  const grouped = results.reduce((acc, row) => {
+    if (!acc[row.date]) {
+      acc[row.date] = { date: row.date, critical: 0, warning: 0, info: 0 };
+    }
+    acc[row.date][row.severity as 'critical' | 'warning' | 'info'] = row.count;
+    return acc;
+  }, {} as Record<string, { date: string; critical: number; warning: number; info: number }>);
+
+  return Object.values(grouped);
+}
+
+export async function getSystemUsageStats() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [totalUsers] = await db.select({ count: count() }).from(users);
+  
+  const [activeUsersToday] = await db.select({ count: sql<number>`COUNT(DISTINCT ${sessions.userId})` })
+    .from(sessions)
+    .where(gte(sessions.startedAt, today));
+
+  const [activeUsersWeek] = await db.select({ count: sql<number>`COUNT(DISTINCT ${sessions.userId})` })
+    .from(sessions)
+    .where(gte(sessions.startedAt, weekAgo));
+
+  const [activeUsersMonth] = await db.select({ count: sql<number>`COUNT(DISTINCT ${sessions.userId})` })
+    .from(sessions)
+    .where(gte(sessions.startedAt, monthAgo));
+
+  const [sessionsToday] = await db.select({ count: count() })
+    .from(sessions)
+    .where(gte(sessions.startedAt, today));
+
+  const [sessionsWeek] = await db.select({ count: count() })
+    .from(sessions)
+    .where(gte(sessions.startedAt, weekAgo));
+
+  const [sessionsMonth] = await db.select({ count: count() })
+    .from(sessions)
+    .where(gte(sessions.startedAt, monthAgo));
+
+  const [avgDuration] = await db.select({ avg: avg(sessions.durationSeconds) })
+    .from(sessions)
+    .where(gte(sessions.startedAt, weekAgo));
+
+  return {
+    totalUsers: totalUsers.count,
+    activeUsersToday: activeUsersToday.count,
+    activeUsersWeek: activeUsersWeek.count,
+    activeUsersMonth: activeUsersMonth.count,
+    sessionsToday: sessionsToday.count,
+    sessionsWeek: sessionsWeek.count,
+    sessionsMonth: sessionsMonth.count,
+    avgSessionDuration: avgDuration.avg || 0
+  };
+}
+
+export async function getSessionComparison(sessionId1: number, sessionId2: number) {
+  const db = await getDb();
+  if (!db) return { session1: null, session2: null };
+  
+  const session1 = await db.select()
+    .from(sessions)
+    .leftJoin(performanceGrades, eq(performanceGrades.sessionId, sessions.id))
+    .where(eq(sessions.id, sessionId1));
+
+  const session2 = await db.select()
+    .from(sessions)
+    .leftJoin(performanceGrades, eq(performanceGrades.sessionId, sessions.id))
+    .where(eq(sessions.id, sessionId2));
+
+  return {
+    session1: session1[0] || null,
+    session2: session2[0] || null
+  };
+}
+
+export async function getSessionsByIds(ids: number[]) {
+  if (ids.length === 0) return [];
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(sessions)
+    .leftJoin(performanceGrades, eq(sessions.id, performanceGrades.sessionId))
+    .where(inArray(sessions.id, ids));
+}
+
+export async function getComplianceFlags(fromDate?: string, toDate?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (fromDate) conditions.push(sql`${complianceFlags.createdAt} >= ${new Date(fromDate)}`);
+  if (toDate) conditions.push(sql`${complianceFlags.createdAt} <= ${new Date(toDate)}`);
+  return db
+    .select()
+    .from(complianceFlags)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(complianceFlags.createdAt));
 }
