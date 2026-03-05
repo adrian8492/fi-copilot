@@ -253,3 +253,12 @@
 - [x] Verify transcript lines appear in UI and are stored in DB
 - [x] Add comprehensive debug logging visible in browser console for each pipeline step
 - [x] Ensure the latest checkpoint was actually published before testing
+
+## Pipeline Audit: Full End-to-End Fix (Mar 4)
+- [x] Step 1: HTTP streaming endpoints verified — start returns token, audio accepts binary, text broadcasts via SSE, end returns correct duration
+- [x] Step 2: Client WS→HTTP fallback verified — 3s timeout, auto-switch, audio chunks sent via POST
+- [x] Step 3: Deepgram connects and receives audio chunks via HTTP (verified with test audio)
+- [x] Step 4: SSE events reach client — definitive test: 2 transcripts + 2 ASURA suggestions received
+- [x] Step 5: DB enum fixed — added 10 missing types (professional_hello, financial_snapshot, menu_transition, product_presentation, objection_prevention, objection_response, closing, compliance_disclosure, phone_script, customer_connection)
+- [x] Step 6: Session end returns correct duration (8s, 13s — no longer 0s), all DB inserts wrapped in try/catch
+- [x] Step 7: All 100 tests pass, 0 TypeScript errors, checkpoint saved

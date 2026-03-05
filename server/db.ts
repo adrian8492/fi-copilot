@@ -163,7 +163,7 @@ export async function searchTranscripts(query: string, userId?: number) {
 // ─── Copilot Suggestions ──────────────────────────────────────────────────────
 export async function insertCopilotSuggestion(data: {
   sessionId: number;
-  type: "product_recommendation" | "objection_handling" | "compliance_reminder" | "rapport_building" | "closing_technique" | "general_tip";
+  type: "product_recommendation" | "objection_handling" | "compliance_reminder" | "rapport_building" | "closing_technique" | "general_tip" | "language_correction" | "process_alert" | "professional_hello" | "customer_connection" | "financial_snapshot" | "menu_transition" | "product_presentation" | "objection_prevention" | "objection_response" | "closing" | "compliance_disclosure" | "phone_script";
   title: string;
   content: string;
   triggeredBy?: string;

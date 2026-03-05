@@ -47,6 +47,10 @@ interface StreamSession {
   sseClients: Set<Response>;
   // Token for auth
   token: string;
+  // Per-session audio chunk counter
+  audioChunkCount: number;
+  // Buffer audio chunks that arrive before Deepgram is ready
+  audioBuffer: Buffer[];
 }
 
 // Active HTTP-stream sessions keyed by token
@@ -205,6 +209,16 @@ function createDeepgramConnection(state: StreamSession) {
     state.reconnectAttempts = 0;
     console.log(`[HTTP-Stream] Deepgram connected for session ${state.sessionId}`);
     broadcast(state, "deepgram_status", { connected: true, model: "nova-2" });
+
+    // Flush any buffered audio chunks that arrived before Deepgram was ready
+    if (state.audioBuffer.length > 0) {
+      console.log(`[HTTP-Stream] Flushing ${state.audioBuffer.length} buffered audio chunks to Deepgram`);
+      for (const chunk of state.audioBuffer) {
+        try { connection.send(chunk as unknown as ArrayBuffer); } catch { /* ignore */ }
+      }
+      state.audioBuffer = [];
+    }
+
     if (state.keepaliveTimer) clearInterval(state.keepaliveTimer);
     state.keepaliveTimer = setInterval(() => {
       try {
@@ -372,6 +386,8 @@ export function createHttpStreamRouter(): Router {
       keepaliveTimer: null,
       sseClients: new Set(),
       token,
+      audioChunkCount: 0,
+      audioBuffer: [],
     };
 
     state.deepgramConnection = createDeepgramConnection(state);
@@ -415,8 +431,7 @@ export function createHttpStreamRouter(): Router {
     });
   });
 
-  // POST /api/session/audio \u2014 Receive binary audio chunk
-  let audioChunkCount = 0;
+  // POST /api/session/audio — Receive binary audio chunk
   router.post("/audio", (req: Request, res: Response) => {
     const token = req.headers["x-stream-token"] as string;
     const state = token ? httpSessions.get(token) : undefined;
@@ -424,23 +439,33 @@ export function createHttpStreamRouter(): Router {
       return res.status(404).json({ error: "Session not found" });
     }
 
-    audioChunkCount++;
+    state.audioChunkCount++;
     const bodyLen = Buffer.isBuffer(req.body) ? req.body.length : 0;
-    if (audioChunkCount <= 5 || audioChunkCount % 40 === 0) {
-      console.log(`[HTTP-Stream] Audio chunk #${audioChunkCount} received (${bodyLen} bytes) for session ${state.sessionId}`);
+    if (state.audioChunkCount <= 5 || state.audioChunkCount % 40 === 0) {
+      console.log(`[HTTP-Stream] Audio chunk #${state.audioChunkCount} received (${bodyLen} bytes) for session ${state.sessionId}`);
     }
 
+    // Update elapsed time on every audio chunk so duration is always current
+    state.elapsedSeconds = Math.floor((Date.now() - state.startTime) / 1000);
+
     if (!state.deepgramConnection) {
-      if (audioChunkCount <= 2) console.log(`[HTTP-Stream] No Deepgram connection — browser fallback mode`);
+      if (state.audioChunkCount <= 2) console.log(`[HTTP-Stream] No Deepgram connection — browser fallback mode`);
       return res.status(200).json({ ok: true, mode: "browser" });
     }
 
     try {
       const readyState = state.deepgramConnection.getReadyState();
       if (readyState === 1) {
+        // Deepgram is open — send directly
         state.deepgramConnection.send(req.body as unknown as ArrayBuffer);
+      } else if (readyState === 0) {
+        // Deepgram is still connecting — buffer the chunk (max 50 chunks ~ 12.5s at 250ms)
+        if (state.audioBuffer.length < 50) {
+          state.audioBuffer.push(Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body as ArrayBuffer));
+          if (state.audioChunkCount <= 3) console.log(`[HTTP-Stream] Buffering audio chunk #${state.audioChunkCount} (Deepgram connecting...)`);
+        }
       } else {
-        if (audioChunkCount <= 5) console.warn(`[HTTP-Stream] Deepgram not ready (state: ${readyState}) — dropping chunk`);
+        if (state.audioChunkCount <= 5) console.warn(`[HTTP-Stream] Deepgram not ready (state: ${readyState}) — dropping chunk`);
       }
     } catch (err) {
       console.error(`[HTTP-Stream] Error sending audio to Deepgram:`, err);
@@ -543,7 +568,11 @@ export function createHttpStreamRouter(): Router {
     if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
     if (state.keepaliveTimer) clearInterval(state.keepaliveTimer);
 
-    broadcast(state, "session_ended", { sessionId: state.sessionId, durationSeconds: state.elapsedSeconds });
+    // Compute final elapsed time from startTime
+    const finalElapsed = Math.floor((Date.now() - state.startTime) / 1000);
+    state.elapsedSeconds = finalElapsed;
+
+    broadcast(state, "session_ended", { sessionId: state.sessionId, durationSeconds: finalElapsed });
 
     // Close all SSE connections
     state.sseClients.forEach((client) => {
@@ -551,8 +580,8 @@ export function createHttpStreamRouter(): Router {
     });
 
     httpSessions.delete(token);
-    console.log(`[HTTP-Stream] Session ${state.sessionId} ended after ${state.elapsedSeconds}s`);
-    res.json({ ok: true, durationSeconds: state.elapsedSeconds });
+    console.log(`[HTTP-Stream] Session ${state.sessionId} ended after ${finalElapsed}s`);
+    res.json({ ok: true, durationSeconds: finalElapsed });
   });
 
   // POST /api/session/ping — Keepalive

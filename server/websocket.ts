@@ -63,6 +63,7 @@ interface SessionState {
   reconnectAttempts: number;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   keepaliveTimer: ReturnType<typeof setInterval> | null;
+  audioBuffer: Buffer[];
 }
 
 const activeSessions = new Map<WebSocket, SessionState>();
@@ -219,6 +220,16 @@ function createDeepgramConnection(
     state.reconnectAttempts = 0;
     console.log(`[WS] Deepgram connected for session ${state.sessionId}`);
     send({ type: "deepgram_status", data: { connected: true, model: "nova-2" } });
+
+    // Flush any buffered audio chunks that arrived before Deepgram was ready
+    if (state.audioBuffer.length > 0) {
+      console.log(`[WS] Flushing ${state.audioBuffer.length} buffered audio chunks to Deepgram`);
+      for (const chunk of state.audioBuffer) {
+        try { connection.send(chunk as unknown as ArrayBuffer); } catch { /* ignore */ }
+      }
+      state.audioBuffer = [];
+    }
+
     // Keepalive: send a keep-alive ping every 2s to prevent Deepgram from
     // ever closing the connection during pauses in speech.
     if (state.keepaliveTimer) clearInterval(state.keepaliveTimer);
@@ -261,27 +272,35 @@ function createDeepgramConnection(
 
     state.elapsedSeconds = Math.floor((Date.now() - state.startTime) / 1000);
 
-    // Persist to DB
-    await insertTranscript({
-      sessionId: state.sessionId,
-      speaker,
-      text,
-      startTime,
-      endTime,
-      confidence,
-      isFinal: true,
-    });
+    // Persist to DB (wrapped in try/catch to prevent server crashes)
+    try {
+      await insertTranscript({
+        sessionId: state.sessionId,
+        speaker,
+        text,
+        startTime,
+        endTime,
+        confidence,
+        isFinal: true,
+      });
+    } catch (err) {
+      console.error(`[WS] insertTranscript error:`, err);
+    }
 
     // Compliance check (manager speech only)
     if (speaker === "manager") {
       const flags = checkComplianceRules(text, state.elapsedSeconds);
       for (const flag of flags) {
-        await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
+        try {
+          await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
+        } catch (err) {
+          console.error(`[WS] insertComplianceFlag error:`, err);
+        }
         send({ type: "compliance_flag", data: flag });
       }
     }
 
-      // Co-pilot analysis
+    // Co-pilot analysis
     state.analysisBuffer += ` ${text}`;
     state.transcriptBuffer.push(`${speaker.toUpperCase()}: ${text}`);
     // Quick regex trigger (instant, <5ms)
@@ -289,14 +308,18 @@ function createDeepgramConnection(
     const quickSuggestion = generateQuickSuggestion(state.analysisBuffer, fullTranscript, state, send);
     if (quickSuggestion) {
       const triggered = state.analysisBuffer.substring(0, 100);
-      await insertCopilotSuggestion({
-        sessionId: state.sessionId,
-        type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-        title: quickSuggestion.title,
-        content: quickSuggestion.content,
-        priority: quickSuggestion.urgency,
-        triggeredBy: triggered,
-      });
+      try {
+        await insertCopilotSuggestion({
+          sessionId: state.sessionId,
+          type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+          title: quickSuggestion.title,
+          content: quickSuggestion.content,
+          priority: quickSuggestion.urgency,
+          triggeredBy: triggered,
+        });
+      } catch (err) {
+        console.error(`[WS] insertCopilotSuggestion error:`, err);
+      }
       send({ type: "suggestion", data: { ...quickSuggestion, triggeredBy: triggered, dealStage: state.currentDealStage } });
       state.analysisBuffer = "";
       state.lastAnalysisTime = Date.now();
@@ -311,14 +334,18 @@ function createDeepgramConnection(
           { elapsedSeconds: state.elapsedSeconds }
         );
         if (llmSuggestion) {
-          await insertCopilotSuggestion({
-            sessionId: state.sessionId,
-            type: llmSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-            title: llmSuggestion.title,
-            content: llmSuggestion.content,
-            priority: llmSuggestion.urgency,
-            triggeredBy: llmSuggestion.triggeredBy.substring(0, 100),
-          });
+          try {
+            await insertCopilotSuggestion({
+              sessionId: state.sessionId,
+              type: llmSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+              title: llmSuggestion.title,
+              content: llmSuggestion.content,
+              priority: llmSuggestion.urgency,
+              triggeredBy: llmSuggestion.triggeredBy.substring(0, 100),
+            });
+          } catch (err) {
+            console.error(`[WS] insertCopilotSuggestion error:`, err);
+          }
           send({ type: "suggestion", data: { ...llmSuggestion, dealStage: state.currentDealStage } });
         }
         state.analysisBuffer = "";
@@ -405,7 +432,10 @@ export function setupWebSocketServer(server: HttpServer) {
       // ── Binary audio → forward directly to Deepgram ───────────────────────
       if (isBinary) {
         const state = activeSessions.get(ws);
-        if (!state?.deepgramConnection) {
+        if (!state) return;
+        // Update elapsed time on every audio chunk
+        state.elapsedSeconds = Math.floor((Date.now() - state.startTime) / 1000);
+        if (!state.deepgramConnection) {
           console.log(`[WS] Binary chunk received but no Deepgram connection`);
           return;
         }
@@ -413,6 +443,9 @@ export function setupWebSocketServer(server: HttpServer) {
           const readyState = state.deepgramConnection.getReadyState();
           if (readyState === 1) {
             state.deepgramConnection.send(raw as unknown as ArrayBuffer);
+          } else if (readyState === 0 && state.audioBuffer.length < 50) {
+            // Deepgram still connecting — buffer the chunk
+            state.audioBuffer.push(Buffer.isBuffer(raw) ? raw : Buffer.from(raw as unknown as ArrayBuffer));
           } else {
             console.log(`[WS] Deepgram not ready (state=${readyState}), dropping audio chunk`);
           }
@@ -455,6 +488,7 @@ export function setupWebSocketServer(server: HttpServer) {
             reconnectAttempts: 0,
             reconnectTimer: null,
             keepaliveTimer: null,
+            audioBuffer: [],
           };
           activeSessions.set(ws, state);
           state.deepgramConnection = createDeepgramConnection(state, ws, send);
@@ -554,9 +588,13 @@ export function setupWebSocketServer(server: HttpServer) {
             try { state.deepgramConnection.requestClose(); } catch { /* ignore */ }
           }
           if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+          if (state.keepaliveTimer) clearInterval(state.keepaliveTimer);
+          // Compute final elapsed time
+          const finalElapsed = Math.floor((Date.now() - state.startTime) / 1000);
+          state.elapsedSeconds = finalElapsed;
           activeSessions.delete(ws);
-          send({ type: "session_ended", data: { sessionId: state.sessionId, durationSeconds: state.elapsedSeconds } });
-          console.log(`[WS] Session ${state.sessionId} ended after ${state.elapsedSeconds}s`);
+          send({ type: "session_ended", data: { sessionId: state.sessionId, durationSeconds: finalElapsed } });
+          console.log(`[WS] Session ${state.sessionId} ended after ${finalElapsed}s`);
           break;
         }
       }
