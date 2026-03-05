@@ -35,28 +35,59 @@ export async function getDb() {
   return _db;
 }
 
+/**
+ * Execute a DB operation with automatic retry on transient errors (ECONNRESET, ETIMEDOUT).
+ * This prevents intermittent connection drops from crashing the OAuth flow or other critical paths.
+ */
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      lastError = err;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const cause = (err as { cause?: { code?: string } })?.cause?.code;
+      const isTransient = errMsg.includes('ECONNRESET') || errMsg.includes('ETIMEDOUT') ||
+        cause === 'ECONNRESET' || cause === 'ETIMEDOUT';
+      if (isTransient && attempt < maxRetries) {
+        console.warn(`[Database] Transient error (attempt ${attempt + 1}/${maxRetries + 1}): ${errMsg}. Retrying...`);
+        // Reset the connection pool on transient errors
+        _db = null;
+        await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) return;
 
-  const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
-  const textFields = ["name", "email", "loginMethod"] as const;
-  textFields.forEach((field) => {
-    const value = user[field];
-    if (value === undefined) return;
-    const normalized = value ?? null;
-    values[field] = normalized;
-    updateSet[field] = normalized;
+  await withRetry(async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const values: InsertUser = { openId: user.openId };
+    const updateSet: Record<string, unknown> = {};
+    const textFields = ["name", "email", "loginMethod"] as const;
+    textFields.forEach((field) => {
+      const value = user[field];
+      if (value === undefined) return;
+      const normalized = value ?? null;
+      values[field] = normalized;
+      updateSet[field] = normalized;
+    });
+    if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
+    if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
+    else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
+    if (!values.lastSignedIn) values.lastSignedIn = new Date();
+    if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
+    await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
   });
-  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-  else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
-  if (!values.lastSignedIn) values.lastSignedIn = new Date();
-  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {

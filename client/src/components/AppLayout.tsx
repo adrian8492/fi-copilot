@@ -24,6 +24,7 @@ import {
   Play,
   ClipboardList,
   GitCompareArrows,
+  Activity,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ const PERFORMANCE_ITEMS = [
 const ADMIN_ITEMS = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck },
   { path: "/compliance-rules", label: "Compliance Rules", icon: Shield },
+  { path: "/diagnostics", label: "Pipeline Diagnostics", icon: Activity },
 ];
 
 interface AppLayoutProps {

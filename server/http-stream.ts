@@ -336,7 +336,11 @@ function createDeepgramConnection(state: StreamSession) {
   connection.on(LiveTranscriptionEvents.Error, (err) => {
     console.error(`[HTTP-Stream] Deepgram error for session ${state.sessionId}:`, err);
     state.usingDeepgram = false;
-    broadcast(state, "deepgram_status", { connected: false, error: "Deepgram error" });
+    if (state.keepaliveTimer) { clearInterval(state.keepaliveTimer); state.keepaliveTimer = null; }
+    if (state.reconnectAttempts >= 3) {
+      broadcast(state, "deepgram_status", { connected: false, error: "Deepgram error — using browser fallback" });
+    }
+    scheduleReconnect(state);
   });
 
   connection.on(LiveTranscriptionEvents.Close, () => {

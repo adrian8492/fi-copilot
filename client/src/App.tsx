@@ -19,6 +19,7 @@ import ComplianceRules from "./pages/ComplianceRules";
 import JoinPage from "./pages/JoinPage";
 import ManagerScorecard from "./pages/ManagerScorecard";
 import SessionComparison from "./components/SessionComparison";
+import PipelineDiagnostics from "./pages/PipelineDiagnostics";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/compliance-rules" component={ComplianceRules} />
       <Route path="/compare" component={SessionComparison} />
       <Route path="/join" component={JoinPage} />
+      <Route path="/diagnostics" component={PipelineDiagnostics} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
