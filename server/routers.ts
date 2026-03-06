@@ -66,6 +66,20 @@ import {
   getSystemUsageStats,
   getSessionsByIds,
   getComplianceFlags,
+  createDealershipGroup,
+  getAllDealershipGroups,
+  getDealershipGroup,
+  updateDealershipGroup,
+  getDealershipsByGroup,
+  assignUserToRooftop,
+  removeUserFromRooftop,
+  getUserRooftops,
+  getRooftopUsers,
+  getUserAccessibleDealershipIds,
+  switchUserRooftop,
+  getAllUsersByDealershipIds,
+  getAllSessionsByDealershipIds,
+  getGroupIdForUser,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -78,7 +92,12 @@ import { scanTranscriptForViolations, calculateComplianceScore, type ComplianceV
 
 // ─── Helper: admin guard ──────────────────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+  if (ctx.user.role !== "admin" && !ctx.user.isGroupAdmin) throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+  return next({ ctx });
+});
+
+const groupAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) throw new TRPCError({ code: "FORBIDDEN", message: "Group admin or super admin access required" });
   return next({ ctx });
 });
 
@@ -586,6 +605,17 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    myRooftops: protectedProcedure.query(async ({ ctx }) => {
+      return getUserRooftops(ctx.user.id);
+    }),
+    switchRooftop: protectedProcedure
+      .input(z.object({ dealershipId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const switched = await switchUserRooftop(ctx.user.id, input.dealershipId);
+        if (!switched) throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to this rooftop" });
+        await insertAuditLog({ userId: ctx.user.id, action: "auth.switchRooftop", resourceType: "dealership", resourceId: String(input.dealershipId), details: {} });
+        return { success: true };
+      }),
   }),
 
   // ─── Sessions ───────────────────────────────────────────────────────────────
@@ -1169,7 +1199,13 @@ export const appRouter = router({
   }),
   // ─── Admin ───────────────────────────────────────────────────────────────────
   admin: router({
-    listUsers: adminProcedure.query(async () => getAllUsers()),
+    listUsers: adminProcedure.query(async ({ ctx }) => {
+      if (ctx.user.isSuperAdmin) return getAllUsers();
+      // Group admin or store admin: scope to accessible dealerships
+      const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
+      if (dealershipIds.length === 0) return getAllUsers();
+      return getAllUsersByDealershipIds(dealershipIds);
+    }),
 
     updateRole: adminProcedure
       .input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) }))
@@ -1186,11 +1222,74 @@ export const appRouter = router({
     allSessions: adminProcedure
       .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
       .query(async ({ ctx, input }) => {
-        const dealershipId = ctx.user.isSuperAdmin ? null : (ctx.user.dealershipId ?? null);
+        if (ctx.user.isSuperAdmin) return getAllSessions(input.limit, input.offset);
+        // Group admin: scope to accessible dealerships
+        if (ctx.user.isGroupAdmin) {
+          const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
+          return getAllSessionsByDealershipIds(dealershipIds, input.limit, input.offset);
+        }
+        const dealershipId = ctx.user.dealershipId ?? null;
         return getAllSessions(input.limit, input.offset, dealershipId);
       }),
 
-    // Dealership management (super-admin only)
+    // ─── Dealership Groups ──────────────────────────────────────────────────
+    listGroups: adminProcedure.query(async ({ ctx }) => {
+      if (ctx.user.isSuperAdmin) return getAllDealershipGroups();
+      // Group admins see only their group
+      const groupId = await getGroupIdForUser(ctx.user.id);
+      if (!groupId) return [];
+      const group = await getDealershipGroup(groupId);
+      return group ? [group] : [];
+    }),
+
+    createGroup: groupAdminProcedure
+      .input(z.object({ name: z.string().min(2), slug: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/) }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.isSuperAdmin) throw new TRPCError({ code: "FORBIDDEN", message: "Only super admins can create groups" });
+        const group = await createDealershipGroup(input);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.createGroup", resourceType: "dealershipGroup", details: input });
+        return group;
+      }),
+
+    updateGroup: groupAdminProcedure
+      .input(z.object({ id: z.number(), name: z.string().min(2).optional(), isActive: z.boolean().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        await updateDealershipGroup(id, data);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.updateGroup", resourceType: "dealershipGroup", resourceId: String(id), details: data });
+        return { success: true };
+      }),
+
+    getGroupRooftops: adminProcedure
+      .input(z.object({ groupId: z.number() }))
+      .query(async ({ input }) => getDealershipsByGroup(input.groupId)),
+
+    // ─── Rooftop User Assignments ───────────────────────────────────────────
+    assignUserToRooftop: adminProcedure
+      .input(z.object({ userId: z.number(), dealershipId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await assignUserToRooftop(input.userId, input.dealershipId);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.assignRooftop", resourceType: "user", resourceId: String(input.userId), details: input });
+        return { success: true };
+      }),
+
+    removeUserFromRooftop: adminProcedure
+      .input(z.object({ userId: z.number(), dealershipId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await removeUserFromRooftop(input.userId, input.dealershipId);
+        await insertAuditLog({ userId: ctx.user.id, action: "admin.removeRooftop", resourceType: "user", resourceId: String(input.userId), details: input });
+        return { success: true };
+      }),
+
+    listRooftopUsers: adminProcedure
+      .input(z.object({ dealershipId: z.number() }))
+      .query(async ({ input }) => getRooftopUsers(input.dealershipId)),
+
+    getUserRooftopAssignments: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .query(async ({ input }) => getUserRooftops(input.userId)),
+
+    // Dealership management
     listDealerships: adminProcedure.query(async () => getAllDealerships()),
 
     createDealership: adminProcedure
@@ -1198,6 +1297,7 @@ export const appRouter = router({
         name: z.string().min(2),
         slug: z.string().min(2).max(64).regex(/^[a-z0-9-]+$/),
         plan: z.enum(["trial", "beta", "pro", "enterprise"]).default("beta"),
+        groupId: z.number().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const dealership = await createDealership(input);
@@ -1211,6 +1311,7 @@ export const appRouter = router({
         name: z.string().min(2).optional(),
         plan: z.enum(["trial", "beta", "pro", "enterprise"]).optional(),
         isActive: z.boolean().optional(),
+        groupId: z.number().nullable().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;

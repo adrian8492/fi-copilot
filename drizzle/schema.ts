@@ -10,9 +10,20 @@ import {
   json,
 } from "drizzle-orm/mysql-core";
 
-// ─── Dealerships ─────────────────────────────────────────────────────────────
+// ─── Dealership Groups ───────────────────────────────────────────────────────
+export const dealershipGroups = mysqlTable("dealership_groups", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Dealerships (Rooftops) ──────────────────────────────────────────────────
 export const dealerships = mysqlTable("dealerships", {
   id: int("id").autoincrement().primaryKey(),
+  groupId: int("groupId"),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 64 }).notNull().unique(),
   plan: mysqlEnum("plan", ["trial", "beta", "pro", "enterprise"]).default("beta").notNull(),
@@ -32,6 +43,7 @@ export const users = mysqlTable("users", {
   dealership: varchar("dealership", { length: 255 }),
   dealershipId: int("dealershipId"),
   isSuperAdmin: boolean("isSuperAdmin").notNull().default(false),
+  isGroupAdmin: boolean("isGroupAdmin").notNull().default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -346,11 +358,21 @@ export type ObjectionLog = typeof objectionLogs.$inferSelect;
 export type InsertObjectionLog = typeof objectionLogs.$inferInsert;
 
 // ─── Invitations ──────────────────────────────────────────────────────────────
+// ─── User Rooftop Assignments ────────────────────────────────────────────────
+export const userRooftopAssignments = mysqlTable("user_rooftop_assignments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  dealershipId: int("dealershipId").notNull(),
+  isActive: boolean("isActive").notNull().default(true),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+});
+
 export const invitations = mysqlTable("invitations", {
   id: int("id").autoincrement().primaryKey(),
   token: varchar("token", { length: 128 }).notNull().unique(),
   email: varchar("email", { length: 320 }),
   dealershipId: int("dealershipId").notNull(),
+  groupId: int("groupId"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   invitedBy: int("invitedBy").notNull(),
   usedBy: int("usedBy"),
@@ -360,3 +382,7 @@ export const invitations = mysqlTable("invitations", {
 });
 
 export type Invitation = typeof invitations.$inferSelect;
+
+export type DealershipGroup = typeof dealershipGroups.$inferSelect;
+export type InsertDealershipGroup = typeof dealershipGroups.$inferInsert;
+export type UserRooftopAssignment = typeof userRooftopAssignments.$inferSelect;

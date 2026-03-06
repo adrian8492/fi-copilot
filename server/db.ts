@@ -11,6 +11,7 @@ import {
   complianceRules,
   copilotSuggestions,
   dealerships,
+  dealershipGroups,
   invitations,
   objectionLogs,
   performanceGrades,
@@ -18,6 +19,7 @@ import {
   sessions,
   transcripts,
   users,
+  userRooftopAssignments,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -924,7 +926,7 @@ export async function getAllDealerships() {
   return db.select().from(dealerships).orderBy(dealerships.name);
 }
 
-export async function createDealership(data: { name: string; slug: string; plan?: "trial" | "beta" | "pro" | "enterprise" }) {
+export async function createDealership(data: { name: string; slug: string; plan?: "trial" | "beta" | "pro" | "enterprise"; groupId?: number }) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.insert(dealerships).values({ ...data, isActive: true });
@@ -932,7 +934,7 @@ export async function createDealership(data: { name: string; slug: string; plan?
   return result[0] ?? null;
 }
 
-export async function updateDealership(id: number, data: Partial<{ name: string; plan: "trial" | "beta" | "pro" | "enterprise"; isActive: boolean }>) {
+export async function updateDealership(id: number, data: Partial<{ name: string; plan: "trial" | "beta" | "pro" | "enterprise"; isActive: boolean; groupId: number | null }>) {
   const db = await getDb();
   if (!db) return;
   await db.update(dealerships).set(data).where(eq(dealerships.id, id));
@@ -942,6 +944,15 @@ export async function assignUserToDealership(userId: number, dealershipId: numbe
   const db = await getDb();
   if (!db) return;
   await db.update(users).set({ dealershipId }).where(eq(users.id, userId));
+  // Also create rooftop assignment if not already exists
+  const existing = await db.select().from(userRooftopAssignments)
+    .where(and(eq(userRooftopAssignments.userId, userId), eq(userRooftopAssignments.dealershipId, dealershipId)))
+    .limit(1);
+  if (existing.length === 0) {
+    await db.insert(userRooftopAssignments).values({ userId, dealershipId, isActive: true });
+  } else if (!existing[0].isActive) {
+    await db.update(userRooftopAssignments).set({ isActive: true }).where(eq(userRooftopAssignments.id, existing[0].id));
+  }
 }
 
 // ─── Invitations ──────────────────────────────────────────────────────────────
@@ -1289,4 +1300,147 @@ export async function getComplianceFlags(fromDate?: string, toDate?: string) {
     .from(complianceFlags)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(complianceFlags.createdAt));
+}
+
+// ─── Dealership Groups ───────────────────────────────────────────────────────
+
+export async function createDealershipGroup(data: { name: string; slug: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(dealershipGroups).values({ ...data, isActive: true });
+  const result = await db.select().from(dealershipGroups).where(eq(dealershipGroups.slug, data.slug)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function getAllDealershipGroups() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dealershipGroups).orderBy(dealershipGroups.name);
+}
+
+export async function getDealershipGroup(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(dealershipGroups).where(eq(dealershipGroups.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function updateDealershipGroup(id: number, data: Partial<{ name: string; isActive: boolean }>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(dealershipGroups).set(data).where(eq(dealershipGroups.id, id));
+}
+
+export async function getDealershipsByGroup(groupId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dealerships).where(eq(dealerships.groupId, groupId)).orderBy(dealerships.name);
+}
+
+// ─── User Rooftop Assignments ────────────────────────────────────────────────
+
+export async function assignUserToRooftop(userId: number, dealershipId: number) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select().from(userRooftopAssignments)
+    .where(and(eq(userRooftopAssignments.userId, userId), eq(userRooftopAssignments.dealershipId, dealershipId)))
+    .limit(1);
+  if (existing.length === 0) {
+    await db.insert(userRooftopAssignments).values({ userId, dealershipId, isActive: true });
+  } else if (!existing[0].isActive) {
+    await db.update(userRooftopAssignments).set({ isActive: true }).where(eq(userRooftopAssignments.id, existing[0].id));
+  }
+}
+
+export async function removeUserFromRooftop(userId: number, dealershipId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(userRooftopAssignments)
+    .set({ isActive: false })
+    .where(and(eq(userRooftopAssignments.userId, userId), eq(userRooftopAssignments.dealershipId, dealershipId)));
+}
+
+export async function getUserRooftops(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const assignments = await db.select({
+    assignmentId: userRooftopAssignments.id,
+    dealershipId: userRooftopAssignments.dealershipId,
+    isActive: userRooftopAssignments.isActive,
+    dealershipName: dealerships.name,
+    dealershipSlug: dealerships.slug,
+    groupId: dealerships.groupId,
+  })
+    .from(userRooftopAssignments)
+    .innerJoin(dealerships, eq(userRooftopAssignments.dealershipId, dealerships.id))
+    .where(and(eq(userRooftopAssignments.userId, userId), eq(userRooftopAssignments.isActive, true)));
+  return assignments;
+}
+
+export async function getRooftopUsers(dealershipId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const assignments = await db.select({
+    userId: userRooftopAssignments.userId,
+    isActive: userRooftopAssignments.isActive,
+    assignedAt: userRooftopAssignments.assignedAt,
+    userName: users.name,
+    userEmail: users.email,
+    userRole: users.role,
+  })
+    .from(userRooftopAssignments)
+    .innerJoin(users, eq(userRooftopAssignments.userId, users.id))
+    .where(and(eq(userRooftopAssignments.dealershipId, dealershipId), eq(userRooftopAssignments.isActive, true)));
+  return assignments;
+}
+
+export async function getUserAccessibleDealershipIds(userId: number): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const assignments = await db.select({ dealershipId: userRooftopAssignments.dealershipId })
+    .from(userRooftopAssignments)
+    .where(and(eq(userRooftopAssignments.userId, userId), eq(userRooftopAssignments.isActive, true)));
+  return assignments.map((a) => a.dealershipId);
+}
+
+export async function switchUserRooftop(userId: number, dealershipId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  // Verify user has assignment to this rooftop
+  const assignment = await db.select().from(userRooftopAssignments)
+    .where(and(
+      eq(userRooftopAssignments.userId, userId),
+      eq(userRooftopAssignments.dealershipId, dealershipId),
+      eq(userRooftopAssignments.isActive, true),
+    ))
+    .limit(1);
+  if (assignment.length === 0) return false;
+  await db.update(users).set({ dealershipId }).where(eq(users.id, userId));
+  return true;
+}
+
+export async function getAllUsersByDealershipIds(dealershipIds: number[]) {
+  const db = await getDb();
+  if (!db) return [];
+  if (dealershipIds.length === 0) return [];
+  return db.select().from(users).where(inArray(users.dealershipId, dealershipIds)).orderBy(desc(users.createdAt));
+}
+
+export async function getAllSessionsByDealershipIds(dealershipIds: number[], limit = 100, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  if (dealershipIds.length === 0) return [];
+  return db.select().from(sessions)
+    .where(inArray(sessions.dealershipId, dealershipIds))
+    .orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
+}
+
+export async function getGroupIdForUser(userId: number): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+  // Get user's current dealershipId, then find its group
+  const user = await db.select({ dealershipId: users.dealershipId }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!user[0]?.dealershipId) return null;
+  const dealership = await db.select({ groupId: dealerships.groupId }).from(dealerships).where(eq(dealerships.id, user[0].dealershipId)).limit(1);
+  return dealership[0]?.groupId ?? null;
 }

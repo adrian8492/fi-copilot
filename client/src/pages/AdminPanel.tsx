@@ -8,12 +8,14 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Users, Shield, Activity, Crown, UserCheck, RefreshCw, Building2, Settings2, CheckCircle2, XCircle, Mail, Link2, Trash2, Clock, AlertTriangle } from "lucide-react";
+import { Users, Shield, Activity, Crown, UserCheck, RefreshCw, Building2, Settings2, CheckCircle2, XCircle, Mail, Link2, Trash2, Clock, AlertTriangle, Layers, Plus, Minus, Store } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function AdminPanel() {
+  const { user: authUser } = useAuth();
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [dealershipName, setDealershipName] = useState("ASURA Dealership Group");
   const [maxSessionDuration, setMaxSessionDuration] = useState("120");
@@ -78,6 +80,39 @@ export default function AdminPanel() {
     onError: (e) => toast.error(e.message),
   });
 
+  // Groups state
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupSlug, setNewGroupSlug] = useState("");
+  const { data: groupsList, refetch: refetchGroups } = trpc.admin.listGroups.useQuery();
+
+  const createGroupMutation = trpc.admin.createGroup.useMutation({
+    onSuccess: () => { refetchGroups(); setNewGroupName(""); setNewGroupSlug(""); toast.success("Group created"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateGroupMutation = trpc.admin.updateGroup.useMutation({
+    onSuccess: () => { refetchGroups(); toast.success("Group updated"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // User rooftop management
+  const [managingUserId, setManagingUserId] = useState<number | null>(null);
+  const { data: userRooftops, refetch: refetchUserRooftops } = trpc.admin.getUserRooftopAssignments.useQuery(
+    { userId: managingUserId! },
+    { enabled: managingUserId !== null },
+  );
+  const [assignDealershipId, setAssignDealershipId] = useState<number>(1);
+
+  const assignRooftopMutation = trpc.admin.assignUserToRooftop.useMutation({
+    onSuccess: () => { refetchUserRooftops(); toast.success("Rooftop assigned"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const removeRooftopMutation = trpc.admin.removeUserFromRooftop.useMutation({
+    onSuccess: () => { refetchUserRooftops(); toast.success("Rooftop removed"); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const updateRole = trpc.admin.updateRole.useMutation({
     onSuccess: () => {
       refetchUsers();
@@ -121,15 +156,69 @@ export default function AdminPanel() {
         </div>
 
         <Tabs defaultValue="users">
-          <TabsList className="bg-card border border-border flex-wrap h-auto gap-1">
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="dealerships">Dealerships</TabsTrigger>
-            <TabsTrigger value="invitations">Invitations</TabsTrigger>
-            <TabsTrigger value="sessions">Sessions</TabsTrigger>
-            <TabsTrigger value="audit">Audit Log</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="health">System Health</TabsTrigger>
+          <TabsList className="bg-muted/50 border border-border flex-wrap h-auto gap-1 p-1 w-full">
+            <TabsTrigger value="users" className="flex-none">Users</TabsTrigger>
+            <TabsTrigger value="groups" className="flex-none">Groups</TabsTrigger>
+            <TabsTrigger value="dealerships" className="flex-none">Dealerships</TabsTrigger>
+            <TabsTrigger value="invitations" className="flex-none">Invitations</TabsTrigger>
+            <TabsTrigger value="sessions" className="flex-none">Sessions</TabsTrigger>
+            <TabsTrigger value="audit" className="flex-none">Audit Log</TabsTrigger>
+            <TabsTrigger value="settings" className="flex-none">Settings</TabsTrigger>
+            <TabsTrigger value="health" className="flex-none">System Health</TabsTrigger>
           </TabsList>
+
+          {/* Groups Tab */}
+          <TabsContent value="groups" className="mt-4 space-y-4">
+            {/* Create Group (Super Admin only) */}
+            {authUser?.isSuperAdmin && (
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><Layers className="w-4 h-4 text-primary" /> Create Dealership Group</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Group Name</Label>
+                      <Input placeholder="ASURA Automotive Group" value={newGroupName}
+                        onChange={(e) => {
+                          setNewGroupName(e.target.value);
+                          setNewGroupSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+                        }}
+                        className="bg-background border-border text-sm h-8" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Slug</Label>
+                      <Input placeholder="asura-auto-group" value={newGroupSlug}
+                        onChange={(e) => setNewGroupSlug(e.target.value)}
+                        className="bg-background border-border text-sm h-8" />
+                    </div>
+                    <div className="flex items-end">
+                      <Button size="sm" className="w-full h-8 text-xs"
+                        disabled={!newGroupName || !newGroupSlug || createGroupMutation.isPending}
+                        onClick={() => createGroupMutation.mutate({ name: newGroupName, slug: newGroupSlug })}>
+                        {createGroupMutation.isPending ? "Creating..." : "Create Group"}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Groups List */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Dealership Groups ({groupsList?.length ?? 0})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {groupsList?.map((g) => (
+                    <GroupCard key={g.id} group={g} dealerships={dealershipsList ?? []} onToggle={(id, isActive) => updateGroupMutation.mutate({ id, isActive })} />
+                  ))}
+                  {!groupsList?.length && <p className="text-xs text-muted-foreground text-center py-4">No groups yet. Create one to organize dealerships.</p>}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Dealerships Tab */}
           <TabsContent value="dealerships" className="mt-4 space-y-4">
@@ -311,7 +400,7 @@ export default function AdminPanel() {
           </TabsContent>
 
           {/* Users Tab */}
-          <TabsContent value="users" className="mt-4">
+          <TabsContent value="users" className="mt-4 space-y-4">
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">All Users ({users?.length ?? 0})</CardTitle>
@@ -332,11 +421,24 @@ export default function AdminPanel() {
                       <div className="flex items-center gap-2 shrink-0">
                         <Badge variant="outline" className={cn(
                           "text-[10px]",
+                          user.isSuperAdmin ? "border-purple-500/30 text-purple-400" :
+                          user.isGroupAdmin ? "border-indigo-500/30 text-indigo-400" :
                           user.role === "admin" ? "border-yellow-500/30 text-yellow-400" : "border-border text-muted-foreground"
                         )}>
-                          {user.role === "admin" ? <Crown className="w-2.5 h-2.5 mr-1 inline" /> : <UserCheck className="w-2.5 h-2.5 mr-1 inline" />}
-                          {user.role}
+                          {user.isSuperAdmin ? <Crown className="w-2.5 h-2.5 mr-1 inline" /> :
+                           user.isGroupAdmin ? <Layers className="w-2.5 h-2.5 mr-1 inline" /> :
+                           user.role === "admin" ? <Crown className="w-2.5 h-2.5 mr-1 inline" /> :
+                           <UserCheck className="w-2.5 h-2.5 mr-1 inline" />}
+                          {user.isSuperAdmin ? "super" : user.isGroupAdmin ? "group" : user.role}
                         </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => setManagingUserId(managingUserId === user.id ? null : user.id)}
+                        >
+                          <Store className="w-3 h-3 mr-1" /> Stores
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -354,6 +456,54 @@ export default function AdminPanel() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* User Rooftop Assignments Panel */}
+            {managingUserId !== null && (
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Store className="w-4 h-4 text-primary" />
+                    Store Assignments for {users?.find((u) => u.id === managingUserId)?.name ?? `User #${managingUserId}`}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Current assignments */}
+                  <div className="space-y-1.5">
+                    {userRooftops?.map((r) => (
+                      <div key={r.dealershipId} className="flex items-center justify-between p-2 rounded-md bg-accent/10 border border-border">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-sm">{r.dealershipName}</span>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-6 text-xs text-red-400 hover:text-red-300"
+                          onClick={() => removeRooftopMutation.mutate({ userId: managingUserId, dealershipId: r.dealershipId })}>
+                          <Minus className="w-3 h-3 mr-1" /> Remove
+                        </Button>
+                      </div>
+                    ))}
+                    {(!userRooftops || userRooftops.length === 0) && (
+                      <p className="text-xs text-muted-foreground py-2">No stores assigned yet.</p>
+                    )}
+                  </div>
+
+                  {/* Add assignment */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
+                    <select value={assignDealershipId}
+                      onChange={(e) => setAssignDealershipId(Number(e.target.value))}
+                      className="flex-1 h-8 rounded-md border border-border bg-background text-sm px-2">
+                      {dealershipsList?.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                    <Button size="sm" className="h-8 text-xs"
+                      disabled={assignRooftopMutation.isPending}
+                      onClick={() => assignRooftopMutation.mutate({ userId: managingUserId, dealershipId: assignDealershipId })}>
+                      <Plus className="w-3 h-3 mr-1" /> Assign
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Sessions Tab */}
@@ -580,6 +730,43 @@ function SystemHealthPanel() {
         <div className="flex items-center justify-center py-12">
           <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
           <span className="ml-2 text-muted-foreground">Running system checks...</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GroupCard({ group, dealerships, onToggle }: {
+  group: { id: number; name: string; slug: string; isActive: boolean };
+  dealerships: Array<{ id: number; name: string; groupId: number | null }>;
+  onToggle: (id: number, isActive: boolean) => void;
+}) {
+  const groupDealerships = dealerships.filter((d) => d.groupId === group.id);
+
+  return (
+    <div className="p-4 rounded-lg bg-accent/10 border border-border">
+      <div className="flex items-center gap-3 mb-2">
+        <Layers className="w-5 h-5 text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground">{group.name}</p>
+          <p className="text-xs text-muted-foreground">{group.slug} • {groupDealerships.length} rooftop{groupDealerships.length !== 1 ? "s" : ""}</p>
+        </div>
+        <Badge variant={group.isActive ? "default" : "secondary"} className="text-xs shrink-0">
+          {group.isActive ? "Active" : "Inactive"}
+        </Badge>
+        <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0"
+          onClick={() => onToggle(group.id, !group.isActive)}>
+          {group.isActive ? <XCircle className="w-3.5 h-3.5 text-red-400" /> : <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />}
+        </Button>
+      </div>
+      {groupDealerships.length > 0 && (
+        <div className="ml-8 mt-2 space-y-1">
+          {groupDealerships.map((d) => (
+            <div key={d.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Building2 className="w-3 h-3" />
+              <span>{d.name}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -106,6 +106,20 @@ vi.mock("./db", () => ({
   getSystemUsageStats: vi.fn().mockResolvedValue({ totalUsers: 5, activeSessions: 2, totalSessions: 50 }),
   getSessionsByIds: vi.fn().mockResolvedValue([]),
   getComplianceFlags: vi.fn().mockResolvedValue([]),
+  createDealershipGroup: vi.fn().mockResolvedValue({ id: 1, name: "Test Group", slug: "test-group", isActive: true }),
+  getAllDealershipGroups: vi.fn().mockResolvedValue([]),
+  getDealershipGroup: vi.fn().mockResolvedValue(null),
+  updateDealershipGroup: vi.fn().mockResolvedValue(undefined),
+  getDealershipsByGroup: vi.fn().mockResolvedValue([]),
+  assignUserToRooftop: vi.fn().mockResolvedValue(undefined),
+  removeUserFromRooftop: vi.fn().mockResolvedValue(undefined),
+  getUserRooftops: vi.fn().mockResolvedValue([]),
+  getRooftopUsers: vi.fn().mockResolvedValue([]),
+  getUserAccessibleDealershipIds: vi.fn().mockResolvedValue([]),
+  switchUserRooftop: vi.fn().mockResolvedValue(true),
+  getAllUsersByDealershipIds: vi.fn().mockResolvedValue([]),
+  getAllSessionsByDealershipIds: vi.fn().mockResolvedValue([]),
+  getGroupIdForUser: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("./storage", () => ({
