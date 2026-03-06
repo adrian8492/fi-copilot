@@ -516,3 +516,13 @@
 - [x] Updated mock entries for 14 multi-tenant DB functions to match spec return values
 - [x] Run pnpm check — 0 TS errors
 - [x] Run pnpm test — 174/174 passing (6 test files, all pass)
+
+## Spec Alignment Fixes — Prompt 6/7 Refinement (Mar 6)
+- [x] Rename currentUser → authUser in AdminPanel.tsx
+- [x] Rename groups → groupsList query variable
+- [x] Rename toggleGroupActive → updateGroupMutation
+- [x] Update Create Group button text (remove Plus icon, plain text)
+- [x] Update assignDealershipId to useState<number>(1) per spec
+- [x] Update enabled condition to managingUserId !== null
+- [x] Run pnpm check — 0 TS errors
+- [x] Run pnpm test — 174/174 passing

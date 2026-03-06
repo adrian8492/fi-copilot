@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 export default function AdminPanel() {
-  const { user: currentUser } = useAuth();
+  const { user: authUser } = useAuth();
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [dealershipName, setDealershipName] = useState("ASURA Dealership Group");
   const [maxSessionDuration, setMaxSessionDuration] = useState("120");
@@ -43,18 +43,18 @@ export default function AdminPanel() {
 
   // ─── User rooftop management state ────────────────────────────────────────
   const [managingUserId, setManagingUserId] = useState<number | null>(null);
-  const [assignDealershipId, setAssignDealershipId] = useState<number | null>(null);
+  const [assignDealershipId, setAssignDealershipId] = useState<number>(1);
 
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: users, refetch: refetchUsers } = trpc.admin.listUsers.useQuery();
   const { data: auditLogs } = trpc.admin.auditLogs.useQuery({ limit: 100, offset: 0 });
   const { data: allSessions } = trpc.admin.allSessions.useQuery({ limit: 100, offset: 0 });
   const { data: dealershipsList, refetch: refetchDealerships } = trpc.admin.listDealerships.useQuery();
-  const { data: groups, refetch: refetchGroups } = trpc.admin.listGroups.useQuery();
+  const { data: groupsList, refetch: refetchGroups } = trpc.admin.listGroups.useQuery();
 
   const { data: userRooftops, refetch: refetchUserRooftops } = trpc.admin.getUserRooftopAssignments.useQuery(
     { userId: managingUserId! },
-    { enabled: !!managingUserId }
+    { enabled: managingUserId !== null }
   );
 
   // ─── Mutations ────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ export default function AdminPanel() {
     onError: (e) => toast.error(e.message),
   });
 
-  const toggleGroupActive = trpc.admin.updateGroup.useMutation({
+  const updateGroupMutation = trpc.admin.updateGroup.useMutation({
     onSuccess: () => { refetchGroups(); toast.success("Group updated"); },
     onError: (e) => toast.error(e.message),
   });
@@ -91,7 +91,7 @@ export default function AdminPanel() {
   const assignRooftopMutation = trpc.admin.assignUserToRooftop.useMutation({
     onSuccess: () => {
       refetchUserRooftops();
-      setAssignDealershipId(null);
+      setAssignDealershipId(1);
       toast.success("Rooftop assigned");
     },
     onError: (e) => toast.error(e.message),
@@ -280,8 +280,8 @@ export default function AdminPanel() {
                               {/* Assign new rooftop */}
                               <div className="flex items-center gap-2 pt-1 border-t border-border">
                                 <select
-                                  value={assignDealershipId ?? ""}
-                                  onChange={(e) => setAssignDealershipId(e.target.value ? Number(e.target.value) : null)}
+                                  value={assignDealershipId || ""}
+                                  onChange={(e) => setAssignDealershipId(e.target.value ? Number(e.target.value) : 1)}
                                   className="flex-1 h-7 rounded-md border border-border bg-background text-xs px-2"
                                 >
                                   <option value="">Select rooftop...</option>
@@ -293,7 +293,7 @@ export default function AdminPanel() {
                                 <Button
                                   size="sm"
                                   className="h-7 text-xs"
-                                  disabled={!assignDealershipId || assignRooftopMutation.isPending}
+                                  disabled={assignRooftopMutation.isPending}
                                   onClick={() => {
                                     if (assignDealershipId) {
                                       assignRooftopMutation.mutate({ userId: user.id, dealershipId: assignDealershipId });
@@ -318,7 +318,7 @@ export default function AdminPanel() {
           {/* ─── Groups Tab ─────────────────────────────────────────────────────── */}
           <TabsContent value="groups" className="mt-4 space-y-4">
             {/* Create group form (Super Admin only) */}
-            {currentUser?.isSuperAdmin && (
+            {authUser?.isSuperAdmin && (
               <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -355,9 +355,7 @@ export default function AdminPanel() {
                         disabled={!newGroupName || !newGroupSlug || createGroupMutation.isPending}
                         onClick={() => createGroupMutation.mutate({ name: newGroupName, slug: newGroupSlug })}
                       >
-                        {createGroupMutation.isPending ? "Creating..." : (
-                          <><Plus className="w-3 h-3 mr-1" /> Create Group</>
-                        )}
+                        {createGroupMutation.isPending ? "Creating..." : "Create Group"}
                       </Button>
                     </div>
                   </div>
@@ -369,16 +367,16 @@ export default function AdminPanel() {
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  Dealership Groups ({groups?.length ?? 0})
+                  Dealership Groups ({groupsList?.length ?? 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {groups?.map((g) => (
+                  {groupsList?.map((g) => (
                     <GroupCard key={g.id} group={g} dealerships={dealershipsList ?? []}
-                      onToggle={(id, isActive) => toggleGroupActive.mutate({ id, isActive })} />
+                      onToggle={(id, isActive) => updateGroupMutation.mutate({ id, isActive })} />
                   ))}
-                  {!groups?.length && (
+                  {!groupsList?.length && (
                     <p className="text-xs text-muted-foreground text-center py-4">No groups yet. Create one to organize dealerships.</p>
                   )}
                 </div>
