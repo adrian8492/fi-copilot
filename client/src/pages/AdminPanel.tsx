@@ -183,15 +183,15 @@ export default function AdminPanel() {
         </div>
 
         <Tabs defaultValue="users">
-          <TabsList className="bg-card border border-border flex-wrap h-auto gap-1">
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="groups">Groups</TabsTrigger>
-            <TabsTrigger value="dealerships">Dealerships</TabsTrigger>
-            <TabsTrigger value="invitations">Invitations</TabsTrigger>
-            <TabsTrigger value="sessions">Sessions</TabsTrigger>
-            <TabsTrigger value="audit">Audit Log</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="health">System Health</TabsTrigger>
+          <TabsList className="bg-muted/50 border border-border flex-wrap h-auto gap-1 p-1 w-full">
+            <TabsTrigger value="users" className="flex-none">Users</TabsTrigger>
+            <TabsTrigger value="groups" className="flex-none">Groups</TabsTrigger>
+            <TabsTrigger value="dealerships" className="flex-none">Dealerships</TabsTrigger>
+            <TabsTrigger value="invitations" className="flex-none">Invitations</TabsTrigger>
+            <TabsTrigger value="sessions" className="flex-none">Sessions</TabsTrigger>
+            <TabsTrigger value="audit" className="flex-none">Audit Log</TabsTrigger>
+            <TabsTrigger value="settings" className="flex-none">Settings</TabsTrigger>
+            <TabsTrigger value="health" className="flex-none">System Health</TabsTrigger>
           </TabsList>
 
           {/* ─── Users Tab ──────────────────────────────────────────────────────── */}
@@ -322,7 +322,7 @@ export default function AdminPanel() {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-primary" /> Create New Group
+                    <Layers className="w-4 h-4 text-primary" /> Create Dealership Group
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -330,7 +330,7 @@ export default function AdminPanel() {
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Group Name</Label>
                       <Input
-                        placeholder="Hendrick Automotive"
+                        placeholder="ASURA Automotive Group"
                         value={newGroupName}
                         onChange={(e) => {
                           setNewGroupName(e.target.value);
@@ -340,9 +340,9 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Slug (URL-safe)</Label>
+                      <Label className="text-xs text-muted-foreground">Slug</Label>
                       <Input
-                        placeholder="hendrick-automotive"
+                        placeholder="asura-auto-group"
                         value={newGroupSlug}
                         onChange={(e) => setNewGroupSlug(e.target.value)}
                         className="bg-background border-border text-sm h-8"
@@ -369,22 +369,17 @@ export default function AdminPanel() {
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-primary" />
-                  All Groups ({groups?.length ?? 0})
+                  Dealership Groups ({groups?.length ?? 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {groups?.map((group) => (
-                    <GroupCard
-                      key={group.id}
-                      group={group}
-                      onToggleActive={() => toggleGroupActive.mutate({ id: group.id, isActive: !group.isActive })}
-                      isToggling={toggleGroupActive.isPending}
-                    />
+                  {groups?.map((g) => (
+                    <GroupCard key={g.id} group={g} dealerships={dealershipsList ?? []}
+                      onToggle={(id, isActive) => toggleGroupActive.mutate({ id, isActive })} />
                   ))}
                   {!groups?.length && (
-                    <p className="text-xs text-muted-foreground text-center py-4">No groups yet</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">No groups yet. Create one to organize dealerships.</p>
                   )}
                 </div>
               </CardContent>
@@ -735,46 +730,37 @@ export default function AdminPanel() {
 }
 
 // ─── GroupCard sub-component ──────────────────────────────────────────────────
-function GroupCard({ group, onToggleActive, isToggling }: {
-  group: { id: number; name: string; slug: string; isActive: boolean | null; createdAt: string | Date | null };
-  onToggleActive: () => void;
-  isToggling: boolean;
+function GroupCard({ group, dealerships, onToggle }: {
+  group: { id: number; name: string; slug: string; isActive: boolean };
+  dealerships: Array<{ id: number; name: string; groupId: number | null }>;
+  onToggle: (id: number, isActive: boolean) => void;
 }) {
-  const { data: rooftops } = trpc.admin.getGroupRooftops.useQuery({ groupId: group.id });
-
+  const groupDealerships = dealerships.filter((d) => d.groupId === group.id);
   return (
-    <div className="p-3 rounded-lg bg-accent/10 border border-border space-y-2">
-      <div className="flex items-center gap-3">
+    <div className="p-4 rounded-lg bg-accent/10 border border-border">
+      <div className="flex items-center gap-3 mb-2">
         <Layers className="w-5 h-5 text-primary shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">{group.name}</p>
-          <p className="text-xs text-muted-foreground">{group.slug} • Created {group.createdAt ? format(new Date(group.createdAt), "MMM d, yyyy") : "N/A"}</p>
+          <p className="text-xs text-muted-foreground">{group.slug} • {groupDealerships.length} rooftop{groupDealerships.length !== 1 ? "s" : ""}</p>
         </div>
         <Badge variant={group.isActive ? "default" : "secondary"} className="text-xs shrink-0">
           {group.isActive ? "Active" : "Inactive"}
         </Badge>
         <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0"
-          disabled={isToggling}
-          onClick={onToggleActive}>
+          onClick={() => onToggle(group.id, !group.isActive)}>
           {group.isActive ? <XCircle className="w-3.5 h-3.5 text-red-400" /> : <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />}
         </Button>
       </div>
-
-      {/* Rooftops under this group */}
-      {rooftops && rooftops.length > 0 && (
-        <div className="ml-8 space-y-1">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Rooftops ({rooftops.length})</p>
-          {rooftops.map((r) => (
-            <div key={r.id} className="flex items-center gap-2 p-1.5 rounded-md bg-background/50">
-              <Building2 className="w-3 h-3 text-muted-foreground" />
-              <span className="text-xs text-foreground">{r.name}</span>
-              <Badge variant="outline" className="text-[9px] ml-auto">{r.slug}</Badge>
+      {groupDealerships.length > 0 && (
+        <div className="ml-8 mt-2 space-y-1">
+          {groupDealerships.map((d) => (
+            <div key={d.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Building2 className="w-3 h-3" />
+              <span>{d.name}</span>
             </div>
           ))}
         </div>
-      )}
-      {rooftops && rooftops.length === 0 && (
-        <p className="ml-8 text-xs text-muted-foreground italic">No rooftops assigned to this group</p>
       )}
     </div>
   );

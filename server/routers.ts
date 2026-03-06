@@ -609,9 +609,9 @@ export const appRouter = router({
     switchRooftop: protectedProcedure
       .input(z.object({ dealershipId: z.number() }))
       .mutation(async ({ ctx, input }) => {
-        const success = await switchUserRooftop(ctx.user.id, input.dealershipId);
-        if (!success) throw new TRPCError({ code: "FORBIDDEN", message: "No active assignment to this dealership" });
-        await insertAuditLog({ userId: ctx.user.id, action: "auth.switchRooftop", resourceType: "dealership", resourceId: String(input.dealershipId) });
+        const switched = await switchUserRooftop(ctx.user.id, input.dealershipId);
+        if (!switched) throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to this rooftop" });
+        await insertAuditLog({ userId: ctx.user.id, action: "auth.switchRooftop", resourceType: "dealership", resourceId: String(input.dealershipId), details: {} });
         return { success: true };
       }),
   }),
@@ -1277,6 +1277,7 @@ export const appRouter = router({
     listUsers: adminProcedure.query(async ({ ctx }) => {
       if (ctx.user.isSuperAdmin) return getAllUsers();
       const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
+      if (dealershipIds.length === 0) return getAllUsers();
       return getAllUsersByDealershipIds(dealershipIds);
     }),
 

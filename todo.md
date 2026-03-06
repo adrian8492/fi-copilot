@@ -462,3 +462,57 @@
 - [x] Enhance Users tab with Stores button, role badges, rooftop management card
 - [x] Update test mocks for all 14 new multi-tenant DB functions + deleteTranscriptsBySession
 - [x] Verify pnpm check (0 TS errors) and pnpm test (174/174 pass)
+
+## Multi-Tenant Dealership Hierarchy Schema — Prompt 2 (Mar 6)
+- [x] Add dealershipGroups table before dealerships table (with notNull on isActive, createdAt, updatedAt)
+- [x] Add groupId field to dealerships table
+- [x] Add isGroupAdmin field to users table
+- [x] Add userRooftopAssignments junction table before invitations table (with notNull on isActive, assignedAt)
+- [x] Add groupId field to invitations table
+- [x] Export DealershipGroup, InsertDealershipGroup, UserRooftopAssignment types
+- [x] Add NOT_GROUP_ADMIN_ERR_MSG to shared/const.ts
+- [x] DB already in sync — drizzle-kit generate confirms no schema changes needed
+- [x] Run pnpm check — 0 TS errors
+
+## Multi-Tenant DB Functions — Prompt 3 (Mar 6)
+- [x] Update imports: add dealershipGroups, userRooftopAssignments (already present)
+- [x] Update createDealership with optional groupId (already present)
+- [x] Update updateDealership with optional groupId | null (already present)
+- [x] Update assignUserToDealership to also create rooftop assignment (already present)
+- [x] Add group CRUD: createDealershipGroup, getAllDealershipGroups, getDealershipGroup, updateDealershipGroup, getDealershipsByGroup (already present)
+- [x] Add rooftop assignments: assignUserToRooftop, removeUserFromRooftop, getUserRooftops, getRooftopUsers, getUserAccessibleDealershipIds, switchUserRooftop (already present)
+- [x] Add scoped queries: getAllUsersByDealershipIds, getAllSessionsByDealershipIds, getGroupIdForUser (already present)
+- [x] Run pnpm check — 0 TS errors
+
+## Multi-Tenant Authorization Middleware — Prompt 4 (Mar 6)
+- [x] trpc.ts: Import NOT_GROUP_ADMIN_ERR_MSG (already present)
+- [x] trpc.ts: Update adminProcedure to accept isGroupAdmin (already present)
+- [x] trpc.ts: Add groupAdminProcedure (already present)
+- [x] routers.ts: Update local adminProcedure to accept isGroupAdmin (already present)
+- [x] routers.ts: Add local groupAdminProcedure (already present)
+- [x] Run pnpm check — 0 TS errors
+
+## Multi-Tenant tRPC Procedures — Prompt 5 (Mar 6)
+- [x] Add new db imports to routers.ts (14 multi-tenant functions) (already present)
+- [x] Add auth.myRooftops and auth.switchRooftop procedures (already present)
+- [x] Add admin.listGroups, createGroup, updateGroup, getGroupRooftops (already present)
+- [x] Add admin.assignUserToRooftop, removeUserFromRooftop, listRooftopUsers, getUserRooftopAssignments (already present)
+- [x] Update admin.listUsers for multi-tenant scoping (added dealershipIds.length === 0 fallback)
+- [x] Update admin.allSessions for multi-tenant scoping (already present with isSuperAdmin/isGroupAdmin/dealershipId)
+- [x] Update admin.createDealership input with optional groupId (already present)
+- [x] Update admin.updateDealership input with optional groupId (already present)
+- [x] Update switchRooftop error message and audit log details to match spec
+- [x] Run pnpm check — 0 TS errors
+
+## DealershipSwitcher + AppLayout + AdminPanel — Prompt 6 (Mar 6)
+- [x] Create DealershipSwitcher.tsx component (rewritten to match exact spec: default export, simpler structure)
+- [x] Update AppLayout.tsx: default import for DealershipSwitcher (admin visibility + role badge already present)
+- [x] Update AdminPanel.tsx: GroupCard rewritten to accept dealerships prop + onToggle, updated usage
+- [x] Add flex-none to all TabsTrigger elements, updated TabsList className
+- [x] Updated Group tab titles, placeholders, and empty text to match spec
+- [x] Run pnpm check — 0 TS errors
+
+## Test Mocks + Verification — Prompt 7 (Mar 6)
+- [x] Updated mock entries for 14 multi-tenant DB functions to match spec return values
+- [x] Run pnpm check — 0 TS errors
+- [x] Run pnpm test — 174/174 passing (6 test files, all pass)

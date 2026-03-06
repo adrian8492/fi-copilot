@@ -1,0 +1,13 @@
+{
+  "query": "SHOW TABLES LIKE 'dealership_groups';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute SHOW TABLES LIKE 'dealership_groups';",
+  "rows": [
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (dealership_groups)": "dealership_groups"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_MQskutAJ8qMCMFRFedd6Fn (dealership_groups)\ndealership_groups\n",
+  "stderr": "",
+  "execution_time_ms": 53
+}

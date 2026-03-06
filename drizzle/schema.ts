@@ -15,9 +15,9 @@ export const dealershipGroups = mysqlTable("dealership_groups", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 64 }).notNull().unique(),
-  isActive: boolean("isActive").default(true),
-  createdAt: timestamp("createdAt").defaultNow(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 // ─── Dealerships ─────────────────────────────────────────────────────────────
@@ -369,8 +369,8 @@ export const userRooftopAssignments = mysqlTable("user_rooftop_assignments", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   dealershipId: int("dealershipId").notNull(),
-  isActive: boolean("isActive").default(true),
-  assignedAt: timestamp("assignedAt").defaultNow(),
+  isActive: boolean("isActive").notNull().default(true),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
 });
 
 // ─── Invitations ──────────────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { DealershipSwitcher } from "@/components/DealershipSwitcher";
+import DealershipSwitcher from "@/components/DealershipSwitcher";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
