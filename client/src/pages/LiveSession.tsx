@@ -195,6 +195,8 @@ export default function LiveSession() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const keepaliveRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollSeqRef = useRef<number>(0);
   const recordedChunksRef = useRef<Blob[]>([]);
 
   // Audio level threshold warning
@@ -393,6 +395,30 @@ export default function LiveSession() {
   }, [elapsed]);
 
   // ─── HTTP Streaming Fallback ────────────────────────────────────────────────
+  // ─── Poll-based fallback for when SSE fails ─────────────────────────────────
+  const pollEvents = useCallback((token: string) => {
+    const doPoll = async () => {
+      if (!httpTokenRef.current) return; // session ended
+      try {
+        const resp = await fetch(`/api/session/poll?token=${token}&since=${pollSeqRef.current}`);
+        if (!resp.ok) { console.warn("[Poll] HTTP", resp.status); return; }
+        const { events, nextSeq } = await resp.json();
+        if (Array.isArray(events)) {
+          for (const evt of events) {
+            handleServerEvent(evt.event, evt.data as Record<string, unknown>);
+          }
+        }
+        pollSeqRef.current = nextSeq ?? pollSeqRef.current;
+      } catch (err) {
+        console.warn("[Poll] fetch error:", err);
+      }
+      // Schedule next poll in 1.5s
+      pollingRef.current = setTimeout(doPoll, 1500);
+    };
+    // Start first poll immediately
+    doPoll();
+  }, [handleServerEvent]);
+
   const connectHttpStream = useCallback(async (sid: number) => {
     try {
       const resp = await fetch("/api/session/start", {
@@ -403,6 +429,7 @@ export default function LiveSession() {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const { token, transcriptionMode: mode } = await resp.json();
       httpTokenRef.current = token;
+      pollSeqRef.current = 0;
       setConnectionMode("http");
       setIsConnected(true);
       console.log("[HTTP-Stream] Connected with token", token.slice(0, 10), "mode:", mode);
@@ -415,10 +442,12 @@ export default function LiveSession() {
       // Open SSE for server → client events
       const sse = new EventSource(`/api/session/events?token=${token}`);
       sseRef.current = sse;
+      let sseReceivedEvent = false;
 
       const eventTypes = ["transcript", "suggestion", "compliance_flag", "deepgram_status", "stage_update", "session_ended"];
       eventTypes.forEach((evtType) => {
         sse.addEventListener(evtType, (e: MessageEvent) => {
+          sseReceivedEvent = true;
           try {
             const data = JSON.parse(e.data);
             handleServerEvent(evtType, data);
@@ -426,9 +455,28 @@ export default function LiveSession() {
         });
       });
 
+      // Fallback: if SSE errors or no events after 5s, switch to polling
+      const switchToPolling = () => {
+        if (pollingRef.current) return; // already polling
+        console.warn("[HTTP-Stream] SSE failed, switching to poll fallback");
+        if (sseRef.current) {
+          sseRef.current.close();
+          sseRef.current = null;
+        }
+        pollEvents(token);
+      };
+
       sse.onerror = () => {
         console.warn("[HTTP-Stream] SSE connection error");
+        switchToPolling();
       };
+
+      // 5-second timeout: if SSE hasn't delivered any real event, switch to polling
+      setTimeout(() => {
+        if (!sseReceivedEvent && sseRef.current) {
+          switchToPolling();
+        }
+      }, 5000);
 
       // Keepalive ping every 30s
       if (keepaliveRef.current) clearInterval(keepaliveRef.current);
@@ -446,7 +494,7 @@ export default function LiveSession() {
       console.error("[HTTP-Stream] Failed to start:", err);
       return false;
     }
-  }, [user?.id, handleServerEvent]);
+  }, [user?.id, handleServerEvent, pollEvents]);
 
   // ─── WebSocket connection (primary) ─────────────────────────────────────────
   const connectWebSocket = useCallback((sid: number) => {
@@ -782,6 +830,12 @@ export default function LiveSession() {
       sseRef.current.close();
       sseRef.current = null;
     }
+    // Stop polling fallback
+    if (pollingRef.current) {
+      clearTimeout(pollingRef.current);
+      pollingRef.current = null;
+    }
+    pollSeqRef.current = 0;
     httpTokenRef.current = null;
     setConnectionMode("pending");
 

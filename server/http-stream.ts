@@ -54,6 +54,9 @@ interface StreamSession {
   lastFinalText: string;
   // DB failure tracking
   dbFailCount: number;
+  // Event queue for polling fallback
+  eventQueue: Array<{ seq: number; event: string; data: unknown; ts: number }>;
+  eventSeq: number;
 }
 
 // Active HTTP-stream sessions keyed by token
@@ -65,6 +68,15 @@ function generateToken(): string {
 
 // ─── Broadcast to all SSE clients ────────────────────────────────────────────
 function broadcast(session: StreamSession, event: string, data: unknown) {
+  // Buffer event in queue for polling clients
+  session.eventSeq++;
+  session.eventQueue.push({ seq: session.eventSeq, event, data, ts: Date.now() });
+  // Cap at 500 entries — drop oldest
+  if (session.eventQueue.length > 500) {
+    session.eventQueue = session.eventQueue.slice(-500);
+  }
+
+  // Push to SSE clients
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   session.sseClients.forEach((res) => {
     try { res.write(payload); } catch { session.sseClients.delete(res); }
@@ -415,6 +427,8 @@ export function createHttpStreamRouter(): Router {
       audioBuffer: [],
       lastFinalText: "",
       dbFailCount: 0,
+      eventQueue: [],
+      eventSeq: 0,
     };
 
     state.deepgramConnection = createDeepgramConnection(state);
@@ -582,6 +596,20 @@ export function createHttpStreamRouter(): Router {
         console.error("[HTTP-Stream] suggestion error:", err);
       }
     })();
+  });
+
+  // GET /api/session/poll?token=X&since=Y — Poll for buffered events
+  router.get("/poll", (req: Request, res: Response) => {
+    const token = req.query.token as string;
+    const since = parseInt(req.query.since as string, 10) || 0;
+    const state = token ? httpSessions.get(token) : undefined;
+    if (!state) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    const events = state.eventQueue.filter((e) => e.seq > since);
+    const nextSeq = state.eventSeq;
+    res.json({ events, nextSeq });
   });
 
   // POST /api/session/end — End the HTTP-stream session
