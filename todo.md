@@ -404,3 +404,9 @@
 - [x] Add scriptId varchar column to copilot_suggestions table after framework
 - [x] Add wordTrackUtilizationScore float column to performance_grades table after transitionAccuracyScore
 - [x] Run SQL migration to apply both columns
+
+## Bug: Duplicate Suggestions + Word Track Utilization 0% (Mar 6)
+- [x] Fix duplicate co-pilot suggestions — added recentScriptIds Map to session state, 90s dedup window in WS + HTTP handlers
+- [x] Fix word track utilization showing 0/50 (0%) — insertCopilotSuggestion now returns DB id, broadcast includes it, Mark as Used button works
+- [x] Verify Mark as Used button persists wasActedOn correctly — handleMarkUsed passes DB id to markUsed mutation
+- [x] Run tests and save checkpoint — 174/174 pass, 0 TS errors

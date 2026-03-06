@@ -67,6 +67,8 @@ interface SessionState {
   lastFinalText: string;
   // DB failure tracking
   dbFailCount: number;
+  // Suggestion deduplication — track recently-fired scriptIds to prevent repeats
+  recentScriptIds: Map<string, number>; // scriptId → timestamp
 }
 
 const activeSessions = new Map<WebSocket, SessionState>();
@@ -320,53 +322,71 @@ function createDeepgramConnection(
     // Quick regex trigger (instant, <5ms)
     const fullTranscript = state.transcriptBuffer.join(" ");
     const quickSuggestion = generateQuickSuggestion(state.analysisBuffer, fullTranscript, state, send);
+    // Dedup: skip if same scriptId fired in last 90 seconds
+    const DEDUP_WINDOW_MS = 90_000;
+    const now = Date.now();
     if (quickSuggestion) {
-      const triggered = state.analysisBuffer.substring(0, 100);
-      try {
-        await insertCopilotSuggestion({
-          sessionId: state.sessionId,
-          type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-          title: quickSuggestion.title,
-          content: quickSuggestion.content,
-          script: quickSuggestion.script,
-          framework: quickSuggestion.framework,
-          scriptId: quickSuggestion.scriptId,
-          priority: quickSuggestion.urgency,
-          triggeredBy: triggered,
-        });
-      } catch (err) {
-        console.error(`[WS] insertCopilotSuggestion error:`, err);
+      const sid = quickSuggestion.scriptId ?? quickSuggestion.title;
+      const lastFired = state.recentScriptIds.get(sid);
+      if (lastFired && (now - lastFired) < DEDUP_WINDOW_MS) {
+        // Skip duplicate — same script fired recently
+        console.log(`[WS] Dedup: skipping duplicate suggestion "${sid}" (fired ${Math.round((now - lastFired) / 1000)}s ago)`);
+      } else {
+        state.recentScriptIds.set(sid, now);
+        const triggered = state.analysisBuffer.substring(0, 100);
+        let dbId: number | null = null;
+        try {
+          dbId = await insertCopilotSuggestion({
+            sessionId: state.sessionId,
+            type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+            title: quickSuggestion.title,
+            content: quickSuggestion.content,
+            script: quickSuggestion.script,
+            framework: quickSuggestion.framework,
+            scriptId: quickSuggestion.scriptId,
+            priority: quickSuggestion.urgency,
+            triggeredBy: triggered,
+          });
+        } catch (err) {
+          console.error(`[WS] insertCopilotSuggestion error:`, err);
+        }
+        send({ type: "suggestion", data: { ...quickSuggestion, id: dbId, triggeredBy: triggered, dealStage: state.currentDealStage } });
       }
-      send({ type: "suggestion", data: { ...quickSuggestion, triggeredBy: triggered, dealStage: state.currentDealStage } });
       state.analysisBuffer = "";
       state.lastAnalysisTime = Date.now();
     } else {
       // LLM rolling context analysis (every 20s or 50 words)
-      const timeSince = Date.now() - state.lastAnalysisTime;
+      const timeSince = now - state.lastAnalysisTime;
       const wordCount = state.analysisBuffer.split(" ").length;
       if (timeSince > 20000 || wordCount > 50) {
-        state.lastAnalysisTime = Date.now();
+        state.lastAnalysisTime = now;
         const llmSuggestion = await generateLLMSuggestion(
           state.transcriptBuffer,
           { elapsedSeconds: state.elapsedSeconds }
         );
         if (llmSuggestion) {
-          try {
-            await insertCopilotSuggestion({
-              sessionId: state.sessionId,
-              type: llmSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-              title: llmSuggestion.title,
-              content: llmSuggestion.content,
-              script: llmSuggestion.script,
-              framework: llmSuggestion.framework,
-              scriptId: llmSuggestion.scriptId,
-              priority: llmSuggestion.urgency,
-              triggeredBy: llmSuggestion.triggeredBy.substring(0, 100),
-            });
-          } catch (err) {
-            console.error(`[WS] insertCopilotSuggestion error:`, err);
+          const llmSid = llmSuggestion.scriptId ?? llmSuggestion.title;
+          const llmLastFired = state.recentScriptIds.get(llmSid);
+          if (!llmLastFired || (now - llmLastFired) >= DEDUP_WINDOW_MS) {
+            state.recentScriptIds.set(llmSid, now);
+            let dbId: number | null = null;
+            try {
+              dbId = await insertCopilotSuggestion({
+                sessionId: state.sessionId,
+                type: llmSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+                title: llmSuggestion.title,
+                content: llmSuggestion.content,
+                script: llmSuggestion.script,
+                framework: llmSuggestion.framework,
+                scriptId: llmSuggestion.scriptId,
+                priority: llmSuggestion.urgency,
+                triggeredBy: llmSuggestion.triggeredBy.substring(0, 100),
+              });
+            } catch (err) {
+              console.error(`[WS] insertCopilotSuggestion error:`, err);
+            }
+            send({ type: "suggestion", data: { ...llmSuggestion, id: dbId, dealStage: state.currentDealStage } });
           }
-          send({ type: "suggestion", data: { ...llmSuggestion, dealStage: state.currentDealStage } });
         }
         state.analysisBuffer = "";
       }
@@ -511,6 +531,7 @@ export function setupWebSocketServer(server: HttpServer) {
             audioBuffer: [],
             lastFinalText: "",
             dbFailCount: 0,
+            recentScriptIds: new Map(),
           };
           activeSessions.set(ws, state);
           state.deepgramConnection = createDeepgramConnection(state, ws, send);
@@ -565,44 +586,64 @@ export function setupWebSocketServer(server: HttpServer) {
           // Quick regex trigger (instant)
           const fullTx = state.transcriptBuffer.join(" ");
           const quickSugg = generateQuickSuggestion(state.analysisBuffer, fullTx, state, send);
+          const DEDUP_MS = 90_000;
+          const nowMs = Date.now();
           if (quickSugg) {
-            const triggered = state.analysisBuffer.substring(0, 100);
-            await insertCopilotSuggestion({
-              sessionId: state.sessionId,
-              type: quickSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-              title: quickSugg.title,
-              content: quickSugg.content,
-              script: quickSugg.script,
-              framework: quickSugg.framework,
-              scriptId: quickSugg.scriptId,
-              priority: quickSugg.urgency,
-              triggeredBy: triggered,
-            });
-            send({ type: "suggestion", data: { ...quickSugg, triggeredBy: triggered, dealStage: state.currentDealStage } });
+            const sid = quickSugg.scriptId ?? quickSugg.title;
+            const lastFired = state.recentScriptIds.get(sid);
+            if (lastFired && (nowMs - lastFired) < DEDUP_MS) {
+              console.log(`[WS] Dedup (browser): skipping "${sid}"`);
+            } else {
+              state.recentScriptIds.set(sid, nowMs);
+              const triggered = state.analysisBuffer.substring(0, 100);
+              let dbId: number | null = null;
+              try {
+                dbId = await insertCopilotSuggestion({
+                  sessionId: state.sessionId,
+                  type: quickSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+                  title: quickSugg.title,
+                  content: quickSugg.content,
+                  script: quickSugg.script,
+                  framework: quickSugg.framework,
+                  scriptId: quickSugg.scriptId,
+                  priority: quickSugg.urgency,
+                  triggeredBy: triggered,
+                });
+              } catch (err) { console.error(`[WS] insertCopilotSuggestion error:`, err); }
+              send({ type: "suggestion", data: { ...quickSugg, id: dbId, triggeredBy: triggered, dealStage: state.currentDealStage } });
+            }
             state.analysisBuffer = "";
-            state.lastAnalysisTime = Date.now();
+            state.lastAnalysisTime = nowMs;
           } else {
-            const timeSince = Date.now() - state.lastAnalysisTime;
+            const timeSince = nowMs - state.lastAnalysisTime;
             const wordCount = state.analysisBuffer.split(" ").length;
             if (timeSince > 20000 || wordCount > 50) {
-              state.lastAnalysisTime = Date.now();
+              state.lastAnalysisTime = nowMs;
               const llmSugg = await generateLLMSuggestion(
                 state.transcriptBuffer,
                 { elapsedSeconds: state.elapsedSeconds }
               );
               if (llmSugg) {
-                await insertCopilotSuggestion({
-                  sessionId: state.sessionId,
-                  type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-                  title: llmSugg.title,
-                  content: llmSugg.content,
-                  script: llmSugg.script,
-                  framework: llmSugg.framework,
-                  scriptId: llmSugg.scriptId,
-                  priority: llmSugg.urgency,
-                  triggeredBy: llmSugg.triggeredBy.substring(0, 100),
-                });
-                send({ type: "suggestion", data: { ...llmSugg, dealStage: state.currentDealStage } });
+                const llmSid = llmSugg.scriptId ?? llmSugg.title;
+                const llmLast = state.recentScriptIds.get(llmSid);
+                if (!llmLast || (nowMs - llmLast) >= DEDUP_MS) {
+                  state.recentScriptIds.set(llmSid, nowMs);
+                  let dbId: number | null = null;
+                  try {
+                    dbId = await insertCopilotSuggestion({
+                      sessionId: state.sessionId,
+                      type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+                      title: llmSugg.title,
+                      content: llmSugg.content,
+                      script: llmSugg.script,
+                      framework: llmSugg.framework,
+                      scriptId: llmSugg.scriptId,
+                      priority: llmSugg.urgency,
+                      triggeredBy: llmSugg.triggeredBy.substring(0, 100),
+                    });
+                  } catch (err) { console.error(`[WS] insertCopilotSuggestion error:`, err); }
+                  send({ type: "suggestion", data: { ...llmSugg, id: dbId, dealStage: state.currentDealStage } });
+                }
               }
               state.analysisBuffer = "";
             }

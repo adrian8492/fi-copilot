@@ -222,10 +222,11 @@ export async function insertCopilotSuggestion(data: {
   framework?: string;
   scriptId?: string;
   priority?: "high" | "medium" | "low";
-}) {
+}): Promise<number | null> {
   const db = await getDb();
-  if (!db) return;
-  await db.insert(copilotSuggestions).values(data);
+  if (!db) return null;
+  const [result] = await db.insert(copilotSuggestions).values(data);
+  return result?.insertId ? Number(result.insertId) : null;
 }
 
 export async function getSuggestionsBySession(sessionId: number) {

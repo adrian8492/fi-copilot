@@ -54,6 +54,8 @@ interface StreamSession {
   lastFinalText: string;
   // DB failure tracking
   dbFailCount: number;
+  // Suggestion deduplication
+  recentScriptIds: Map<string, number>;
   // Event queue for polling fallback
   eventQueue: Array<{ seq: number; event: string; data: unknown; ts: number }>;
   eventSeq: number;
@@ -312,45 +314,61 @@ function createDeepgramConnection(state: StreamSession) {
     try {
       const fullTranscript = state.transcriptBuffer.join(" ");
       const quickSuggestion = generateQuickSuggestion(state.analysisBuffer, fullTranscript, state);
+      const DEDUP_MS = 90_000;
+      const nowMs = Date.now();
       if (quickSuggestion) {
-        const triggered = state.analysisBuffer.substring(0, 100);
-        try {
-          await insertCopilotSuggestion({
-            sessionId: state.sessionId,
-            type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-            title: quickSuggestion.title as string,
-            content: quickSuggestion.content as string,
-            script: quickSuggestion.script as string,
-            framework: quickSuggestion.framework as string,
-            scriptId: quickSuggestion.scriptId as string,
-            priority: (quickSuggestion.urgency ?? "medium") as "high" | "medium" | "low",
-            triggeredBy: triggered,
-          });
-        } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion error:", e); }
-        broadcast(state, "suggestion", { ...quickSuggestion, triggeredBy: triggered, dealStage: state.currentDealStage });
+        const sid = (quickSuggestion.scriptId as string) ?? (quickSuggestion.title as string);
+        const lastFired = state.recentScriptIds.get(sid);
+        if (lastFired && (nowMs - lastFired) < DEDUP_MS) {
+          console.log(`[HTTP-Stream] Dedup: skipping "${sid}"`);
+        } else {
+          state.recentScriptIds.set(sid, nowMs);
+          const triggered = state.analysisBuffer.substring(0, 100);
+          let dbId: number | null = null;
+          try {
+            dbId = await insertCopilotSuggestion({
+              sessionId: state.sessionId,
+              type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+              title: quickSuggestion.title as string,
+              content: quickSuggestion.content as string,
+              script: quickSuggestion.script as string,
+              framework: quickSuggestion.framework as string,
+              scriptId: quickSuggestion.scriptId as string,
+              priority: (quickSuggestion.urgency ?? "medium") as "high" | "medium" | "low",
+              triggeredBy: triggered,
+            });
+          } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion error:", e); }
+          broadcast(state, "suggestion", { ...quickSuggestion, id: dbId, triggeredBy: triggered, dealStage: state.currentDealStage });
+        }
         state.analysisBuffer = "";
-        state.lastAnalysisTime = Date.now();
+        state.lastAnalysisTime = nowMs;
       } else {
-        const timeSince = Date.now() - state.lastAnalysisTime;
+        const timeSince = nowMs - state.lastAnalysisTime;
         const wordCount = state.analysisBuffer.split(" ").length;
         if (timeSince > 20000 || wordCount > 50) {
-          state.lastAnalysisTime = Date.now();
+          state.lastAnalysisTime = nowMs;
           const llmSugg = await generateLLMSuggestion(state.transcriptBuffer, { elapsedSeconds: state.elapsedSeconds });
           if (llmSugg) {
-            try {
-              await insertCopilotSuggestion({
-                sessionId: state.sessionId,
-                type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-                title: llmSugg.title,
-                content: llmSugg.content,
-                script: llmSugg.script,
-                framework: llmSugg.framework,
-                scriptId: llmSugg.scriptId,
-                priority: llmSugg.urgency,
-                triggeredBy: llmSugg.triggeredBy.substring(0, 100),
-              });
-            } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion LLM error:", e); }
-            broadcast(state, "suggestion", { ...llmSugg, dealStage: state.currentDealStage });
+            const llmSid = llmSugg.scriptId ?? llmSugg.title;
+            const llmLast = state.recentScriptIds.get(llmSid);
+            if (!llmLast || (nowMs - llmLast) >= DEDUP_MS) {
+              state.recentScriptIds.set(llmSid, nowMs);
+              let dbId: number | null = null;
+              try {
+                dbId = await insertCopilotSuggestion({
+                  sessionId: state.sessionId,
+                  type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+                  title: llmSugg.title,
+                  content: llmSugg.content,
+                  script: llmSugg.script,
+                  framework: llmSugg.framework,
+                  scriptId: llmSugg.scriptId,
+                  priority: llmSugg.urgency,
+                  triggeredBy: llmSugg.triggeredBy.substring(0, 100),
+                });
+              } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion LLM error:", e); }
+              broadcast(state, "suggestion", { ...llmSugg, id: dbId, dealStage: state.currentDealStage });
+            }
           }
           state.analysisBuffer = "";
         }
@@ -427,6 +445,7 @@ export function createHttpStreamRouter(): Router {
       audioBuffer: [],
       lastFinalText: "",
       dbFailCount: 0,
+      recentScriptIds: new Map(),
       eventQueue: [],
       eventSeq: 0,
     };
@@ -573,24 +592,34 @@ export function createHttpStreamRouter(): Router {
       try {
         const fullTx = state.transcriptBuffer.join(" ");
         const quickSugg = generateQuickSuggestion(state.analysisBuffer, fullTx, state);
+        const DEDUP_MS_B = 90_000;
+        const nowB = Date.now();
         if (quickSugg) {
-          const triggered = state.analysisBuffer.substring(0, 100);
-          try {
-            await insertCopilotSuggestion({
-              sessionId: state.sessionId,
-              type: quickSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
-              title: quickSugg.title as string,
-              content: quickSugg.content as string,
-              script: quickSugg.script as string,
-              framework: quickSugg.framework as string,
-              scriptId: quickSugg.scriptId as string,
-              priority: (quickSugg.urgency ?? "medium") as "high" | "medium" | "low",
-              triggeredBy: triggered,
-            });
-          } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion error (type may not be in enum):", e); }
-          broadcast(state, "suggestion", { ...quickSugg, triggeredBy: triggered, dealStage: state.currentDealStage });
+          const sid = (quickSugg.scriptId as string) ?? (quickSugg.title as string);
+          const lastFired = state.recentScriptIds.get(sid);
+          if (lastFired && (nowB - lastFired) < DEDUP_MS_B) {
+            console.log(`[HTTP-Stream] Dedup (browser): skipping "${sid}"`);
+          } else {
+            state.recentScriptIds.set(sid, nowB);
+            const triggered = state.analysisBuffer.substring(0, 100);
+            let dbId: number | null = null;
+            try {
+              dbId = await insertCopilotSuggestion({
+                sessionId: state.sessionId,
+                type: quickSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
+                title: quickSugg.title as string,
+                content: quickSugg.content as string,
+                script: quickSugg.script as string,
+                framework: quickSugg.framework as string,
+                scriptId: quickSugg.scriptId as string,
+                priority: (quickSugg.urgency ?? "medium") as "high" | "medium" | "low",
+                triggeredBy: triggered,
+              });
+            } catch (e) { console.error("[HTTP-Stream] insertCopilotSuggestion error:", e); }
+            broadcast(state, "suggestion", { ...quickSugg, id: dbId, triggeredBy: triggered, dealStage: state.currentDealStage });
+          }
           state.analysisBuffer = "";
-          state.lastAnalysisTime = Date.now();
+          state.lastAnalysisTime = nowB;
         }
       } catch (err) {
         console.error("[HTTP-Stream] suggestion error:", err);
