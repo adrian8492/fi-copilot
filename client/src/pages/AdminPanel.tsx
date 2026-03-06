@@ -8,12 +8,18 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Users, Shield, Activity, Crown, UserCheck, RefreshCw, Building2, Settings2, CheckCircle2, XCircle, Mail, Link2, Trash2, Clock, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  Users, Shield, Activity, Crown, UserCheck, RefreshCw, Building2, Settings2,
+  CheckCircle2, XCircle, Mail, Link2, Trash2, Clock, AlertTriangle,
+  Layers, Plus, Minus, Store,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 export default function AdminPanel() {
+  const { user: currentUser } = useAuth();
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [dealershipName, setDealershipName] = useState("ASURA Dealership Group");
   const [maxSessionDuration, setMaxSessionDuration] = useState("120");
@@ -31,11 +37,27 @@ export default function AdminPanel() {
   const [newDealershipSlug, setNewDealershipSlug] = useState("");
   const [newDealershipPlan, setNewDealershipPlan] = useState<"trial" | "beta" | "pro" | "enterprise">("beta");
 
+  // ─── Groups state ─────────────────────────────────────────────────────────
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupSlug, setNewGroupSlug] = useState("");
+
+  // ─── User rooftop management state ────────────────────────────────────────
+  const [managingUserId, setManagingUserId] = useState<number | null>(null);
+  const [assignDealershipId, setAssignDealershipId] = useState<number | null>(null);
+
+  // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: users, refetch: refetchUsers } = trpc.admin.listUsers.useQuery();
   const { data: auditLogs } = trpc.admin.auditLogs.useQuery({ limit: 100, offset: 0 });
   const { data: allSessions } = trpc.admin.allSessions.useQuery({ limit: 100, offset: 0 });
   const { data: dealershipsList, refetch: refetchDealerships } = trpc.admin.listDealerships.useQuery();
+  const { data: groups, refetch: refetchGroups } = trpc.admin.listGroups.useQuery();
 
+  const { data: userRooftops, refetch: refetchUserRooftops } = trpc.admin.getUserRooftopAssignments.useQuery(
+    { userId: managingUserId! },
+    { enabled: !!managingUserId }
+  );
+
+  // ─── Mutations ────────────────────────────────────────────────────────────
   const createDealershipMutation = trpc.admin.createDealership.useMutation({
     onSuccess: () => {
       refetchDealerships();
@@ -48,6 +70,38 @@ export default function AdminPanel() {
 
   const toggleDealershipActive = trpc.admin.updateDealership.useMutation({
     onSuccess: () => { refetchDealerships(); toast.success("Dealership updated"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const createGroupMutation = trpc.admin.createGroup.useMutation({
+    onSuccess: () => {
+      refetchGroups();
+      setNewGroupName("");
+      setNewGroupSlug("");
+      toast.success("Group created");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const toggleGroupActive = trpc.admin.updateGroup.useMutation({
+    onSuccess: () => { refetchGroups(); toast.success("Group updated"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const assignRooftopMutation = trpc.admin.assignUserToRooftop.useMutation({
+    onSuccess: () => {
+      refetchUserRooftops();
+      setAssignDealershipId(null);
+      toast.success("Rooftop assigned");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const removeRooftopMutation = trpc.admin.removeUserFromRooftop.useMutation({
+    onSuccess: () => {
+      refetchUserRooftops();
+      toast.success("Rooftop removed");
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -96,6 +150,14 @@ export default function AdminPanel() {
     updateRole.mutate({ userId, role: newRole });
   };
 
+  // Helper: get role badge styling
+  const getRoleBadge = (user: { role: string; isSuperAdmin?: boolean; isGroupAdmin?: boolean }) => {
+    if (user.isSuperAdmin) return { label: "Super Admin", className: "border-purple-500/30 text-purple-400", icon: Crown };
+    if (user.isGroupAdmin) return { label: "Group Admin", className: "border-indigo-500/30 text-indigo-400", icon: Layers };
+    if (user.role === "admin") return { label: "Admin", className: "border-yellow-500/30 text-yellow-400", icon: Crown };
+    return { label: "F&I Manager", className: "border-border text-muted-foreground", icon: UserCheck };
+  };
+
   return (
     <AppLayout title="Admin Panel" subtitle="User management, audit logs, and system oversight">
       <div className="p-6 space-y-6">
@@ -123,6 +185,7 @@ export default function AdminPanel() {
         <Tabs defaultValue="users">
           <TabsList className="bg-card border border-border flex-wrap h-auto gap-1">
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
             <TabsTrigger value="dealerships">Dealerships</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
@@ -131,7 +194,204 @@ export default function AdminPanel() {
             <TabsTrigger value="health">System Health</TabsTrigger>
           </TabsList>
 
-          {/* Dealerships Tab */}
+          {/* ─── Users Tab ──────────────────────────────────────────────────────── */}
+          <TabsContent value="users" className="mt-4 space-y-4">
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">All Users ({users?.length ?? 0})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {users?.map((user) => {
+                    const badge = getRoleBadge(user);
+                    const isManaging = managingUserId === user.id;
+                    return (
+                      <div key={user.id}>
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/10 border border-border">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold text-primary">
+                              {(user.name ?? user.email ?? "U").charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{user.name ?? "Unknown"}</p>
+                            <p className="text-xs text-muted-foreground truncate">{user.email ?? user.openId}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="outline" className={cn("text-[10px]", badge.className)}>
+                              <badge.icon className="w-2.5 h-2.5 mr-1 inline" />
+                              {badge.label}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={cn("h-7 text-xs", isManaging && "border-primary/50 text-primary")}
+                              onClick={() => setManagingUserId(isManaging ? null : user.id)}
+                            >
+                              <Store className="w-3 h-3 mr-1" />
+                              Stores
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              disabled={updatingUserId === user.id}
+                              onClick={() => handleRoleToggle(user.id, user.role)}
+                            >
+                              {updatingUserId === user.id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : user.role === "admin" ? "Demote" : "Promote"}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Rooftop management card */}
+                        {isManaging && (
+                          <Card className="mt-2 ml-10 bg-accent/5 border-primary/20">
+                            <CardContent className="p-3 space-y-3">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Rooftop Assignments for {user.name ?? "User"}
+                              </p>
+
+                              {/* Current assignments */}
+                              {userRooftops && userRooftops.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  {userRooftops.map((r) => (
+                                    <div key={r.assignmentId} className="flex items-center gap-2 p-2 rounded-md bg-background border border-border">
+                                      <Store className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                      <span className="text-sm flex-1 truncate">{r.dealershipName}</span>
+                                      <Badge variant="outline" className="text-[9px]">{r.dealershipSlug}</Badge>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                        disabled={removeRooftopMutation.isPending}
+                                        onClick={() => removeRooftopMutation.mutate({ userId: user.id, dealershipId: r.dealershipId })}
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No rooftop assignments</p>
+                              )}
+
+                              {/* Assign new rooftop */}
+                              <div className="flex items-center gap-2 pt-1 border-t border-border">
+                                <select
+                                  value={assignDealershipId ?? ""}
+                                  onChange={(e) => setAssignDealershipId(e.target.value ? Number(e.target.value) : null)}
+                                  className="flex-1 h-7 rounded-md border border-border bg-background text-xs px-2"
+                                >
+                                  <option value="">Select rooftop...</option>
+                                  {dealershipsList?.filter((d) => d.isActive && !userRooftops?.some((r) => r.dealershipId === d.id))
+                                    .map((d) => (
+                                      <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  disabled={!assignDealershipId || assignRooftopMutation.isPending}
+                                  onClick={() => {
+                                    if (assignDealershipId) {
+                                      assignRooftopMutation.mutate({ userId: user.id, dealershipId: assignDealershipId });
+                                    }
+                                  }}
+                                >
+                                  <Plus className="w-3 h-3 mr-1" />
+                                  Assign
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ─── Groups Tab ─────────────────────────────────────────────────────── */}
+          <TabsContent value="groups" className="mt-4 space-y-4">
+            {/* Create group form (Super Admin only) */}
+            {currentUser?.isSuperAdmin && (
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-primary" /> Create New Group
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Group Name</Label>
+                      <Input
+                        placeholder="Hendrick Automotive"
+                        value={newGroupName}
+                        onChange={(e) => {
+                          setNewGroupName(e.target.value);
+                          setNewGroupSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+                        }}
+                        className="bg-background border-border text-sm h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Slug (URL-safe)</Label>
+                      <Input
+                        placeholder="hendrick-automotive"
+                        value={newGroupSlug}
+                        onChange={(e) => setNewGroupSlug(e.target.value)}
+                        className="bg-background border-border text-sm h-8"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        size="sm"
+                        className="w-full h-8 text-xs"
+                        disabled={!newGroupName || !newGroupSlug || createGroupMutation.isPending}
+                        onClick={() => createGroupMutation.mutate({ name: newGroupName, slug: newGroupSlug })}
+                      >
+                        {createGroupMutation.isPending ? "Creating..." : (
+                          <><Plus className="w-3 h-3 mr-1" /> Create Group</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Groups list */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary" />
+                  All Groups ({groups?.length ?? 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {groups?.map((group) => (
+                    <GroupCard
+                      key={group.id}
+                      group={group}
+                      onToggleActive={() => toggleGroupActive.mutate({ id: group.id, isActive: !group.isActive })}
+                      isToggling={toggleGroupActive.isPending}
+                    />
+                  ))}
+                  {!groups?.length && (
+                    <p className="text-xs text-muted-foreground text-center py-4">No groups yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ─── Dealerships Tab ─────────────────────────────────────────────────── */}
           <TabsContent value="dealerships" className="mt-4 space-y-4">
             {/* Create new dealership */}
             <Card className="bg-card border-border">
@@ -206,13 +466,13 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          {/* Invitations Tab */}
+          {/* ─── Invitations Tab ─────────────────────────────────────────────────── */}
           <TabsContent value="invitations" className="mt-4 space-y-4">
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2"><Link2 className="w-4 h-4 text-primary" /> Generate Invite Link</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Email (optional)</Label>
@@ -221,47 +481,46 @@ export default function AdminPanel() {
                       className="bg-background border-border text-sm h-8" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Dealership</Label>
-                    <select value={inviteDealershipId} onChange={(e) => setInviteDealershipId(Number(e.target.value))}
-                      className="w-full h-8 rounded-md border border-border bg-background text-sm px-2">
-                      {dealershipsList?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Role</Label>
                     <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as "user" | "admin")}
                       className="w-full h-8 rounded-md border border-border bg-background text-sm px-2">
-                      <option value="user">User (F&I Manager)</option>
+                      <option value="user">F&I Manager</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Expires In (days)</Label>
-                    <select value={inviteExpiry} onChange={(e) => setInviteExpiry(Number(e.target.value))}
+                    <Label className="text-xs text-muted-foreground">Dealership</Label>
+                    <select value={inviteDealershipId} onChange={(e) => setInviteDealershipId(Number(e.target.value))}
                       className="w-full h-8 rounded-md border border-border bg-background text-sm px-2">
-                      <option value={3}>3 days</option>
-                      <option value={7}>7 days</option>
-                      <option value={14}>14 days</option>
-                      <option value={30}>30 days</option>
+                      {dealershipsList?.filter((d) => d.isActive).map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
                     </select>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Expires in (days)</Label>
+                    <div className="flex gap-2">
+                      <Input type="number" value={inviteExpiry} onChange={(e) => setInviteExpiry(Number(e.target.value))}
+                        className="bg-background border-border text-sm h-8 flex-1" min={1} max={30} />
+                      <Button size="sm" className="h-8 text-xs"
+                        disabled={createInviteMutation.isPending}
+                        onClick={() => createInviteMutation.mutate({
+                          dealershipId: inviteDealershipId,
+                          role: inviteRole,
+                          email: inviteEmail || undefined,
+                          expiresInDays: inviteExpiry,
+                          origin: window.location.origin,
+                        })}>
+                        {createInviteMutation.isPending ? "..." : <><Mail className="w-3 h-3 mr-1" /> Generate</>}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <Button size="sm" className="w-full h-8 text-xs"
-                  disabled={createInviteMutation.isPending}
-                  onClick={() => createInviteMutation.mutate({
-                    email: inviteEmail || undefined,
-                    dealershipId: inviteDealershipId,
-                    role: inviteRole,
-                    expiresInDays: inviteExpiry,
-                    origin: window.location.origin,
-                  })}>
-                  {createInviteMutation.isPending ? "Generating..." : "Generate Invite Link"}
-                </Button>
                 {generatedLink && (
-                  <div className="mt-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
-                    <p className="text-xs text-muted-foreground mb-1">Share this link with the invitee:</p>
+                  <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p className="text-xs text-green-400 font-medium mb-1">Invite Link Generated:</p>
                     <div className="flex items-center gap-2">
-                      <code className="text-xs text-primary flex-1 break-all">{generatedLink}</code>
+                      <code className="text-xs text-green-300 flex-1 break-all">{generatedLink}</code>
                       <Button size="sm" variant="ghost" className="h-6 text-xs shrink-0"
                         onClick={() => { navigator.clipboard.writeText(generatedLink); toast.success("Copied!"); }}>
                         Copy
@@ -274,29 +533,29 @@ export default function AdminPanel() {
 
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Active Invitations ({inviteList?.filter(i => !i.usedBy && new Date(i.expiresAt) > new Date()).length ?? 0})</CardTitle>
+                <CardTitle className="text-sm">Active Invitations ({inviteList?.length ?? 0})</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {inviteList?.map((inv) => {
-                    const expired = new Date(inv.expiresAt) < new Date();
-                    const used = !!inv.usedBy;
+                    const isExpired = new Date(inv.expiresAt) < new Date();
                     return (
                       <div key={inv.id} className="flex items-center gap-3 p-3 rounded-lg bg-accent/10 border border-border">
                         <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-foreground truncate">{inv.email ?? "Open invite"}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {expired ? "Expired" : `Expires ${format(new Date(inv.expiresAt), "MMM d")}`}
+                          <p className="text-sm font-medium text-foreground truncate">{inv.email ?? "Open invite"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            <Clock className="w-3 h-3 inline mr-1" />
+                            Expires {format(new Date(inv.expiresAt), "MMM d, yyyy")}
+                            {inv.usedAt && " • Used"}
                           </p>
                         </div>
-                        <Badge variant="outline" className="text-xs capitalize shrink-0">{inv.role}</Badge>
-                        <Badge variant={used ? "secondary" : expired ? "destructive" : "default"} className="text-xs shrink-0">
-                          {used ? "Used" : expired ? "Expired" : "Active"}
+                        <Badge variant="outline" className="text-[10px] capitalize">{inv.role}</Badge>
+                        <Badge variant={!inv.usedAt && !isExpired ? "default" : "secondary"} className="text-[10px]">
+                          {isExpired ? "Expired" : inv.usedAt ? "Used" : "Active"}
                         </Badge>
-                        {!used && !expired && (
-                          <Button size="sm" variant="ghost" className="h-7 shrink-0"
+                        {!inv.usedAt && !isExpired && (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs"
                             onClick={() => revokeInviteMutation.mutate({ id: inv.id })}>
                             <Trash2 className="w-3.5 h-3.5 text-red-400" />
                           </Button>
@@ -310,53 +569,7 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          {/* Users Tab */}
-          <TabsContent value="users" className="mt-4">
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">All Users ({users?.length ?? 0})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {users?.map((user) => (
-                    <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-accent/10 border border-border">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-primary">
-                          {(user.name ?? user.email ?? "U").charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{user.name ?? "Unknown"}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email ?? user.openId}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className={cn(
-                          "text-[10px]",
-                          user.role === "admin" ? "border-yellow-500/30 text-yellow-400" : "border-border text-muted-foreground"
-                        )}>
-                          {user.role === "admin" ? <Crown className="w-2.5 h-2.5 mr-1 inline" /> : <UserCheck className="w-2.5 h-2.5 mr-1 inline" />}
-                          {user.role}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          disabled={updatingUserId === user.id}
-                          onClick={() => handleRoleToggle(user.id, user.role)}
-                        >
-                          {updatingUserId === user.id ? (
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                          ) : user.role === "admin" ? "Demote" : "Promote"}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Sessions Tab */}
+          {/* ─── Sessions Tab ────────────────────────────────────────────────────── */}
           <TabsContent value="sessions" className="mt-4">
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
@@ -392,7 +605,7 @@ export default function AdminPanel() {
             </Card>
           </TabsContent>
 
-          {/* Audit Log Tab */}
+          {/* ─── Audit Log Tab ───────────────────────────────────────────────────── */}
           <TabsContent value="audit" className="mt-4">
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
@@ -423,7 +636,8 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
-          {/* Dealership Settings Tab */}
+
+          {/* ─── Dealership Settings Tab ─────────────────────────────────────────── */}
           <TabsContent value="settings" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-card border-border">
@@ -520,6 +734,53 @@ export default function AdminPanel() {
   );
 }
 
+// ─── GroupCard sub-component ──────────────────────────────────────────────────
+function GroupCard({ group, onToggleActive, isToggling }: {
+  group: { id: number; name: string; slug: string; isActive: boolean | null; createdAt: string | Date | null };
+  onToggleActive: () => void;
+  isToggling: boolean;
+}) {
+  const { data: rooftops } = trpc.admin.getGroupRooftops.useQuery({ groupId: group.id });
+
+  return (
+    <div className="p-3 rounded-lg bg-accent/10 border border-border space-y-2">
+      <div className="flex items-center gap-3">
+        <Layers className="w-5 h-5 text-primary shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground">{group.name}</p>
+          <p className="text-xs text-muted-foreground">{group.slug} • Created {group.createdAt ? format(new Date(group.createdAt), "MMM d, yyyy") : "N/A"}</p>
+        </div>
+        <Badge variant={group.isActive ? "default" : "secondary"} className="text-xs shrink-0">
+          {group.isActive ? "Active" : "Inactive"}
+        </Badge>
+        <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0"
+          disabled={isToggling}
+          onClick={onToggleActive}>
+          {group.isActive ? <XCircle className="w-3.5 h-3.5 text-red-400" /> : <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />}
+        </Button>
+      </div>
+
+      {/* Rooftops under this group */}
+      {rooftops && rooftops.length > 0 && (
+        <div className="ml-8 space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Rooftops ({rooftops.length})</p>
+          {rooftops.map((r) => (
+            <div key={r.id} className="flex items-center gap-2 p-1.5 rounded-md bg-background/50">
+              <Building2 className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs text-foreground">{r.name}</span>
+              <Badge variant="outline" className="text-[9px] ml-auto">{r.slug}</Badge>
+            </div>
+          ))}
+        </div>
+      )}
+      {rooftops && rooftops.length === 0 && (
+        <p className="ml-8 text-xs text-muted-foreground italic">No rooftops assigned to this group</p>
+      )}
+    </div>
+  );
+}
+
+// ─── SystemHealthPanel sub-component ──────────────────────────────────────────
 function SystemHealthPanel() {
   const { data, isLoading, refetch } = trpc.admin.systemValidation.useQuery();
   const statusColor = data?.status === "healthy" ? "text-green-400" : data?.status === "degraded" ? "text-yellow-400" : "text-red-400";

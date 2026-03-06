@@ -106,6 +106,22 @@ vi.mock("./db", () => ({
   getSystemUsageStats: vi.fn().mockResolvedValue({ totalUsers: 5, activeSessions: 2, totalSessions: 50 }),
   getSessionsByIds: vi.fn().mockResolvedValue([]),
   getComplianceFlags: vi.fn().mockResolvedValue([]),
+  deleteTranscriptsBySession: vi.fn().mockResolvedValue(0),
+  // ─── Multi-tenant DB functions ───────────────────────────────────────────
+  createDealershipGroup: vi.fn().mockResolvedValue(undefined),
+  getAllDealershipGroups: vi.fn().mockResolvedValue([{ id: 1, name: "Test Group", slug: "test-group", isActive: true, createdAt: new Date(), updatedAt: new Date() }]),
+  getDealershipGroup: vi.fn().mockResolvedValue({ id: 1, name: "Test Group", slug: "test-group", isActive: true, createdAt: new Date(), updatedAt: new Date() }),
+  updateDealershipGroup: vi.fn().mockResolvedValue(undefined),
+  getDealershipsByGroup: vi.fn().mockResolvedValue([{ id: 1, name: "Test Dealership", slug: "test-dealership", plan: "beta", isActive: true, groupId: 1, createdAt: new Date() }]),
+  assignUserToRooftop: vi.fn().mockResolvedValue(undefined),
+  removeUserFromRooftop: vi.fn().mockResolvedValue(undefined),
+  getUserRooftops: vi.fn().mockResolvedValue([{ assignmentId: 1, dealershipId: 1, dealershipName: "Test Dealership", dealershipSlug: "test-dealership", assignedAt: new Date() }]),
+  getRooftopUsers: vi.fn().mockResolvedValue([{ userId: 1, userName: "Test User", userEmail: "test@example.com", assignedAt: new Date() }]),
+  getUserAccessibleDealershipIds: vi.fn().mockResolvedValue([1]),
+  switchUserRooftop: vi.fn().mockResolvedValue(true),
+  getAllUsersByDealershipIds: vi.fn().mockResolvedValue([]),
+  getAllSessionsByDealershipIds: vi.fn().mockResolvedValue([]),
+  getGroupIdForUser: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("./storage", () => ({

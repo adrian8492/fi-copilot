@@ -410,3 +410,55 @@
 - [x] Fix word track utilization showing 0/50 (0%) — insertCopilotSuggestion now returns DB id, broadcast includes it, Mark as Used button works
 - [x] Verify Mark as Used button persists wasActedOn correctly — handleMarkUsed passes DB id to markUsed mutation
 - [x] Run tests and save checkpoint — 174/174 pass, 0 TS errors
+
+## Multi-Tenant Dealership Hierarchy Schema (Mar 6)
+- [x] Add dealershipGroups table before dealerships table
+- [x] Add groupId field to dealerships table
+- [x] Add isGroupAdmin field to users table
+- [x] Add userRooftopAssignments junction table before invitations table
+- [x] Add groupId field to invitations table
+- [x] Export DealershipGroup, InsertDealershipGroup, UserRooftopAssignment types
+- [x] Add NOT_GROUP_ADMIN_ERR_MSG to shared/const.ts
+- [x] Run SQL migration to apply all schema changes
+
+## Multi-Tenant DB Functions (Mar 6)
+- [x] Update imports: dealershipGroups, userRooftopAssignments
+- [x] Update createDealership with optional groupId
+- [x] Update updateDealership with optional groupId
+- [x] Update assignUserToDealership to also create rooftop assignment
+- [x] Add group CRUD: createDealershipGroup, getAllDealershipGroups, getDealershipGroup, updateDealershipGroup, getDealershipsByGroup
+- [x] Add rooftop assignments: assignUserToRooftop, removeUserFromRooftop, getUserRooftops, getRooftopUsers, getUserAccessibleDealershipIds, switchUserRooftop
+- [x] Add scoped queries: getAllUsersByDealershipIds, getAllSessionsByDealershipIds, getGroupIdForUser
+- [x] Verify pnpm check passes — 0 TS errors
+
+## Multi-Tenant Authorization (Mar 6)
+- [x] Import NOT_GROUP_ADMIN_ERR_MSG in trpc.ts
+- [x] Update adminProcedure in trpc.ts to accept isGroupAdmin
+- [x] Add groupAdminProcedure in trpc.ts
+- [x] Update adminProcedure in routers.ts to accept isGroupAdmin
+- [x] Add groupAdminProcedure in routers.ts
+- [x] Verify pnpm check passes — 0 TS errors
+
+## Multi-Tenant tRPC Procedures (Mar 6)
+- [x] Add new db imports to routers.ts
+- [x] Add auth.myRooftops and auth.switchRooftop
+- [x] Add admin.listGroups, createGroup, updateGroup, getGroupRooftops
+- [x] Add admin.assignUserToRooftop, removeUserFromRooftop, listRooftopUsers, getUserRooftopAssignments
+- [x] Update admin.listUsers for multi-tenant scoping
+- [x] Update admin.allSessions for multi-tenant scoping
+- [x] Update admin.createDealership input with optional groupId
+- [x] Update admin.updateDealership input with optional groupId
+- [x] Verify pnpm check passes — 0 TS errors
+
+## DealershipSwitcher Component + AppLayout Updates (Mar 6)
+- [x] Create DealershipSwitcher.tsx with rooftop dropdown
+- [x] Integrate DealershipSwitcher in AppLayout after logo
+- [x] Update admin section visibility: role === "admin" || isGroupAdmin
+- [x] Update user role badge: Super Admin / Group Admin / Admin / F&I Manager
+- [x] Verify pnpm check passes — 0 TS errors
+
+## AdminPanel Groups Tab + Rooftop Management (Mar 6)
+- [x] Add Groups tab with create form, group list, toggle active
+- [x] Enhance Users tab with Stores button, role badges, rooftop management card
+- [x] Update test mocks for all 14 new multi-tenant DB functions + deleteTranscriptsBySession
+- [x] Verify pnpm check (0 TS errors) and pnpm test (174/174 pass)

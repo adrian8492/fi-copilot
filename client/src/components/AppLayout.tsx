@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { DealershipSwitcher } from "@/components/DealershipSwitcher";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -123,6 +124,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
         </div>
       </div>
 
+      {/* Rooftop Switcher */}
+      <DealershipSwitcher />
+
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
@@ -133,7 +137,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           {PERFORMANCE_ITEMS.map((item) => <NavItem key={item.path} item={item} />)}
         </div>
 
-        {user?.role === "admin" && (
+        {(user?.role === "admin" || user?.isGroupAdmin) && (
           <>
             <div className="pt-4">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Admin</p>
@@ -155,7 +159,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             <p className="text-xs font-semibold text-foreground truncate">{user?.name ?? "User"}</p>
             <div className="flex items-center gap-1">
               <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-primary/30 text-primary/80">
-                {user?.role === "admin" ? "Admin" : "F&I Manager"}
+                {user?.isSuperAdmin ? "Super Admin" : user?.isGroupAdmin ? "Group Admin" : user?.role === "admin" ? "Admin" : "F&I Manager"}
               </Badge>
             </div>
           </div>
