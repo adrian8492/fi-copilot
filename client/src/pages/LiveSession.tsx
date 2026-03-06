@@ -177,6 +177,7 @@ export default function LiveSession() {
   // Audio level indicator
   const [audioLevel, setAudioLevel] = useState(0);
   const [audioChunksSent, setAudioChunksSent] = useState(0);
+  const [showLowAudioWarning, setShowLowAudioWarning] = useState(false);
 
   // Connection mode: "ws" (WebSocket) or "http" (HTTP streaming fallback)
   const [connectionMode, setConnectionMode] = useState<"ws" | "http" | "pending">("pending");
@@ -195,6 +196,12 @@ export default function LiveSession() {
   const animFrameRef = useRef<number | null>(null);
   const keepaliveRef = useRef<NodeJS.Timeout | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+
+  // Audio level threshold warning
+  const lowAudioStartRef = useRef<number | null>(null);
+  const lowAudioWarnedRef = useRef(false);
+  const LOW_AUDIO_THRESHOLD = 5;  // Minimum average audio level (0-255 scale)
+  const LOW_AUDIO_DURATION_MS = 5000; // 5 seconds of silence before warning
 
   // Expanded word tracks
   const [expandedScripts, setExpandedScripts] = useState<Record<number, boolean>>({});
@@ -249,6 +256,44 @@ export default function LiveSession() {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isRecording]);
+
+  // Audio level threshold warning — toast if mic stays silent for 5+ seconds
+  useEffect(() => {
+    if (!isRecording) {
+      // Reset when not recording
+      lowAudioStartRef.current = null;
+      lowAudioWarnedRef.current = false;
+      setShowLowAudioWarning(false);
+      return;
+    }
+
+    const checkInterval = setInterval(() => {
+      if (audioLevel <= LOW_AUDIO_THRESHOLD) {
+        // Audio is below threshold
+        if (lowAudioStartRef.current === null) {
+          lowAudioStartRef.current = Date.now();
+        } else if (Date.now() - lowAudioStartRef.current >= LOW_AUDIO_DURATION_MS) {
+          setShowLowAudioWarning(true);
+          if (!lowAudioWarnedRef.current) {
+            lowAudioWarnedRef.current = true;
+            toast.warning("Microphone appears silent — check that your mic is not muted and is positioned close enough to pick up audio.", {
+              duration: 8000,
+              id: "low-audio-warning",
+            });
+          }
+        }
+      } else {
+        // Audio is above threshold — reset
+        lowAudioStartRef.current = null;
+        if (lowAudioWarnedRef.current) {
+          lowAudioWarnedRef.current = false;
+          setShowLowAudioWarning(false);
+        }
+      }
+    }, 500);
+
+    return () => clearInterval(checkInterval);
+  }, [isRecording, audioLevel]);
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
@@ -573,6 +618,10 @@ export default function LiveSession() {
         };
         updateLevel();
       } catch { /* AudioContext not available — skip level meter */ }
+
+      // Reset low audio warning state on new session
+      lowAudioStartRef.current = null;
+      lowAudioWarnedRef.current = false;
 
       // Step 2: Connect to server (WebSocket first, then HTTP fallback)
       console.log("[Pipeline] Step 2: Connecting to server...");
@@ -957,6 +1006,11 @@ export default function LiveSession() {
               <span className="text-[10px] text-muted-foreground">
                 {audioLevel > 10 ? "Audio" : "Silent"}
               </span>
+              {showLowAudioWarning && (
+                <span className="text-[10px] text-amber-400 font-medium animate-pulse ml-1">
+                  ⚠ Check mic
+                </span>
+              )}
             </div>
           )}
 

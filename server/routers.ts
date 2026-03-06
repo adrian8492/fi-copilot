@@ -66,6 +66,7 @@ import {
   getSystemUsageStats,
   getSessionsByIds,
   getComplianceFlags,
+  deleteTranscriptsBySession,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -979,6 +980,83 @@ export const appRouter = router({
         } catch (e) {
           await updateRecordingStatus(input.recordingId, "failed");
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcription failed" });
+        }
+      }),
+
+    reTranscribe: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+        const recordings = await getRecordingsBySession(input.sessionId);
+        if (!recordings || recordings.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "No recording found for this session. Cannot re-transcribe without a saved audio recording." });
+        }
+
+        const recording = recordings[recordings.length - 1]; // Use the latest recording
+        await updateRecordingStatus(recording.id, "processing");
+
+        try {
+          // Delete existing transcripts for this session
+          const deletedCount = await deleteTranscriptsBySession(input.sessionId);
+          console.log(`[ReTranscribe] Deleted ${deletedCount} old transcripts for session ${input.sessionId}`);
+
+          // Re-transcribe from the recording
+          const result = await transcribeAudio({
+            audioUrl: recording.fileUrl,
+            language: "en",
+            prompt: "F&I automotive finance insurance dealership conversation between manager and customer about vehicle service contracts gap insurance paint protection",
+          });
+          if ('error' in result) throw new Error(result.error);
+
+          let transcriptCount = 0;
+          if (result.segments) {
+            for (const seg of result.segments) {
+              await insertTranscript({
+                sessionId: input.sessionId,
+                speaker: "unknown",
+                text: seg.text.trim(),
+                startTime: seg.start,
+                endTime: seg.end,
+                confidence: 0.9,
+                isFinal: true,
+              });
+              transcriptCount++;
+            }
+          } else if (result.text) {
+            await insertTranscript({
+              sessionId: input.sessionId,
+              speaker: "unknown",
+              text: result.text.trim(),
+              isFinal: true,
+            });
+            transcriptCount = 1;
+          }
+
+          await updateRecordingStatus(recording.id, "transcribed");
+          await insertAuditLog({
+            userId: ctx.user.id,
+            action: "recording.retranscribe",
+            resourceType: "session",
+            resourceId: String(input.sessionId),
+            details: { deletedCount, newTranscriptCount: transcriptCount, recordingId: recording.id },
+          });
+
+          return {
+            success: true,
+            deletedCount,
+            newTranscriptCount: transcriptCount,
+            text: result.text,
+          };
+        } catch (e: any) {
+          await updateRecordingStatus(recording.id, "failed");
+          console.error(`[ReTranscribe] Failed for session ${input.sessionId}:`, e);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Re-transcription failed: ${e?.message ?? "Unknown error"}`,
+          });
         }
       }),
   }),

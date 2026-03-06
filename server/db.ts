@@ -193,6 +193,13 @@ export async function getTranscriptsBySession(sessionId: number) {
   return db.select().from(transcripts).where(eq(transcripts.sessionId, sessionId)).orderBy(transcripts.startTime);
 }
 
+export async function deleteTranscriptsBySession(sessionId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.delete(transcripts).where(eq(transcripts.sessionId, sessionId));
+  return result[0]?.affectedRows ?? 0;
+}
+
 export async function searchTranscripts(query: string, userId?: number) {
   const db = await getDb();
   if (!db) return [];

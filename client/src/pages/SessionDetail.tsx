@@ -81,6 +81,15 @@ export default function SessionDetail() {
     onError: () => toast.error("Report generation failed."),
   });
 
+  const utils = trpc.useUtils();
+  const reTranscribe = trpc.recordings.reTranscribe.useMutation({
+    onSuccess: (data) => {
+      utils.transcripts.getBySession.invalidate({ sessionId });
+      toast.success(`Re-transcription complete: ${data.newTranscriptCount} segments created (${data.deletedCount} old entries replaced)`);
+    },
+    onError: (err) => toast.error(err.message || "Re-transcription failed"),
+  });
+
   // Auto-scroll transcript during playback
   useEffect(() => {
     if (!isPlaying || !transcripts || transcripts.length === 0) return;
@@ -505,6 +514,22 @@ export default function SessionDetail() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">Full Transcript</CardTitle>
                   <div className="flex items-center gap-2">
+                    {recordings && recordings.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs gap-1.5 border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                        onClick={() => {
+                          if (confirm("This will delete all existing transcripts and re-process the audio recording. Continue?")) {
+                            reTranscribe.mutate({ sessionId });
+                          }
+                        }}
+                        disabled={reTranscribe.isPending}
+                      >
+                        <RefreshCw className={cn("w-3 h-3", reTranscribe.isPending && "animate-spin")} />
+                        {reTranscribe.isPending ? "Re-transcribing..." : "Re-transcribe from Recording"}
+                      </Button>
+                    )}
                     {recordings && recordings.length > 0 && isPlaying && (
                       <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px] animate-pulse">SYNCED</Badge>
                     )}
@@ -577,7 +602,19 @@ export default function SessionDetail() {
                 ) : (
                   <div className="text-center py-8">
                     <Mic className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                    <p className="text-sm text-muted-foreground">No transcript available</p>
+                    <p className="text-sm text-muted-foreground mb-4">No transcript available</p>
+                    {recordings && recordings.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                        onClick={() => reTranscribe.mutate({ sessionId })}
+                        disabled={reTranscribe.isPending}
+                      >
+                        <RefreshCw className={cn("w-4 h-4", reTranscribe.isPending && "animate-spin")} />
+                        {reTranscribe.isPending ? "Re-transcribing..." : "Re-transcribe from Recording"}
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>

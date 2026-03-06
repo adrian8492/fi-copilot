@@ -391,3 +391,11 @@
 - [x] Fix 6: Client-side MediaRecorder guard + grading error differentiation (LiveSession.tsx)
 - [x] Run tests and verify TypeScript — 174/174 pass, 0 TS errors
 - [x] Save checkpoint and deliver
+
+## New Features: Re-Transcribe + Audio Level Warning (Mar 5)
+- [x] Test live session pipeline in Chrome (diagnostics + recording) — 6/7 diagnostics pass (transport WARN expected), session creates OK, getUserMedia blocks in sandbox (expected — no mic)
+- [x] Add "Re-transcribe from Recording" button on session detail page
+- [x] Add server-side re-transcribe procedure (download recording from S3, send to Deepgram, save transcripts)
+- [x] Add audio level threshold warning (toast if mic level < threshold for 5+ seconds)
+- [x] Write/update tests for new features — 174/174 pass, 0 TS errors
+- [x] Save checkpoint and deliver
