@@ -220,6 +220,7 @@ export async function insertCopilotSuggestion(data: {
   triggeredBy?: string;
   script?: string;
   framework?: string;
+  scriptId?: string;
   priority?: "high" | "medium" | "low";
 }) {
   const db = await getDb();
@@ -280,6 +281,7 @@ export async function upsertGrade(data: {
   menuSequenceScore?: number;
   objectionResponseScore?: number;
   transitionAccuracyScore?: number;
+  wordTrackUtilizationScore?: number;
 }) {
   const db = await getDb();
   if (!db) return;

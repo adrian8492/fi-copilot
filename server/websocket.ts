@@ -107,7 +107,7 @@ const LLM_COPILOT_SYSTEM_PROMPT = ASURA_COPILOT_SYSTEM_PROMPT;
 async function generateLLMSuggestion(
   transcriptBuffer: string[],
   sessionContext: { vehicleType?: string; dealType?: string; elapsedSeconds: number }
-): Promise<{ type: string; title: string; content: string; script: string; urgency: "high" | "medium" | "low"; framework: string; triggeredBy: string } | null> {
+): Promise<{ type: string; title: string; content: string; script: string; urgency: "high" | "medium" | "low"; framework: string; scriptId: string; triggeredBy: string } | null> {
   try {
     const recentLines = transcriptBuffer.slice(-15).join("\n");
     if (!recentLines.trim()) return null;
@@ -133,8 +133,9 @@ async function generateLLMSuggestion(
               framework: { type: "string" },
               urgency: { type: "string" },
               triggeredBy: { type: "string" },
+              scriptId: { type: "string" },
             },
-            required: ["type", "title", "content", "script", "framework", "urgency", "triggeredBy"],
+            required: ["type", "title", "content", "script", "framework", "urgency", "triggeredBy", "scriptId"],
             additionalProperties: false,
           },
         },
@@ -151,6 +152,7 @@ async function generateLLMSuggestion(
       script: parsed.script ?? "",
       urgency: (parsed.urgency === "high" || parsed.urgency === "medium" || parsed.urgency === "low") ? parsed.urgency : "medium",
       framework: parsed.framework ?? "ASURA Elite F&I Methodology",
+      scriptId: parsed.scriptId ?? "",
       triggeredBy: parsed.triggeredBy ?? "",
     };
   } catch (err) {
@@ -186,6 +188,7 @@ function generateQuickSuggestion(
       script: matched.scriptText,
       urgency: (matched.urgency === "critical" ? "high" : matched.urgency) as "high" | "medium" | "low",
       framework: matched.sourceDocument,
+      scriptId: matched.id ?? "",
       dealStage: dealStage ?? matched.dealStage,
     };
   }
@@ -325,6 +328,9 @@ function createDeepgramConnection(
           type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
           title: quickSuggestion.title,
           content: quickSuggestion.content,
+          script: quickSuggestion.script,
+          framework: quickSuggestion.framework,
+          scriptId: quickSuggestion.scriptId,
           priority: quickSuggestion.urgency,
           triggeredBy: triggered,
         });
@@ -351,6 +357,9 @@ function createDeepgramConnection(
               type: llmSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
               title: llmSuggestion.title,
               content: llmSuggestion.content,
+              script: llmSuggestion.script,
+              framework: llmSuggestion.framework,
+              scriptId: llmSuggestion.scriptId,
               priority: llmSuggestion.urgency,
               triggeredBy: llmSuggestion.triggeredBy.substring(0, 100),
             });
@@ -563,6 +572,9 @@ export function setupWebSocketServer(server: HttpServer) {
               type: quickSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
               title: quickSugg.title,
               content: quickSugg.content,
+              script: quickSugg.script,
+              framework: quickSugg.framework,
+              scriptId: quickSugg.scriptId,
               priority: quickSugg.urgency,
               triggeredBy: triggered,
             });
@@ -584,6 +596,9 @@ export function setupWebSocketServer(server: HttpServer) {
                   type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
                   title: llmSugg.title,
                   content: llmSugg.content,
+                  script: llmSugg.script,
+                  framework: llmSugg.framework,
+                  scriptId: llmSugg.scriptId,
                   priority: llmSugg.urgency,
                   triggeredBy: llmSugg.triggeredBy.substring(0, 100),
                 });

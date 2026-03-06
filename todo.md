@@ -399,3 +399,8 @@
 - [x] Add audio level threshold warning (toast if mic level < threshold for 5+ seconds)
 - [x] Write/update tests for new features — 174/174 pass, 0 TS errors
 - [x] Save checkpoint and deliver
+
+## Schema Changes: Add scriptId + wordTrackUtilizationScore (Mar 6)
+- [x] Add scriptId varchar column to copilot_suggestions table after framework
+- [x] Add wordTrackUtilizationScore float column to performance_grades table after transitionAccuracyScore
+- [x] Run SQL migration to apply both columns

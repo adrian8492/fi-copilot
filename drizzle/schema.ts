@@ -104,6 +104,7 @@ export const copilotSuggestions = mysqlTable("copilot_suggestions", {
   triggeredBy: text("triggeredBy"),
   script: text("script"),
   framework: varchar("framework", { length: 255 }),
+  scriptId: varchar("scriptId", { length: 64 }),
   priority: mysqlEnum("priority", ["high", "medium", "low"]).default("medium").notNull(),
   wasActedOn: boolean("wasActedOn").default(false),
   usedAt: timestamp("usedAt"),
@@ -152,6 +153,7 @@ export const performanceGrades = mysqlTable("performance_grades", {
   menuSequenceScore: float("menuSequenceScore"),
   objectionResponseScore: float("objectionResponseScore"),
   transitionAccuracyScore: float("transitionAccuracyScore"),
+  wordTrackUtilizationScore: float("wordTrackUtilizationScore"),
   gradedAt: timestamp("gradedAt").defaultNow().notNull(),
 });
 

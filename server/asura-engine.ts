@@ -135,6 +135,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
   script: string;
   urgency: "high" | "medium" | "low";
   framework: string;
+  scriptId: string;
 }> = {
 
   objection_price: {
@@ -144,6 +145,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"I completely understand that. Can you help me understand your concern? Because what this really does is transfer the responsibility of a $6,000 repair away from you. Your only responsibility is to own and enjoy your vehicle.\"",
     urgency: "high",
     framework: "Objection Prevention Matrix — Responsibility Transfer",
+    scriptId: "objection_price",
   },
 
   objection_think: {
@@ -153,6 +155,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"I completely understand. What specifically would you like to think about so I can give you the right information? Is it the investment, the coverage itself, or something else I can clarify right now?\"",
     urgency: "high",
     framework: "Objection Prevention Matrix — 3x3 Matrix",
+    scriptId: "objection_think",
   },
 
   objection_never_use: {
@@ -162,6 +165,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"That's exactly why you need it. The people who need it most never expected to. Your only responsibility is to own and enjoy your vehicle — not to be responsible for a $5,000 repair bill.\"",
     urgency: "high",
     framework: "Objection Prevention Matrix — 3x3 Matrix",
+    scriptId: "objection_never_use",
   },
 
   objection_coverage: {
@@ -171,6 +175,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"That's great. Can I ask — does your coverage include mechanical and electrical breakdowns, or is it limited to manufacturer defects? Most factory warranties only cover defects. A Service Agreement covers what the factory warranty leaves out — every breakdown, every component.\"",
     urgency: "high",
     framework: "VSA Presentation Framework — Critical Distinction",
+    scriptId: "objection_coverage",
   },
 
   closing_signal: {
@@ -180,6 +185,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"One of the nice things about doing business here is that we can customize a program based on what's most important to you. Let me put those together and show you exactly what it looks like.\"",
     urgency: "high",
     framework: "Ranking System — Assume the Business",
+    scriptId: "closing_signal",
   },
 
   product_gap: {
@@ -189,6 +195,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"You are responsible for any deficiency balance in a total loss. GAP takes care of that balance — it covers up to 150% of MSRP, up to $1,000 of your deductible, and it protects your family's credit. This ensures you never pay for a vehicle you can no longer drive.\"",
     urgency: "medium",
     framework: "GAP Protection Framework — Awareness → Solution → Decision",
+    scriptId: "product_gap",
   },
 
   product_vsa: {
@@ -198,6 +205,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"A warranty only covers defects. A Service Agreement covers breakdowns — mechanical and electrical failure. We list what's NOT covered; everything else IS covered. 100% parts, 100% labor. This transfers repair responsibility away from you completely.\"",
     urgency: "medium",
     framework: "VSA Presentation Framework — Frame → Comprehensive → Value → Opt-Out",
+    scriptId: "product_vsa",
   },
 
   product_tire: {
@@ -207,6 +215,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"The Service Agreement covers breakdowns — but it doesn't cover the wheels or keys. That's why most customers choose to bundle those high-wear items. A single tire replacement on this vehicle runs $300–$500. Tire & Wheel covers that completely.\"",
     urgency: "low",
     framework: "Upgrade-First Strategy — Mechanical Coverage Stack",
+    scriptId: "product_tire",
   },
 
   language_warranty: {
@@ -216,6 +225,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "Correct to: \"Service Agreement\" — not \"warranty.\" Example: \"This Service Agreement covers mechanical and electrical breakdowns — which is different from the factory warranty that only covers defects.\"",
     urgency: "medium",
     framework: "Language Shifts — ASURA Standard",
+    scriptId: "language_warranty",
   },
 
   language_optional: {
@@ -225,6 +235,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "Correct to: \"You can opt out of this responsibility\" — not \"this is optional.\" The framing changes everything.",
     urgency: "medium",
     framework: "Language Shifts — Responsibility Transfer",
+    scriptId: "language_optional",
   },
 
   ranking_trigger: {
@@ -234,6 +245,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"Totally understand. These are just consumer options — and in my effort to be quick, I probably went through them too fast. If you had to rank what's most important to you, what would be first?\"",
     urgency: "high",
     framework: "Ranking System — Post-No Redirect",
+    scriptId: "ranking_trigger",
   },
 
   rapport_family: {
@@ -243,6 +255,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"On a scale of 1-10, how prepared are you for a major, unexpected repair bill? And if something happened to this vehicle tomorrow, what would that do to your family's budget?\"",
     urgency: "low",
     framework: "Financial Snapshot Script — 3 Core Questions",
+    scriptId: "rapport_family",
   },
 
   compliance_base_payment: {
@@ -252,6 +265,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"Your base payment — without any of the protection options — is $[X]. Now let me show you what we've put together based on your situation.\"",
     urgency: "high",
     framework: "Compliance — TILA Base Payment Disclosure",
+    scriptId: "compliance_base_payment",
   },
 
   survey_needed: {
@@ -261,6 +275,7 @@ export const ASURA_RESPONSE_CACHE: Record<string, {
     script: "\"Before I show you anything, I want to run through a quick client survey — it'll actually speed up the whole process and make sure we customize this to your situation. First question: on a scale of 1-10, how prepared are you for a major, unexpected repair bill?\"",
     urgency: "high",
     framework: "Client Survey Secrets — Authority Frame",
+    scriptId: "survey_needed",
   },
 };
 

@@ -100,7 +100,7 @@ function generateQuickSuggestion(
   text: string,
   fullTranscript?: string,
   state?: StreamSession,
-): (Record<string, unknown> & { dealStage?: string }) | null {
+): { type: string; title: string; content: string; script: string; urgency: string; framework: string; scriptId: string; dealStage?: string } | null {
   const quick = asuraQuickTrigger(text);
   if (quick) return quick;
 
@@ -118,6 +118,7 @@ function generateQuickSuggestion(
       script: matched.scriptText,
       urgency: matched.urgency,
       framework: matched.sourceDocument,
+      scriptId: matched.id ?? "",
       dealStage: dealStage ?? matched.dealStage,
     };
   }
@@ -159,8 +160,9 @@ async function generateLLMSuggestion(
               framework: { type: "string" },
               urgency: { type: "string" },
               triggeredBy: { type: "string" },
+              scriptId: { type: "string" },
             },
-            required: ["type", "title", "content", "script", "framework", "urgency", "triggeredBy"],
+            required: ["type", "title", "content", "script", "framework", "urgency", "triggeredBy", "scriptId"],
             additionalProperties: false,
           },
         },
@@ -178,6 +180,7 @@ async function generateLLMSuggestion(
       script: parsed.script ?? "",
       urgency: (parsed.urgency === "high" || parsed.urgency === "medium" || parsed.urgency === "low") ? parsed.urgency : "medium",
       framework: parsed.framework ?? "ASURA Elite F&I Methodology",
+      scriptId: parsed.scriptId ?? "",
       triggeredBy: parsed.triggeredBy ?? "",
     };
   } catch (err) {
@@ -305,6 +308,9 @@ function createDeepgramConnection(state: StreamSession) {
             type: quickSuggestion.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
             title: quickSuggestion.title as string,
             content: quickSuggestion.content as string,
+            script: quickSuggestion.script as string,
+            framework: quickSuggestion.framework as string,
+            scriptId: quickSuggestion.scriptId as string,
             priority: (quickSuggestion.urgency ?? "medium") as "high" | "medium" | "low",
             triggeredBy: triggered,
           });
@@ -325,6 +331,9 @@ function createDeepgramConnection(state: StreamSession) {
                 type: llmSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
                 title: llmSugg.title,
                 content: llmSugg.content,
+                script: llmSugg.script,
+                framework: llmSugg.framework,
+                scriptId: llmSugg.scriptId,
                 priority: llmSugg.urgency,
                 triggeredBy: llmSugg.triggeredBy.substring(0, 100),
               });
@@ -558,6 +567,9 @@ export function createHttpStreamRouter(): Router {
               type: quickSugg.type as Parameters<typeof insertCopilotSuggestion>[0]["type"],
               title: quickSugg.title as string,
               content: quickSugg.content as string,
+              script: quickSugg.script as string,
+              framework: quickSugg.framework as string,
+              scriptId: quickSugg.scriptId as string,
               priority: (quickSugg.urgency ?? "medium") as "high" | "medium" | "low",
               triggeredBy: triggered,
             });

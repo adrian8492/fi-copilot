@@ -371,7 +371,11 @@ async function getCustomRuleViolations(fullTranscript: string): Promise<Complian
   return violations;
 }
 
-async function runGradingEngine(fullTranscript: string, sessionData: { customerName?: string | null; dealType?: string | null }) {
+async function runGradingEngine(
+  fullTranscript: string,
+  sessionData: { customerName?: string | null; dealType?: string | null },
+  suggestionStats?: { total: number; used: number; uniqueScriptIds: string[] }
+) {
   // Calculate Script Fidelity Scores deterministically (no LLM needed)
   const scriptFidelityScores = calculateScriptFidelityScores(fullTranscript);
 
@@ -436,6 +440,14 @@ async function runGradingEngine(fullTranscript: string, sessionData: { customerN
 Customer: ${sessionData.customerName ?? "Unknown"}
 Deal Type: ${sessionData.dealType ?? "retail_finance"}
 
+**WORD TRACK UTILIZATION DATA:**
+- Total Co-Pilot Suggestions Delivered: ${suggestionStats?.total ?? 0}
+- Suggestions Acted On (Used): ${suggestionStats?.used ?? 0}
+- Word Track Utilization Rate: ${suggestionStats && suggestionStats.total > 0 ? Math.round(suggestionStats.used / suggestionStats.total * 100) : 0}%
+- Unique Script IDs Triggered: ${suggestionStats?.uniqueScriptIds?.length ?? 0} (${suggestionStats?.uniqueScriptIds?.join(', ') ?? 'none'})
+
+Use the Word Track Utilization Data to assess how effectively the manager leveraged real-time coaching suggestions. A high utilization rate indicates strong coachability and script adherence.
+
 **TRANSCRIPT TO GRADE:**
 ${fullTranscript}
 
@@ -497,12 +509,16 @@ Return JSON:
       finalComplianceScore * 0.20
     );
     // Merge LLM grades with deterministic Script Fidelity Scores + corrected compliance
+    const wordTrackUtilizationScore = suggestionStats && suggestionStats.total > 0
+      ? Math.round(suggestionStats.used / suggestionStats.total * 100)
+      : undefined;
     return {
       ...llmGrade,
       ...scriptFidelityScores,
       complianceScore: finalComplianceScore,
       overallScore,
       complianceViolationCount: complianceViolations.length,
+      wordTrackUtilizationScore,
     };
   } catch (e) {
     console.error("[Grading] Engine failed:", e);
@@ -808,7 +824,15 @@ export const appRouter = router({
 
         if (!fullText.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "No transcript available to grade" });
 
-        const gradeData = await runGradingEngine(fullText, { customerName: session.customerName, dealType: session.dealType });
+        // Compute suggestion stats for word track utilization scoring
+        const suggestions = await getSuggestionsBySession(input.sessionId);
+        const suggestionStats = {
+          total: suggestions.length,
+          used: suggestions.filter((s) => s.wasActedOn).length,
+          uniqueScriptIds: Array.from(new Set(suggestions.map((s) => s.scriptId).filter((id): id is string => !!id))),
+        };
+
+        const gradeData = await runGradingEngine(fullText, { customerName: session.customerName, dealType: session.dealType }, suggestionStats);
         if (!gradeData) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Grading engine failed" });
 
         await upsertGrade({ sessionId: input.sessionId, userId: session.userId, ...gradeData });
