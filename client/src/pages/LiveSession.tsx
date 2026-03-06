@@ -182,6 +182,8 @@ export default function LiveSession() {
   const [connectionMode, setConnectionMode] = useState<"ws" | "http" | "pending">("pending");
   const httpTokenRef = useRef<string | null>(null);
   const sseRef = useRef<EventSource | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollSeqRef = useRef<number>(0);
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
@@ -347,6 +349,30 @@ export default function LiveSession() {
     }
   }, [elapsed]);
 
+  // ─── HTTP Polling Fallback (for proxies that block SSE) ─────────────────────
+  const pollEvents = useCallback(async (token: string) => {
+    try {
+      const resp = await fetch(
+        `/api/session/poll?token=${encodeURIComponent(token)}&since=${pollSeqRef.current}`
+      );
+      if (!resp.ok) {
+        if (resp.status === 404) return; // session ended
+        return;
+      }
+      const { events, nextSeq } = await resp.json();
+      pollSeqRef.current = nextSeq;
+      for (const evt of events) {
+        handleServerEvent(evt.event, evt.data as Record<string, unknown>);
+      }
+    } catch {
+      // Network error — will retry on next poll
+    }
+    // Schedule next poll (only if still in http mode)
+    if (httpTokenRef.current) {
+      pollingRef.current = setTimeout(() => pollEvents(token), 1500);
+    }
+  }, [handleServerEvent]);
+
   // ─── HTTP Streaming Fallback ────────────────────────────────────────────────
   const connectHttpStream = useCallback(async (sid: number) => {
     try {
@@ -371,9 +397,12 @@ export default function LiveSession() {
       const sse = new EventSource(`/api/session/events?token=${token}`);
       sseRef.current = sse;
 
+      // Track whether SSE has delivered any real event
+      let sseAlive = false;
       const eventTypes = ["transcript", "suggestion", "compliance_flag", "deepgram_status", "stage_update", "session_ended"];
       eventTypes.forEach((evtType) => {
         sse.addEventListener(evtType, (e: MessageEvent) => {
+          sseAlive = true;
           try {
             const data = JSON.parse(e.data);
             handleServerEvent(evtType, data);
@@ -382,8 +411,25 @@ export default function LiveSession() {
       });
 
       sse.onerror = () => {
-        console.warn("[HTTP-Stream] SSE connection error");
+        console.warn("[HTTP-Stream] SSE connection error — switching to polling");
+        if (!sseAlive && sseRef.current) {
+          // SSE never delivered a real event — proxy is blocking it
+          sseRef.current.close();
+          sseRef.current = null;
+          // Start polling fallback
+          pollEvents(token);
+        }
       };
+
+      // Safety net: if SSE hasn't delivered anything after 5s, switch to polling
+      setTimeout(() => {
+        if (!sseAlive && sseRef.current) {
+          console.warn("[HTTP-Stream] SSE timeout (5s, no events) — switching to polling");
+          sseRef.current.close();
+          sseRef.current = null;
+          pollEvents(token);
+        }
+      }, 5000);
 
       // Keepalive ping every 30s
       if (keepaliveRef.current) clearInterval(keepaliveRef.current);
@@ -401,7 +447,7 @@ export default function LiveSession() {
       console.error("[HTTP-Stream] Failed to start:", err);
       return false;
     }
-  }, [user?.id, handleServerEvent]);
+  }, [user?.id, handleServerEvent, pollEvents]);
 
   // ─── WebSocket connection (primary) ─────────────────────────────────────────
   const connectWebSocket = useCallback((sid: number) => {
@@ -707,8 +753,10 @@ export default function LiveSession() {
     if (audioContextRef.current) { try { audioContextRef.current.close(); } catch {} audioContextRef.current = null; }
     setAudioLevel(0);
 
-    // Stop keepalive
+    // Stop keepalive and polling
     if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
+    if (pollingRef.current) { clearTimeout(pollingRef.current); pollingRef.current = null; }
+    pollSeqRef.current = 0;
 
     // Notify server via WebSocket or HTTP
     if (wsRef.current?.readyState === WebSocket.OPEN) {

@@ -53,6 +53,9 @@ interface StreamSession {
   audioBuffer: Buffer[];
   lastFinalText: string;
   failedInserts?: number;
+  // Event queue for polling fallback (when SSE is blocked by proxy)
+  eventQueue: Array<{ seq: number; event: string; data: unknown; ts: number }>;
+  eventSeq: number;
 }
 
 // Active HTTP-stream sessions keyed by token
@@ -62,8 +65,17 @@ function generateToken(): string {
   return `hs_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// ─── Broadcast to all SSE clients ────────────────────────────────────────────
+// ─── Broadcast to all SSE clients + buffer for polling ──────────────────────
 function broadcast(session: StreamSession, event: string, data: unknown) {
+  // Always buffer the event for polling clients
+  const entry = { seq: ++session.eventSeq, event, data, ts: Date.now() };
+  session.eventQueue.push(entry);
+  // Cap buffer at 500 events to prevent memory leak
+  if (session.eventQueue.length > 500) {
+    session.eventQueue = session.eventQueue.slice(-300);
+  }
+
+  // Also push to SSE clients (existing behavior)
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   session.sseClients.forEach((res) => {
     try { res.write(payload); } catch { session.sseClients.delete(res); }
@@ -404,6 +416,8 @@ export function createHttpStreamRouter(): Router {
       audioChunkCount: 0,
       audioBuffer: [],
       lastFinalText: "",
+      eventQueue: [],
+      eventSeq: 0,
     };
 
     state.deepgramConnection = createDeepgramConnection(state);
@@ -445,6 +459,20 @@ export function createHttpStreamRouter(): Router {
       clearInterval(keepalive);
       console.log(`[HTTP-Stream] SSE client disconnected for session ${state.sessionId} (${state.sseClients.size} remaining)`);
     });
+  });
+
+  // GET /api/session/poll — Polling fallback for proxies that block SSE
+  router.get("/poll", (req: Request, res: Response) => {
+    const token = req.query.token as string;
+    const since = parseInt(req.query.since as string) || 0;
+    const state = token ? httpSessions.get(token) : undefined;
+    if (!state) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    const events = state.eventQueue.filter((e) => e.seq > since);
+    const nextSeq = state.eventSeq;
+    res.json({ events, nextSeq });
   });
 
   // POST /api/session/audio — Receive binary audio chunk

@@ -282,4 +282,72 @@ describe("HTTP Stream Endpoints", () => {
       expect(endRes.body.ok).toBe(true);
     });
   });
+
+  describe("GET /api/session/poll", () => {
+    it("should return 404 for invalid token", async () => {
+      const res = await request(app).get("/api/session/poll?token=bad&since=0");
+      expect(res.status).toBe(404);
+    });
+
+    it("should return empty events for new session", async () => {
+      const startRes = await request(app)
+        .post("/api/session/start")
+        .send({ sessionId: 20, userId: 1 });
+      const { token } = startRes.body;
+      const res = await request(app).get(`/api/session/poll?token=${token}&since=0`);
+      expect(res.status).toBe(200);
+      expect(res.body.events).toEqual([]);
+      expect(res.body.nextSeq).toBe(0);
+    });
+
+    it("should return events after text is submitted", async () => {
+      const startRes = await request(app)
+        .post("/api/session/start")
+        .send({ sessionId: 21, userId: 1 });
+      const { token } = startRes.body;
+      await request(app)
+        .post("/api/session/text")
+        .set("X-Stream-Token", token)
+        .send({ text: "Hello customer", speaker: "manager", isFinal: true });
+      // Allow async background processing
+      await new Promise((r) => setTimeout(r, 100));
+      const res = await request(app).get(`/api/session/poll?token=${token}&since=0`);
+      expect(res.status).toBe(200);
+      expect(res.body.events.length).toBeGreaterThan(0);
+      expect(res.body.events[0].event).toBe("transcript");
+    });
+
+    it("should only return events after since sequence", async () => {
+      const startRes = await request(app)
+        .post("/api/session/start")
+        .send({ sessionId: 22, userId: 1 });
+      const { token } = startRes.body;
+      await request(app)
+        .post("/api/session/text")
+        .set("X-Stream-Token", token)
+        .send({ text: "First message", speaker: "manager", isFinal: true });
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Get first batch
+      const res1 = await request(app).get(`/api/session/poll?token=${token}&since=0`);
+      expect(res1.status).toBe(200);
+      const firstSeq = res1.body.nextSeq;
+
+      // Submit another message
+      await request(app)
+        .post("/api/session/text")
+        .set("X-Stream-Token", token)
+        .send({ text: "Second message", speaker: "manager", isFinal: true });
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Poll with since = firstSeq — should only get new events
+      const res2 = await request(app).get(`/api/session/poll?token=${token}&since=${firstSeq}`);
+      expect(res2.status).toBe(200);
+      expect(res2.body.nextSeq).toBeGreaterThan(firstSeq);
+      // Should not include events from the first batch
+      for (const evt of res2.body.events) {
+        expect(evt.seq).toBeGreaterThan(firstSeq);
+      }
+    });
+  });
 });
