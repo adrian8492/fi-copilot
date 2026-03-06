@@ -88,9 +88,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
       <Link href={item.path}>
         <div
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer group",
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer group border border-transparent",
             isActive
-              ? "bg-primary/15 text-primary border border-primary/20"
+              ? "bg-primary/15 text-primary !border-primary/20"
               : "text-muted-foreground hover:text-foreground hover:bg-accent",
             (item as { highlight?: boolean }).highlight && !isActive && "text-primary/80 hover:text-primary"
           )}
