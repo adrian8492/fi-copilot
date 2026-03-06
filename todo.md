@@ -526,3 +526,9 @@
 - [x] Update enabled condition to managingUserId !== null
 - [x] Run pnpm check — 0 TS errors
 - [x] Run pnpm test — 174/174 passing
+
+## Bug Fix: Sidebar Navigation Flickering on Hover (Mar 6)
+- [x] Debug sidebar nav button hover flickering in AppLayout.tsx
+- [x] Root cause: NavItem and SidebarContent defined as arrow functions inside AppLayout render — re-created every render, causing unmount/remount on hover
+- [x] Fix: Extracted NavItem as a memo'd component outside AppLayout, inlined SidebarContent, changed transition-all to transition-colors, added useCallback for closeSidebar
+- [x] pnpm check: 0 TS errors, pnpm test: 174/174 passing
