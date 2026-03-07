@@ -559,3 +559,20 @@
 - [x] Phase 6: Client-side auth for HTTP fallback — credentials: include on all 6 fetch calls, removed userId from /start body
 - [x] Run pnpm check — 0 TS errors
 - [x] Run pnpm test — 197/197 passing (updated http-stream tests with SDK mock + auth)
+
+## Performance + SEO/AEO/GEO/Schema Optimization (Mar 7)
+- [x] Audit: main bundle was 2.6MB (692KB gzipped), no compression, no caching, no meta tags
+- [x] Server: gzip compression (level 6, threshold 1KB, SSE excluded)
+- [x] Server: Static asset caching (365d immutable for /assets, 1h for others, no-cache for HTML)
+- [x] Server: Graceful shutdown (SIGTERM/SIGINT, 10s timeout), health endpoint (/api/health)
+- [x] Server: Keep-alive tuning (65s keepAlive, 66s headers)
+- [x] Client: React.lazy code splitting for 14 route pages (Dashboard + Login eager)
+- [x] Client: Suspense fallback with spinner
+- [x] SEO: Comprehensive meta tags (title, description, keywords, author, canonical, robots)
+- [x] SEO: Open Graph (type, url, title, description, site_name, locale) + Twitter Card
+- [x] SEO: robots.txt (allow /, disallow /api, /admin, /session, /login) + sitemap.xml
+- [x] Schema: SoftwareApplication JSON-LD with 8 featureList items
+- [x] Schema: Organization JSON-LD with knowsAbout
+- [x] AEO: FAQPage schema with 4 Q&As (what is, compliance, multi-dealership, analytics)
+- [x] GEO: WebApplication schema with BusinessAudience targeting
+- [x] Result: main bundle 748KB (214KB gzipped) — 67% reduction. pnpm check: 0 errors, pnpm test: 197/197, pnpm build: success

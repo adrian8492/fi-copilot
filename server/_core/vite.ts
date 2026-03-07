@@ -66,10 +66,22 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Hashed assets (JS/CSS) get immutable cache (1 year)
+  app.use("/assets", express.static(path.resolve(distPath, "assets"), {
+    maxAge: "365d",
+    immutable: true,
+    etag: false,
+  }));
 
-  // fall through to index.html if the file doesn't exist
+  // Other static files get short cache with revalidation
+  app.use(express.static(distPath, {
+    maxAge: "1h",
+    etag: true,
+  }));
+
+  // fall through to index.html if the file doesn't exist (no-cache for SPA shell)
   app.use("*", (_req, res) => {
+    res.set("Cache-Control", "no-cache, must-revalidate");
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

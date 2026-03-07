@@ -3,6 +3,7 @@ import express from "express";
 import { createServer } from "http";
 import net from "net";
 import helmet from "helmet";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -44,12 +45,39 @@ async function startServer() {
     contentSecurityPolicy: false,  // Vite handles CSP in dev
   }));
 
+  // Gzip/Brotli compression for all responses
+  app.use(compression({
+    level: 6,
+    threshold: 1024,  // Only compress responses > 1KB
+    filter: (req, res) => {
+      // Don't compress SSE streams (they need to flush immediately)
+      if (req.path.includes("/events")) return false;
+      return compression.filter(req, res);
+    },
+  }));
+
   // Rate limiting on API routes
   app.use("/api/trpc", rateLimit({
     windowMs: 15 * 60 * 1000,  // 15 minutes
     max: 200,                    // 200 requests per window
     standardHeaders: true,
   }));
+
+  // Rate limiting on session streaming routes
+  app.use("/api/session", rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+  }));
+
+  // Health check endpoint (for uptime monitoring)
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({
+      status: "ok",
+      uptime: process.uptime(),
+      timestamp: Date.now(),
+    });
+  });
 
   // Configure body parser with reduced size limits
   app.use(express.json({ limit: "10mb" }));
@@ -86,9 +114,30 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
+  // Keep-alive tuning for better connection reuse
+  server.keepAliveTimeout = 65000;  // Slightly above typical proxy timeout (60s)
+  server.headersTimeout = 66000;    // Must be > keepAliveTimeout
+
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
+
+  // Graceful shutdown
+  const shutdown = (signal: string) => {
+    console.log(`${signal} received, shutting down gracefully...`);
+    server.close(() => {
+      console.log("Server closed");
+      process.exit(0);
+    });
+    // Force exit after 10s if graceful shutdown stalls
+    setTimeout(() => {
+      console.error("Forced shutdown after timeout");
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 startServer().catch(console.error);

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /session/
+Disallow: /login
+
+# Sitemap
+Sitemap: https://finico-pilot-mqskutaj.manus.space/sitemap.xml
