@@ -532,3 +532,16 @@
 - [x] Root cause: NavItem and SidebarContent defined as arrow functions inside AppLayout render — re-created every render, causing unmount/remount on hover
 - [x] Fix: Extracted NavItem as a memo'd component outside AppLayout, inlined SidebarContent, changed transition-all to transition-colors, added useCallback for closeSidebar
 - [x] pnpm check: 0 TS errors, pnpm test: 174/174 passing
+
+## Multi-Tenant Full Verification (Mar 7)
+- [x] Phase 1: Verify schema — dealershipGroups, userRooftopAssignments, groupId on dealerships/invitations, isGroupAdmin on users, type exports
+- [x] Phase 2: Verify db.ts — 14 new functions + 3 modified functions all present
+- [x] Phase 3: Verify authorization — adminProcedure updated (accepts isGroupAdmin), groupAdminProcedure added
+- [x] Phase 4: Verify tRPC procedures — 9 new procedures, data scoping with getUserAccessibleDealershipIds in 3 places
+- [x] Phase 5: Verify DealershipSwitcher — default export, Building2 icon, Select component, rooftops.length <= 1 guard
+- [x] Phase 6: Verify AdminPanel — Groups tab (create/list/toggle), Users tab (Stores button, role badges, rooftop management)
+- [x] Phase 7: Verify migration — dealership_groups + user_rooftop_assignments tables exist in DB, groupId + isGroupAdmin columns confirmed
+- [x] Phase 8: Verify shared/const.ts — NOT_GROUP_ADMIN_ERR_MSG present
+- [x] Run pnpm check — 0 TS errors
+- [x] Run pnpm test — 197/197 passing (added 23 new multi-tenant tests)
+- [x] Wrote new tests: admin.listGroups (4), admin.createGroup (3), admin.updateGroup (2), admin.assignUserToRooftop (2), admin.removeUserFromRooftop (1), admin.getUserRooftopAssignments (1), admin.listRooftopUsers (1), auth.myRooftops (2), auth.switchRooftop (3), admin.getGroupRooftops (1), multi-tenant data scoping (3)

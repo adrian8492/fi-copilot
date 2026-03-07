@@ -1308,3 +1308,254 @@ describe("analytics.pvrTrend", () => {
     expect(getPvrTrend).toHaveBeenCalled();
   });
 });
+
+// ─── Multi-Tenant: Groups & Rooftop Management ─────────────────────────────
+
+function makeSuperAdminCtx(): TrpcContext {
+  return makeCtx({
+    user: {
+      ...makeCtx().user!,
+      role: "admin",
+      isSuperAdmin: true,
+      isGroupAdmin: false,
+      dealershipId: 1,
+    },
+  });
+}
+
+function makeGroupAdminCtx(): TrpcContext {
+  return makeCtx({
+    user: {
+      ...makeCtx().user!,
+      role: "admin",
+      isSuperAdmin: false,
+      isGroupAdmin: true,
+      dealershipId: 1,
+    },
+  });
+}
+
+function makeRegularUserCtx(): TrpcContext {
+  return makeCtx({
+    user: {
+      ...makeCtx().user!,
+      role: "user",
+      isSuperAdmin: false,
+      isGroupAdmin: false,
+      dealershipId: 1,
+    },
+  });
+}
+
+describe("admin.listGroups", () => {
+  it("returns all groups for super admin", async () => {
+    const { getAllDealershipGroups } = await import("./db");
+    vi.mocked(getAllDealershipGroups).mockResolvedValueOnce([
+      { id: 1, name: "Asura Group", slug: "asura-group", isActive: true, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    const caller = appRouter.createCaller(makeSuperAdminCtx());
+    const groups = await caller.admin.listGroups();
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("Asura Group");
+  });
+
+  it("returns only own group for group admin", async () => {
+    const { getGroupIdForUser, getDealershipGroup } = await import("./db");
+    vi.mocked(getGroupIdForUser).mockResolvedValueOnce(5);
+    vi.mocked(getDealershipGroup).mockResolvedValueOnce({ id: 5, name: "My Group", slug: "my-group", isActive: true, createdAt: new Date(), updatedAt: new Date() });
+    const caller = appRouter.createCaller(makeGroupAdminCtx());
+    const groups = await caller.admin.listGroups();
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("My Group");
+  });
+
+  it("returns empty array for admin with no group", async () => {
+    const { getGroupIdForUser } = await import("./db");
+    vi.mocked(getGroupIdForUser).mockResolvedValueOnce(null);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const groups = await caller.admin.listGroups();
+    expect(groups).toHaveLength(0);
+  });
+
+  it("forbids access for non-admin users", async () => {
+    const caller = appRouter.createCaller(makeRegularUserCtx());
+    await expect(caller.admin.listGroups()).rejects.toThrow();
+  });
+});
+
+describe("admin.createGroup", () => {
+  it("allows super admin to create a group", async () => {
+    const { createDealershipGroup } = await import("./db");
+    vi.mocked(createDealershipGroup).mockResolvedValueOnce({ id: 2, name: "New Group", slug: "new-group", isActive: true, createdAt: new Date(), updatedAt: new Date() } as any);
+    const caller = appRouter.createCaller(makeSuperAdminCtx());
+    const group = await caller.admin.createGroup({ name: "New Group", slug: "new-group" });
+    expect(createDealershipGroup).toHaveBeenCalledWith({ name: "New Group", slug: "new-group" });
+  });
+
+  it("forbids group admin from creating groups", async () => {
+    const caller = appRouter.createCaller(makeGroupAdminCtx());
+    await expect(caller.admin.createGroup({ name: "Test", slug: "test" })).rejects.toThrow("Only super admins can create groups");
+  });
+
+  it("forbids regular users from creating groups", async () => {
+    const caller = appRouter.createCaller(makeRegularUserCtx());
+    await expect(caller.admin.createGroup({ name: "Test", slug: "test" })).rejects.toThrow();
+  });
+});
+
+describe("admin.updateGroup", () => {
+  it("allows group admin to update a group", async () => {
+    const { updateDealershipGroup } = await import("./db");
+    vi.mocked(updateDealershipGroup).mockResolvedValueOnce(undefined);
+    const caller = appRouter.createCaller(makeGroupAdminCtx());
+    const result = await caller.admin.updateGroup({ id: 1, isActive: false });
+    expect(result).toEqual({ success: true });
+    expect(updateDealershipGroup).toHaveBeenCalledWith(1, { isActive: false });
+  });
+
+  it("forbids regular users from updating groups", async () => {
+    const caller = appRouter.createCaller(makeRegularUserCtx());
+    await expect(caller.admin.updateGroup({ id: 1, isActive: false })).rejects.toThrow();
+  });
+});
+
+describe("admin.assignUserToRooftop", () => {
+  it("allows admin to assign a user to a rooftop", async () => {
+    const { assignUserToRooftop } = await import("./db");
+    vi.mocked(assignUserToRooftop).mockResolvedValueOnce(undefined);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.assignUserToRooftop({ userId: 2, dealershipId: 3 });
+    expect(result).toEqual({ success: true });
+    expect(assignUserToRooftop).toHaveBeenCalledWith(2, 3);
+  });
+
+  it("forbids regular users from assigning rooftops", async () => {
+    const caller = appRouter.createCaller(makeRegularUserCtx());
+    await expect(caller.admin.assignUserToRooftop({ userId: 2, dealershipId: 3 })).rejects.toThrow();
+  });
+});
+
+describe("admin.removeUserFromRooftop", () => {
+  it("allows admin to remove a user from a rooftop", async () => {
+    const { removeUserFromRooftop } = await import("./db");
+    vi.mocked(removeUserFromRooftop).mockResolvedValueOnce(undefined);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.removeUserFromRooftop({ userId: 2, dealershipId: 3 });
+    expect(result).toEqual({ success: true });
+    expect(removeUserFromRooftop).toHaveBeenCalledWith(2, 3);
+  });
+});
+
+describe("admin.getUserRooftopAssignments", () => {
+  it("returns rooftop assignments for a user", async () => {
+    const { getUserRooftops } = await import("./db");
+    vi.mocked(getUserRooftops).mockResolvedValueOnce([
+      { id: 1, userId: 2, dealershipId: 1, isActive: true, assignedAt: new Date() },
+      { id: 2, userId: 2, dealershipId: 3, isActive: true, assignedAt: new Date() },
+    ]);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const assignments = await caller.admin.getUserRooftopAssignments({ userId: 2 });
+    expect(assignments).toHaveLength(2);
+  });
+});
+
+describe("admin.listRooftopUsers", () => {
+  it("returns users at a rooftop", async () => {
+    const { getRooftopUsers } = await import("./db");
+    vi.mocked(getRooftopUsers).mockResolvedValueOnce([
+      { id: 1, userId: 1, dealershipId: 1, isActive: true, assignedAt: new Date() },
+    ]);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const users = await caller.admin.listRooftopUsers({ dealershipId: 1 });
+    expect(users).toHaveLength(1);
+  });
+});
+
+describe("auth.myRooftops", () => {
+  it("returns current user rooftops", async () => {
+    const { getUserRooftops } = await import("./db");
+    vi.mocked(getUserRooftops).mockResolvedValueOnce([
+      { id: 1, userId: 1, dealershipId: 1, isActive: true, assignedAt: new Date() },
+      { id: 2, userId: 1, dealershipId: 2, isActive: true, assignedAt: new Date() },
+    ]);
+    const caller = appRouter.createCaller(makeCtx());
+    const rooftops = await caller.auth.myRooftops();
+    expect(rooftops).toHaveLength(2);
+  });
+
+  it("throws when not authenticated", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    await expect(caller.auth.myRooftops()).rejects.toThrow();
+  });
+});
+
+describe("auth.switchRooftop", () => {
+  it("switches rooftop successfully", async () => {
+    const { switchUserRooftop } = await import("./db");
+    vi.mocked(switchUserRooftop).mockResolvedValueOnce(true);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.auth.switchRooftop({ dealershipId: 2 });
+    expect(result).toEqual({ success: true });
+    expect(switchUserRooftop).toHaveBeenCalledWith(1, 2);
+  });
+
+  it("throws FORBIDDEN when user has no access to rooftop", async () => {
+    const { switchUserRooftop } = await import("./db");
+    vi.mocked(switchUserRooftop).mockResolvedValueOnce(false);
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(caller.auth.switchRooftop({ dealershipId: 99 })).rejects.toThrow("You do not have access to this rooftop");
+  });
+
+  it("throws when not authenticated", async () => {
+    const caller = appRouter.createCaller(makeCtx({ user: null }));
+    await expect(caller.auth.switchRooftop({ dealershipId: 2 })).rejects.toThrow();
+  });
+});
+
+describe("admin.getGroupRooftops", () => {
+  it("returns rooftops for a group", async () => {
+    const { getDealershipsByGroup } = await import("./db");
+    vi.mocked(getDealershipsByGroup).mockResolvedValueOnce([
+      { id: 1, name: "Store A", slug: "store-a", plan: "beta", isActive: true, groupId: 1, createdAt: new Date(), updatedAt: new Date() },
+    ] as any);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const rooftops = await caller.admin.getGroupRooftops({ groupId: 1 });
+    expect(rooftops).toHaveLength(1);
+    expect(rooftops[0].name).toBe("Store A");
+  });
+});
+
+describe("multi-tenant data scoping", () => {
+  it("super admin sees all users via listUsers", async () => {
+    const { getAllUsers } = await import("./db");
+    vi.mocked(getAllUsers).mockResolvedValueOnce([
+      { id: 1, name: "User 1" },
+      { id: 2, name: "User 2" },
+    ] as any);
+    const caller = appRouter.createCaller(makeSuperAdminCtx());
+    const users = await caller.admin.listUsers();
+    expect(getAllUsers).toHaveBeenCalled();
+    expect(users).toHaveLength(2);
+  });
+
+  it("group admin sees scoped users via listUsers", async () => {
+    const { getUserAccessibleDealershipIds, getAllUsersByDealershipIds } = await import("./db");
+    vi.mocked(getUserAccessibleDealershipIds).mockResolvedValueOnce([1, 2]);
+    vi.mocked(getAllUsersByDealershipIds).mockResolvedValueOnce([{ id: 1, name: "Scoped User" }] as any);
+    const caller = appRouter.createCaller(makeGroupAdminCtx());
+    const users = await caller.admin.listUsers();
+    expect(getUserAccessibleDealershipIds).toHaveBeenCalledWith(1);
+    expect(getAllUsersByDealershipIds).toHaveBeenCalledWith([1, 2]);
+    expect(users).toHaveLength(1);
+  });
+
+  it("group admin sees scoped sessions via allSessions", async () => {
+    const { getUserAccessibleDealershipIds, getAllSessionsByDealershipIds } = await import("./db");
+    vi.mocked(getUserAccessibleDealershipIds).mockResolvedValueOnce([1, 2]);
+    vi.mocked(getAllSessionsByDealershipIds).mockResolvedValueOnce([{ id: 1, status: "completed" }] as any);
+    const caller = appRouter.createCaller(makeGroupAdminCtx());
+    const sessions = await caller.admin.allSessions({ limit: 50, offset: 0 });
+    expect(getUserAccessibleDealershipIds).toHaveBeenCalledWith(1);
+    expect(getAllSessionsByDealershipIds).toHaveBeenCalledWith([1, 2], 50, 0);
+  });
+});
