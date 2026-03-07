@@ -122,6 +122,38 @@ async function startServer() {
     console.log(`Server running on http://localhost:${port}/`);
   });
 
+  // ─── CFPB: Periodic retention cleanup (every 6 hours) ─────────────────────
+  const RETENTION_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+  const runRetentionCleanup = async () => {
+    try {
+      // Dynamic import to avoid circular dependency at module load time
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dbMod: any = await import("../db.js");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const storageMod: any = await import("../storage.js");
+      const expired: { id: number; sessionId: number; fileKey: string }[] = await dbMod.getExpiredRecordings(100);
+      if (expired.length === 0) return;
+      const sessionIds = Array.from(new Set(expired.map((r: { sessionId: number }) => r.sessionId)));
+      console.log(`[Retention] Found ${expired.length} expired recordings across ${sessionIds.length} sessions. Cleaning up...`);
+      for (const sid of sessionIds) {
+        try {
+          const result = await dbMod.deleteSessionData(sid);
+          for (const fk of result.recordings.fileKeys) {
+            try { await storageMod.storageDelete(fk); } catch { /* continue */ }
+          }
+          console.log(`[Retention] Deleted session ${sid}`);
+        } catch (err) {
+          console.error(`[Retention] Failed to delete session ${sid}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[Retention] Cleanup error:", err);
+    }
+  };
+  // Run once at startup (after 30s delay), then every 6 hours
+  setTimeout(runRetentionCleanup, 30_000);
+  const retentionTimer = setInterval(runRetentionCleanup, RETENTION_INTERVAL_MS);
+
   // Graceful shutdown
   const shutdown = (signal: string) => {
     console.log(`${signal} received, shutting down gracefully...`);

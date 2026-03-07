@@ -203,14 +203,14 @@ describe("sessions.create", () => {
       durationSeconds: null, notes: null, updatedAt: new Date(),
     }]);
     const caller = appRouter.createCaller(makeCtx());
-    const session = await caller.sessions.create({ customerName: "John Smith", dealType: "retail_finance" });
+    const session = await caller.sessions.create({ customerName: "John Smith", dealType: "retail_finance", consentObtained: true, consentMethod: "verbal" });
     expect(session?.id).toBe(1);
     expect(session?.status).toBe("active");
   });
 
   it("throws UNAUTHORIZED when not logged in", async () => {
     const caller = appRouter.createCaller(makeCtx({ user: null }));
-    await expect(caller.sessions.create({ dealType: "retail_finance" })).rejects.toThrow();
+    await expect(caller.sessions.create({ dealType: "retail_finance", consentObtained: true, consentMethod: "verbal" })).rejects.toThrow();
   });
 
   it("creates a session with customer name and deal number", async () => {
@@ -229,6 +229,7 @@ describe("sessions.create", () => {
       vehicleType: "new",
       dealType: "lease",
       consentObtained: true,
+      consentMethod: "verbal",
     });
     expect(session?.id).toBe(2);
   });

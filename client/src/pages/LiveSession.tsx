@@ -154,6 +154,7 @@ export default function LiveSession() {
   const [vehicleType, setVehicleType] = useState<"new" | "used" | "cpo">("new");
   const [dealType, setDealType] = useState<"retail_finance" | "lease" | "cash">("retail_finance");
   const [consentObtained, setConsentObtained] = useState(false);
+  const [consentMethod, setConsentMethod] = useState<"verbal" | "written" | "electronic">("verbal");
 
   // Session state
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -626,8 +627,8 @@ export default function LiveSession() {
         dealNumber: dealNumber || undefined,
         vehicleType,
         dealType,
-        consentObtained: true,
-        consentMethod: "verbal",
+        consentObtained: true as const,
+        consentMethod,
       });
 
       if (!session) throw new Error("Failed to create session");
@@ -968,23 +969,61 @@ export default function LiveSession() {
                 </div>
               </div>
 
-              {/* Consent */}
-              <div className={cn(
-                "p-4 rounded-xl border-2 transition-colors cursor-pointer",
-                consentObtained ? "border-green-500/40 bg-green-500/5" : "border-border bg-accent/30"
-              )} onClick={() => setConsentObtained(!consentObtained)}>
-                <div className="flex items-start gap-3">
-                  <div className={cn(
-                    "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5",
-                    consentObtained ? "bg-green-500 border-green-500" : "border-border"
-                  )}>
-                    {consentObtained && <CheckCircle2 className="w-3 h-3 text-white" />}
+              {/* CFPB Disclosure & Consent */}
+              <div className="space-y-3">
+                {/* CFPB Disclosure Banner */}
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-400">CFPB Recording Disclosure</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This session will be recorded and transcribed. Customer data is encrypted at rest (AES-256-GCM) and audio files are automatically deleted after 90 days per CFPB data-retention guidelines. The customer must be informed and provide consent before recording begins.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Recording Consent Obtained</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      I confirm that the customer has been verbally informed that this interaction will be recorded for quality and training purposes, as required by applicable state recording consent laws.
-                    </p>
+                </div>
+
+                {/* Consent Method */}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Consent Method</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["verbal", "written", "electronic"] as const).map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        className={cn(
+                          "px-3 py-2 rounded-lg text-xs font-medium border transition-colors capitalize",
+                          consentMethod === method
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-accent/30 text-muted-foreground hover:bg-accent/50"
+                        )}
+                        onClick={() => setConsentMethod(method)}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Consent Checkbox */}
+                <div className={cn(
+                  "p-4 rounded-xl border-2 transition-colors cursor-pointer",
+                  consentObtained ? "border-green-500/40 bg-green-500/5" : "border-border bg-accent/30"
+                )} onClick={() => setConsentObtained(!consentObtained)}>
+                  <div className="flex items-start gap-3">
+                    <div className={cn(
+                      "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5",
+                      consentObtained ? "bg-green-500 border-green-500" : "border-border"
+                    )}>
+                      {consentObtained && <CheckCircle2 className="w-3 h-3 text-white" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Recording Consent Obtained</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        I confirm that the customer has been informed via <span className="font-medium text-foreground capitalize">{consentMethod}</span> consent that this interaction will be recorded for quality and training purposes, as required by applicable state recording consent laws and CFPB guidelines.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

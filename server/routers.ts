@@ -81,10 +81,13 @@ import {
   getAllUsersByDealershipIds,
   getAllSessionsByDealershipIds,
   getGroupIdForUser,
+  deleteSessionData,
+  getExpiredRecordings,
+  setRecordingRetention,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { transcribeAudio } from "./_core/voiceTranscription";
-import { storagePut } from "./storage";
+import { storagePut, storageDelete } from "./storage";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
@@ -624,12 +627,24 @@ export const appRouter = router({
         dealNumber: z.string().optional(),
         vehicleType: z.enum(["new", "used", "cpo"]).optional(),
         dealType: z.enum(["retail_finance", "lease", "cash"]).optional(),
-        consentObtained: z.boolean().default(false),
-        consentMethod: z.string().optional(),
+        consentObtained: z.literal(true, { message: "Recording consent is required" }),
+        consentMethod: z.enum(["verbal", "written", "electronic"]),
       }))
       .mutation(async ({ ctx, input }) => {
-        await createSession({ userId: ctx.user.id, dealershipId: ctx.user.dealershipId ?? null, ...input });
-        await insertAuditLog({ userId: ctx.user.id, action: "session.create", resourceType: "session", details: input });
+        const consentTimestamp = new Date();
+        await createSession({
+          userId: ctx.user.id,
+          dealershipId: ctx.user.dealershipId ?? null,
+          ...input,
+          consentObtained: true as boolean,
+          consentTimestamp,
+        });
+        await insertAuditLog({
+          userId: ctx.user.id,
+          action: "session.create",
+          resourceType: "session",
+          details: { ...input, consentTimestamp: consentTimestamp.toISOString() },
+        });
         const sessions = await getSessionsByUserId(ctx.user.id, 1, 0);
         return sessions[0];
       }),
@@ -661,6 +676,43 @@ export const appRouter = router({
         await endSession(input.id, input.durationSeconds);
         await insertAuditLog({ userId: ctx.user.id, action: "session.end", resourceType: "session", resourceId: String(input.id) });
         return { success: true };
+      }),
+
+    // CFPB: Delete session and all related data (cascade)
+    delete: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        reason: z.string().min(1).max(500),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        if (ctx.user.role !== "admin" && !ctx.user.isSuperAdmin && session.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to delete this session" });
+        }
+
+        const deletionSummary = await deleteSessionData(input.sessionId);
+
+        // Delete audio files from S3
+        const storageErrors: string[] = [];
+        for (const fileKey of deletionSummary.recordings.fileKeys) {
+          try {
+            await storageDelete(fileKey);
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            storageErrors.push(`${fileKey}: ${errMsg}`);
+          }
+        }
+
+        await insertAuditLog({
+          userId: ctx.user.id,
+          action: "session.delete",
+          resourceType: "session",
+          resourceId: String(input.sessionId),
+          details: { reason: input.reason, deletionSummary, storageErrors: storageErrors.length > 0 ? storageErrors : undefined },
+        });
+
+        return { success: true, deletionSummary, storageErrors };
       }),
 
     getWithDetails: protectedProcedure
@@ -971,7 +1023,7 @@ export const appRouter = router({
         const fileKey = `recordings/${ctx.user.id}/${input.sessionId}/${Date.now()}-${input.fileName}`;
         const { url } = await storagePut(fileKey, buffer, input.mimeType);
 
-        await insertRecording({
+        const recResult = await insertRecording({
           sessionId: input.sessionId,
           userId: ctx.user.id,
           fileKey,
@@ -980,6 +1032,10 @@ export const appRouter = router({
           mimeType: input.mimeType,
           fileSizeBytes: input.fileSizeBytes,
         });
+
+        // CFPB: Set default 90-day retention period
+        const recId = recResult?.insertId;
+        if (recId) await setRecordingRetention(Number(recId), 90);
 
         await insertAuditLog({ userId: ctx.user.id, action: "recording.upload", resourceType: "session", resourceId: String(input.sessionId), details: { fileName: input.fileName, fileSizeBytes: input.fileSizeBytes } });
         const recordings = await getRecordingsBySession(input.sessionId);
@@ -1307,6 +1363,41 @@ export const appRouter = router({
           return getAuditLogs(input.limit, input.offset, userIds.length > 0 ? userIds : null);
         }
         return getAuditLogs(input.limit, input.offset, [ctx.user.id]);
+      }),
+
+    // CFPB: Enforce data retention policy — delete expired recordings
+    enforceRetention: adminProcedure
+      .input(z.object({ dryRun: z.boolean().default(true) }).optional())
+      .mutation(async ({ ctx, input }) => {
+        const expired = await getExpiredRecordings(200);
+        if (expired.length === 0) return { processed: 0, sessionIds: [] as number[] };
+
+        const dryRun = input?.dryRun ?? true;
+        const sessionIds = Array.from(new Set(expired.map((r) => r.sessionId)));
+
+        if (dryRun) return { dryRun: true, expiredCount: expired.length, sessionIds };
+
+        let processed = 0;
+        for (const sid of sessionIds) {
+          try {
+            const result = await deleteSessionData(sid);
+            for (const fk of result.recordings.fileKeys) {
+              try { await storageDelete(fk); } catch { /* log but continue */ }
+            }
+            await insertAuditLog({
+              userId: ctx.user.id,
+              action: "retention.enforce",
+              resourceType: "session",
+              resourceId: String(sid),
+              details: { deletionSummary: result },
+            });
+            processed++;
+          } catch (err) {
+            console.error(`[Retention] Failed to delete session ${sid}:`, err);
+          }
+        }
+
+        return { dryRun: false, processed, sessionIds };
       }),
 
     allSessions: adminProcedure

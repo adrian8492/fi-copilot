@@ -558,9 +558,19 @@
 - [x] Phase 5: Security headers + rate limiting — helmet (CSP disabled for Vite), express-rate-limit on /api/trpc (200/15m) and /api/session (100/15m), trust proxy enabled
 - [x] Phase 6: Client-side auth for HTTP fallback — credentials: include on all 6 fetch calls, removed userId from /start body
 - [x] Run pnpm check — 0 TS errors
-- [x] Run pnpm test — 197/197 passing (updated http-stream tests with SDK mock + auth)
-
-## Performance + SEO/AEO/GEO/Schema Optimization (Mar 7)
+- [x] Run pnpm test — 197/197 passing (updated http-stream tests with SDK mock + auth- [x] Performance + SEO/AEO/GEO/Schema optimization
+- [x] Fix "No transcript available to grade" error on /compare page (actually SessionDetail)
+- [x] CFPB Step 1: Create encryption module (server/_core/encryption.ts)
+- [x] CFPB Step 2: Add ENCRYPTION_KEY to env
+- [x] CFPB Step 3: Update schema — consentTimestamp + varchar(512) for customerName
+- [x] CFPB Step 4: Add storageDelete function
+- [x] CFPB Step 5: Update DB layer with encryption + deletion + retention
+- [x] CFPB Step 6: Update routers — consent enforcement, delete mutation, retention
+- [x] CFPB Step 7: Add consent gate to WebSocket
+- [x] CFPB Step 8: Add consent gate to HTTP stream
+- [x] CFPB Step 9: Update LiveSession UI with CFPB disclosure + consent method
+- [x] CFPB Step 10: Add periodic retention cleanup (Mar 7)
+- [x] CFPB: All vitest tests passing (209/209)
 - [x] Audit: main bundle was 2.6MB (692KB gzipped), no compression, no caching, no meta tags
 - [x] Server: gzip compression (level 6, threshold 1KB, SSE excluded)
 - [x] Server: Static asset caching (365d immutable for /assets, 1h for others, no-cache for HTML)

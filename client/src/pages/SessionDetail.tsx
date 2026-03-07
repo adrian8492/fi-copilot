@@ -434,14 +434,29 @@ export default function SessionDetail() {
                 <CardContent className="py-12 text-center">
                   <Star className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
                   <p className="text-sm font-medium text-muted-foreground mb-4">No grade generated yet</p>
-                  <Button
-                    onClick={() => generateGrade.mutate({ sessionId })}
-                    disabled={generateGrade.isPending}
-                    className="gap-2"
-                  >
-                    <RefreshCw className={cn("w-4 h-4", generateGrade.isPending && "animate-spin")} />
-                    {generateGrade.isPending ? "Generating..." : "Generate Grade"}
-                  </Button>
+                  {transcripts && transcripts.length > 0 ? (
+                    <Button
+                      onClick={() => generateGrade.mutate({ sessionId })}
+                      disabled={generateGrade.isPending}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", generateGrade.isPending && "animate-spin")} />
+                      {generateGrade.isPending ? "Generating..." : "Generate Grade"}
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">A transcript is required before grading. Record a session or upload audio first.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 text-muted-foreground"
+                        disabled
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Generate Grade
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -789,16 +804,31 @@ export default function SessionDetail() {
             ) : (
               <Card className="bg-card border-border">
                 <CardContent className="py-12 text-center">
-                  <TrendingUp className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-                  <p className="text-sm font-medium text-muted-foreground mb-4">No coaching report generated yet</p>
-                  <Button
-                    onClick={() => generateCoaching.mutate({ sessionId })}
-                    disabled={generateCoaching.isPending}
-                    className="gap-2"
-                  >
-                    <RefreshCw className={cn("w-4 h-4", generateCoaching.isPending && "animate-spin")} />
-                    {generateCoaching.isPending ? "Generating..." : "Generate Coaching Report"}
-                  </Button>
+                  <Star className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+                  <p className="text-sm font-medium text-muted-foreground mb-4">No grade generated yet</p>
+                  {transcripts && transcripts.length > 0 ? (
+                    <Button
+                      onClick={() => generateGrade.mutate({ sessionId })}
+                      disabled={generateGrade.isPending}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", generateGrade.isPending && "animate-spin")} />
+                      {generateGrade.isPending ? "Generating..." : "Generate Grade"}
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">A transcript is required before grading. Record a session or upload audio first.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 text-muted-foreground"
+                        disabled
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Generate Grade
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

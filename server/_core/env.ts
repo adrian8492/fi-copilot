@@ -8,4 +8,5 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   deepgramApiKey: process.env.DEEPGRAM_API_KEY ?? "",
+  encryptionKey: process.env.ENCRYPTION_KEY ?? "",
 };

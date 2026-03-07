@@ -527,12 +527,15 @@ export function setupWebSocketServer(server: HttpServer) {
           }
           // Validate session ownership: the authenticated user must own this session
           const wsUser = (ws as any).__user as User | null;
-          if (wsUser) {
-            const session = await getSessionById(msg.sessionId);
-            if (session && session.userId !== wsUser.id) {
-              send({ type: "error", message: "Not authorized for this session" });
-              return;
-            }
+          const wsSession = await getSessionById(msg.sessionId);
+          if (wsUser && wsSession && wsSession.userId !== wsUser.id) {
+            send({ type: "error", message: "Not authorized for this session" });
+            return;
+          }
+          // CFPB: Block recording unless consent was obtained
+          if (wsSession && !wsSession.consentObtained) {
+            send({ type: "error", message: "CONSENT_REQUIRED: Recording consent must be obtained before streaming." });
+            return;
           }
           const state: SessionState = {
             sessionId: msg.sessionId,

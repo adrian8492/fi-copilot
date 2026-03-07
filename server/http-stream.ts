@@ -440,11 +440,13 @@ export function createHttpStreamRouter(): Router {
     }
 
     // Validate session ownership
-    if (authUser) {
-      const session = await getSessionById(sessionId);
-      if (session && session.userId !== authUser.id) {
-        return res.status(403).json({ error: "Not authorized for this session" });
-      }
+    const session = authUser ? await getSessionById(sessionId) : null;
+    if (authUser && session && session.userId !== authUser.id) {
+      return res.status(403).json({ error: "Not authorized for this session" });
+    }
+    // CFPB: Block recording unless consent was obtained
+    if (session && !session.consentObtained) {
+      return res.status(403).json({ error: "CONSENT_REQUIRED: Recording consent must be obtained before streaming." });
     }
 
     const token = generateToken();

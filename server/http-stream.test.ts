@@ -26,7 +26,7 @@ vi.mock("./db", () => ({
   insertTranscript: vi.fn().mockResolvedValue(undefined),
   insertComplianceFlag: vi.fn().mockResolvedValue(undefined),
   insertCopilotSuggestion: vi.fn().mockResolvedValue(undefined),
-  getSessionById: vi.fn().mockResolvedValue({ id: 1, userId: 42, dealershipId: 1 }),
+  getSessionById: vi.fn().mockResolvedValue({ id: 1, userId: 42, dealershipId: 1, consentObtained: true }),
 }));
 
 // Mock the ASURA engine

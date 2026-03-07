@@ -22,6 +22,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -125,10 +126,12 @@ export async function createSession(data: {
   dealType?: "retail_finance" | "lease" | "cash";
   consentObtained?: boolean;
   consentMethod?: string;
+  consentTimestamp?: Date;
 }) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(sessions).values({ ...data, status: "active" });
+  const encData = { ...data, customerName: encrypt(data.customerName ?? null) ?? undefined, status: "active" as const };
+  const result = await db.insert(sessions).values(encData);
   return result[0];
 }
 
@@ -136,13 +139,15 @@ export async function getSessionById(id: number) {
   const db = await getDb();
   if (!db) return null;
   const result = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
-  return result[0] ?? null;
+  const row = result[0] ?? null;
+  return row ? decryptFields(row, ["customerName"]) : null;
 }
 
 export async function getSessionsByUserId(userId: number, limit = 50, offset = 0) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(sessions).where(eq(sessions.userId, userId)).orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
+  const rows = await db.select().from(sessions).where(eq(sessions.userId, userId)).orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
+  return decryptRows(rows, ["customerName"]);
 }
 
 export async function getAllSessions(limit = 100, offset = 0, dealershipId?: number | null) {
@@ -150,7 +155,8 @@ export async function getAllSessions(limit = 100, offset = 0, dealershipId?: num
   if (!db) return [];
   const q = db.select().from(sessions);
   const filtered = dealershipId != null ? q.where(eq(sessions.dealershipId, dealershipId)) : q;
-  return filtered.orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
+  const rows = await filtered.orderBy(desc(sessions.startedAt)).limit(limit).offset(offset);
+  return decryptRows(rows, ["customerName"]);
 }
 
 export async function endSession(id: number, durationSeconds: number) {
@@ -181,7 +187,8 @@ export async function insertTranscript(data: {
       console.error("[Database] insertTranscript: DB unavailable");
       return false;
     }
-    await db.insert(transcripts).values(data);
+    const encData = { ...data, text: encrypt(data.text) ?? data.text };
+    await db.insert(transcripts).values(encData);
     return true;
   }).catch((err) => {
     console.error("[Database] insertTranscript failed after retries:", err);
@@ -192,7 +199,8 @@ export async function insertTranscript(data: {
 export async function getTranscriptsBySession(sessionId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(transcripts).where(eq(transcripts.sessionId, sessionId)).orderBy(transcripts.startTime);
+  const rows = await db.select().from(transcripts).where(eq(transcripts.sessionId, sessionId)).orderBy(transcripts.startTime);
+  return decryptRows(rows, ["text"]);
 }
 
 export async function deleteTranscriptsBySession(sessionId: number): Promise<number> {
@@ -205,12 +213,21 @@ export async function deleteTranscriptsBySession(sessionId: number): Promise<num
 export async function searchTranscripts(query: string, userId?: number) {
   const db = await getDb();
   if (!db) return [];
+  // text is encrypted — can't use SQL LIKE. Fetch, decrypt, filter client-side.
+  let rows;
   if (userId) {
     const userSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId));
     const sessionIds = userSessions.map((s) => s.id);
     if (sessionIds.length === 0) return [];
+    rows = await db.select().from(transcripts).where(inArray(transcripts.sessionId, sessionIds)).limit(500);
+  } else {
+    rows = await db.select().from(transcripts).limit(500);
   }
-  return db.select().from(transcripts).where(like(transcripts.text, `%${query}%`)).limit(50);
+  const decrypted = decryptRows(rows, ["text"]);
+  const lowerQuery = query.toLowerCase();
+  return decrypted
+    .filter((t) => t.text && String(t.text).toLowerCase().includes(lowerQuery))
+    .slice(0, 50);
 }
 
 // ─── Copilot Suggestions ──────────────────────────────────────────────────────
@@ -248,13 +265,15 @@ export async function insertComplianceFlag(data: {
 }) {
   const db = await getDb();
   if (!db) return;
-  await db.insert(complianceFlags).values(data);
+  const encData = { ...data, excerpt: encrypt(data.excerpt ?? null) ?? undefined };
+  await db.insert(complianceFlags).values(encData);
 }
 
 export async function getFlagsBySession(sessionId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(complianceFlags).where(eq(complianceFlags.sessionId, sessionId)).orderBy(complianceFlags.createdAt);
+  const rows = await db.select().from(complianceFlags).where(eq(complianceFlags.sessionId, sessionId)).orderBy(complianceFlags.createdAt);
+  return decryptRows(rows, ["excerpt"]);
 }
 
 export async function resolveFlag(flagId: number, resolvedBy: number) {
@@ -317,20 +336,23 @@ export async function insertRecording(data: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(audioRecordings).values({ ...data, status: "uploaded" });
+  const encData = { ...data, fileUrl: encrypt(data.fileUrl) ?? data.fileUrl };
+  const result = await db.insert(audioRecordings).values({ ...encData, status: "uploaded" });
   return result[0];
 }
 
 export async function getRecordingsBySession(sessionId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(audioRecordings).where(eq(audioRecordings.sessionId, sessionId));
+  const rows = await db.select().from(audioRecordings).where(eq(audioRecordings.sessionId, sessionId));
+  return decryptRows(rows, ["fileUrl"]);
 }
 
 export async function getRecordingsByUser(userId: number, limit = 50) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(audioRecordings).where(eq(audioRecordings.userId, userId)).orderBy(desc(audioRecordings.createdAt)).limit(limit);
+  const rows = await db.select().from(audioRecordings).where(eq(audioRecordings.userId, userId)).orderBy(desc(audioRecordings.createdAt)).limit(limit);
+  return decryptRows(rows, ["fileUrl"]);
 }
 
 export async function updateRecordingStatus(id: number, status: "uploaded" | "processing" | "transcribed" | "failed") {
@@ -1194,19 +1216,39 @@ export async function updateSessionNotes(sessionId: number, notes: string) {
 export async function searchSessions(query: string, userId: number, limit: number = 20) {
   const db = await getDb();
   if (!db) return [];
-  return await db.select()
+  // customerName is encrypted — can't use SQL LIKE on it.
+  // Fetch by user + dealNumber LIKE, then decrypt and filter client-side.
+  const byDealNumber = await db.select()
     .from(sessions)
     .where(
       and(
         eq(sessions.userId, userId),
-        or(
-          like(sessions.customerName, `%${query}%`),
-          like(sessions.dealNumber, `%${query}%`)
-        )
+        like(sessions.dealNumber, `%${query}%`)
       )
     )
     .orderBy(desc(sessions.startedAt))
     .limit(limit);
+  // Also fetch recent sessions and filter by decrypted customerName
+  const recentSessions = await db.select()
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+    .orderBy(desc(sessions.startedAt))
+    .limit(500);
+  const decrypted = decryptRows(recentSessions, ["customerName"]);
+  const lowerQuery = query.toLowerCase();
+  const byName = decrypted.filter(
+    (s) => s.customerName && String(s.customerName).toLowerCase().includes(lowerQuery)
+  );
+  // Merge results, deduplicate by id, limit
+  const seen = new Set<number>();
+  const merged = [];
+  for (const row of [...byDealNumber, ...byName]) {
+    if (!seen.has(row.id)) {
+      seen.add(row.id);
+      merged.push(row);
+    }
+  }
+  return decryptRows(merged.slice(0, limit), ["customerName"]);
 }
 
 export async function getComplianceTrend(userId: number, days: number) {
@@ -1306,21 +1348,23 @@ export async function getSessionComparison(sessionId1: number, sessionId2: numbe
     .leftJoin(performanceGrades, eq(performanceGrades.sessionId, sessions.id))
     .where(eq(sessions.id, sessionId2));
 
-  return {
-    session1: session1[0] || null,
-    session2: session2[0] || null
-  };
+  const s1 = session1[0] || null;
+  const s2 = session2[0] || null;
+  if (s1?.sessions) s1.sessions = decryptFields(s1.sessions, ["customerName"]);
+  if (s2?.sessions) s2.sessions = decryptFields(s2.sessions, ["customerName"]);
+  return { session1: s1, session2: s2 };
 }
 
 export async function getSessionsByIds(ids: number[]) {
   if (ids.length === 0) return [];
   const db = await getDb();
   if (!db) return [];
-  return db
+  const rows = await db
     .select()
     .from(sessions)
     .leftJoin(performanceGrades, eq(sessions.id, performanceGrades.sessionId))
     .where(inArray(sessions.id, ids));
+  return rows.map((r) => ({ ...r, sessions: decryptFields(r.sessions, ["customerName"]) }));
 }
 
 export async function getComplianceFlags(fromDate?: string, toDate?: string) {
@@ -1329,11 +1373,12 @@ export async function getComplianceFlags(fromDate?: string, toDate?: string) {
   const conditions = [];
   if (fromDate) conditions.push(sql`${complianceFlags.createdAt} >= ${new Date(fromDate)}`);
   if (toDate) conditions.push(sql`${complianceFlags.createdAt} <= ${new Date(toDate)}`);
-  return db
+  const rows = await db
     .select()
     .from(complianceFlags)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(complianceFlags.createdAt));
+  return decryptRows(rows, ["excerpt"]);
 }
 
 // ─── Dealership Groups (Multi-Tenant) ────────────────────────────────────────
@@ -1472,11 +1517,81 @@ export async function getAllSessionsByDealershipIds(dealershipIds: number[], lim
   if (dealershipIds.length === 0) return [];
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(sessions)
+  const rows = await db.select().from(sessions)
     .where(inArray(sessions.dealershipId, dealershipIds))
     .orderBy(desc(sessions.startedAt))
     .limit(limit)
     .offset(offset);
+  return decryptRows(rows, ["customerName"]);
+}
+
+/**
+ * CFPB-compliant cascade deletion: removes ALL data associated with a session.
+ * Returns summary of deleted row counts and audio file keys for S3 cleanup.
+ */
+export async function deleteSessionData(sessionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+
+  // Fetch audio file keys before deleting rows (needed for S3 cleanup)
+  const recordings = await db
+    .select({ id: audioRecordings.id, fileKey: audioRecordings.fileKey })
+    .from(audioRecordings)
+    .where(eq(audioRecordings.sessionId, sessionId));
+  const fileKeys = recordings.map((r) => r.fileKey);
+
+  // Delete child records in dependency order
+  const [txResult] = await db.delete(transcripts).where(eq(transcripts.sessionId, sessionId));
+  const [sugResult] = await db.delete(copilotSuggestions).where(eq(copilotSuggestions.sessionId, sessionId));
+  const [flagResult] = await db.delete(complianceFlags).where(eq(complianceFlags.sessionId, sessionId));
+  const [gradeResult] = await db.delete(performanceGrades).where(eq(performanceGrades.sessionId, sessionId));
+  const [reportResult] = await db.delete(coachingReports).where(eq(coachingReports.sessionId, sessionId));
+  const [recResult] = await db.delete(audioRecordings).where(eq(audioRecordings.sessionId, sessionId));
+  const [checkResult] = await db.delete(sessionChecklists).where(eq(sessionChecklists.sessionId, sessionId));
+  const [objResult] = await db.delete(objectionLogs).where(eq(objectionLogs.sessionId, sessionId));
+
+  // Delete the session itself
+  const [sessResult] = await db.delete(sessions).where(eq(sessions.id, sessionId));
+
+  return {
+    transcripts: txResult?.affectedRows ?? 0,
+    suggestions: sugResult?.affectedRows ?? 0,
+    complianceFlags: flagResult?.affectedRows ?? 0,
+    grades: gradeResult?.affectedRows ?? 0,
+    reports: reportResult?.affectedRows ?? 0,
+    recordings: { count: recResult?.affectedRows ?? 0, fileKeys },
+    checklists: checkResult?.affectedRows ?? 0,
+    objections: objResult?.affectedRows ?? 0,
+    session: (sessResult?.affectedRows ?? 0) > 0,
+  };
+}
+
+/**
+ * Find audio recordings where retentionExpiresAt has passed.
+ */
+export async function getExpiredRecordings(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: audioRecordings.id,
+      sessionId: audioRecordings.sessionId,
+      fileKey: audioRecordings.fileKey,
+    })
+    .from(audioRecordings)
+    .where(lte(audioRecordings.retentionExpiresAt, new Date()))
+    .limit(limit);
+}
+
+/**
+ * Set retention expiry on a recording.
+ */
+export async function setRecordingRetention(recordingId: number, retentionDays: number = 90) {
+  const db = await getDb();
+  if (!db) return;
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + retentionDays);
+  await db.update(audioRecordings).set({ retentionExpiresAt: expiresAt }).where(eq(audioRecordings.id, recordingId));
 }
 
 export async function getGroupIdForUser(userId: number): Promise<number | null> {
