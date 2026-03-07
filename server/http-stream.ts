@@ -11,9 +11,11 @@
  * Internally reuses the same Deepgram + ASURA engine logic from websocket.ts.
  */
 
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
-import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript } from "./db";
+import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById } from "./db";
+import { sdk } from "./_core/sdk";
+import type { User } from "../drizzle/schema";
 import {
   asuraQuickTrigger,
   asuraComplianceCheck,
@@ -417,11 +419,32 @@ function scheduleReconnect(state: StreamSession) {
 export function createHttpStreamRouter(): Router {
   const router = Router();
 
+  // ─── Auth middleware: authenticate all HTTP-stream requests ────────────────
+  const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await sdk.authenticateRequest(req as any);
+      (req as any).__user = user;
+      next();
+    } catch {
+      res.status(401).json({ error: "Authentication required" });
+    }
+  };
+
   // POST /api/session/start — Initialize an HTTP-stream session
-  router.post("/start", (req: Request, res: Response) => {
-    const { sessionId, userId } = req.body;
+  router.post("/start", requireAuth, async (req: Request, res: Response) => {
+    const { sessionId } = req.body;
+    const authUser = (req as any).__user as User;
+    const userId = authUser?.id ?? req.body.userId;
     if (!sessionId || !userId) {
-      return res.status(400).json({ error: "sessionId and userId required" });
+      return res.status(400).json({ error: "sessionId required" });
+    }
+
+    // Validate session ownership
+    if (authUser) {
+      const session = await getSessionById(sessionId);
+      if (session && session.userId !== authUser.id) {
+        return res.status(403).json({ error: "Not authorized for this session" });
+      }
     }
 
     const token = generateToken();

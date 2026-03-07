@@ -38,8 +38,9 @@ export default function PipelineDiagnostics() {
     refetch();
   };
 
-  const overallColor = data?.status === "healthy" ? "text-emerald-400" : data?.status === "degraded" ? "text-amber-400" : "text-red-400";
-  const overallBg = data?.status === "healthy" ? "bg-emerald-500/10 border-emerald-500/30" : data?.status === "degraded" ? "bg-amber-500/10 border-amber-500/30" : "bg-red-500/10 border-red-500/30";
+  const isHealthy = data?.status === "healthy" || data?.status === "operational";
+  const overallColor = isHealthy ? "text-emerald-400" : data?.status === "degraded" ? "text-amber-400" : "text-red-400";
+  const overallBg = isHealthy ? "bg-emerald-500/10 border-emerald-500/30" : data?.status === "degraded" ? "bg-amber-500/10 border-amber-500/30" : "bg-red-500/10 border-red-500/30";
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -73,7 +74,7 @@ export default function PipelineDiagnostics() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`text-3xl font-bold ${overallColor}`}>
-                    {data.status === "healthy" ? "✓" : data.status === "degraded" ? "⚠" : "✗"}
+                    {isHealthy ? "✓" : data.status === "degraded" ? "⚠" : "✗"}
                   </div>
                   <div>
                     <div className={`text-lg font-semibold ${overallColor} uppercase`}>

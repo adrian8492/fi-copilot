@@ -767,8 +767,10 @@ function GroupCard({ group, dealerships, onToggle }: {
 // ─── SystemHealthPanel sub-component ──────────────────────────────────────────
 function SystemHealthPanel() {
   const { data, isLoading, refetch } = trpc.admin.systemValidation.useQuery();
-  const statusColor = data?.status === "healthy" ? "text-green-400" : data?.status === "degraded" ? "text-yellow-400" : "text-red-400";
-  const statusBg = data?.status === "healthy" ? "bg-green-500/10 border-green-500/30" : data?.status === "degraded" ? "bg-yellow-500/10 border-yellow-500/30" : "bg-red-500/10 border-red-500/30";
+  const statusStr = data?.status as string | undefined;
+  const isHealthy = statusStr === "healthy" || statusStr === "operational";
+  const statusColor = isHealthy ? "text-green-400" : data?.status === "degraded" ? "text-yellow-400" : "text-red-400";
+  const statusBg = isHealthy ? "bg-green-500/10 border-green-500/30" : data?.status === "degraded" ? "bg-yellow-500/10 border-yellow-500/30" : "bg-red-500/10 border-red-500/30";
 
   return (
     <div className="space-y-4">
@@ -785,10 +787,10 @@ function SystemHealthPanel() {
       {data && (
         <>
           <div className={cn("flex items-center gap-3 p-4 rounded-xl border", statusBg)}>
-            {data.status === "healthy" ? <CheckCircle2 className="w-6 h-6 text-green-400" /> : data.status === "degraded" ? <Activity className="w-6 h-6 text-yellow-400" /> : <XCircle className="w-6 h-6 text-red-400" />}
+            {isHealthy ? <CheckCircle2 className="w-6 h-6 text-green-400" /> : data.status === "degraded" ? <Activity className="w-6 h-6 text-yellow-400" /> : <XCircle className="w-6 h-6 text-red-400" />}
             <div>
               <p className={cn("font-semibold text-lg", statusColor)}>
-                {data.status === "healthy" ? "All Systems Operational" : data.status === "degraded" ? "Degraded Performance" : "System Error"}
+                {isHealthy ? "All Systems Operational" : data.status === "degraded" ? "Degraded Performance" : "System Error"}
               </p>
               <p className="text-xs text-muted-foreground">Last checked: {new Date(data.timestamp).toLocaleString()}</p>
             </div>

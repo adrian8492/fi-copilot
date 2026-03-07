@@ -3,11 +3,30 @@ import express from "express";
 import request from "supertest";
 import { createHttpStreamRouter } from "./http-stream";
 
-// Mock the database functions
+// Database mock moved below SDK mock to include getSessionById
+
+// Mock the SDK for auth
+vi.mock("./_core/sdk", () => ({
+  sdk: {
+    authenticateRequest: vi.fn().mockResolvedValue({
+      id: 42,
+      openId: "test-open-id",
+      name: "Test User",
+      email: "test@example.com",
+      role: "admin",
+      dealershipId: 1,
+      isSuperAdmin: false,
+      isGroupAdmin: false,
+    }),
+  },
+}));
+
+// Mock getSessionById to return a session owned by userId 42
 vi.mock("./db", () => ({
   insertTranscript: vi.fn().mockResolvedValue(undefined),
   insertComplianceFlag: vi.fn().mockResolvedValue(undefined),
   insertCopilotSuggestion: vi.fn().mockResolvedValue(undefined),
+  getSessionById: vi.fn().mockResolvedValue({ id: 1, userId: 42, dealershipId: 1 }),
 }));
 
 // Mock the ASURA engine
@@ -81,13 +100,13 @@ describe("HTTP Stream Endpoints", () => {
       expect(res.body.transcriptionMode).toBeDefined();
     });
 
-    it("should return 400 when sessionId or userId is missing", async () => {
+    it("should return 400 when sessionId is missing", async () => {
       const res = await request(app)
         .post("/api/session/start")
-        .send({ sessionId: 1 });
+        .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe("sessionId and userId required");
+      expect(res.body.error).toBe("sessionId required");
     });
   });
 

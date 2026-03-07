@@ -545,3 +545,17 @@
 - [x] Run pnpm check — 0 TS errors
 - [x] Run pnpm test — 197/197 passing (added 23 new multi-tenant tests)
 - [x] Wrote new tests: admin.listGroups (4), admin.createGroup (3), admin.updateGroup (2), admin.assignUserToRooftop (2), admin.removeUserFromRooftop (1), admin.getUserRooftopAssignments (1), admin.listRooftopUsers (1), auth.myRooftops (2), auth.switchRooftop (3), admin.getGroupRooftops (1), multi-tenant data scoping (3)
+
+## AdminPanel TabsList/TabsTrigger Class Fix (Mar 7)
+- [x] Change TabsList className from bg-card to bg-muted/50 (already bg-muted/50)
+- [x] Ensure all TabsTrigger elements have className="flex-none" (all 8 already have it)
+
+## Security Hardening + Transport Fix (Mar 7)
+- [x] Phase 1: Fix pipeline transport detection — renamed to Real-Time Transport, changed to pass, updated overall status to operational
+- [x] Phase 2: Authenticate WebSocket connections — validate cookie on upgrade via sdk.authenticateRequest, validate session ownership on start_session
+- [x] Phase 3: Authenticate HTTP-stream endpoints — added requireAuth middleware, userId from auth, validate session ownership on /start
+- [x] Phase 4: Scope audit logs by dealership — getAuditLogs accepts optional userIds, routers.ts scopes by dealership users
+- [x] Phase 5: Security headers + rate limiting — helmet (CSP disabled for Vite), express-rate-limit on /api/trpc (200/15m) and /api/session (100/15m), trust proxy enabled
+- [x] Phase 6: Client-side auth for HTTP fallback — credentials: include on all 6 fetch calls, removed userId from /start body
+- [x] Run pnpm check — 0 TS errors
+- [x] Run pnpm test — 197/197 passing (updated http-stream tests with SDK mock + auth)

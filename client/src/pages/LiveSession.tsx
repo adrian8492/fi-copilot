@@ -400,7 +400,7 @@ export default function LiveSession() {
     const doPoll = async () => {
       if (!httpTokenRef.current) return; // session ended
       try {
-        const resp = await fetch(`/api/session/poll?token=${token}&since=${pollSeqRef.current}`);
+        const resp = await fetch(`/api/session/poll?token=${token}&since=${pollSeqRef.current}`, { credentials: "include" });
         if (!resp.ok) { console.warn("[Poll] HTTP", resp.status); return; }
         const { events, nextSeq } = await resp.json();
         if (Array.isArray(events)) {
@@ -424,7 +424,8 @@ export default function LiveSession() {
       const resp = await fetch("/api/session/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sid, userId: user?.id }),
+        credentials: "include",
+        body: JSON.stringify({ sessionId: sid }),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const { token, transcriptionMode: mode } = await resp.json();
@@ -485,6 +486,7 @@ export default function LiveSession() {
           fetch("/api/session/ping", {
             method: "POST",
             headers: { "X-Stream-Token": httpTokenRef.current },
+            credentials: "include",
           }).catch(() => {});
         }
       }, 30000);
@@ -586,6 +588,7 @@ export default function LiveSession() {
               "Content-Type": "application/json",
               "X-Stream-Token": httpTokenRef.current,
             },
+            credentials: "include",
             body: JSON.stringify({
               text,
               speaker,
@@ -726,6 +729,7 @@ export default function LiveSession() {
                 "Content-Type": "application/octet-stream",
                 "X-Stream-Token": token,
               },
+              credentials: "include",
               body: buf,
             }).then((resp) => {
               if (!resp.ok) console.error(`[Pipeline] Step 3: ❌ Audio POST failed: ${resp.status}`);
@@ -821,6 +825,7 @@ export default function LiveSession() {
         await fetch("/api/session/end", {
           method: "POST",
           headers: { "X-Stream-Token": httpTokenRef.current },
+          credentials: "include",
         });
       } catch { /* ignore */ }
     }

@@ -389,9 +389,14 @@ export async function insertAuditLog(data: {
   await db.insert(auditLogs).values(data);
 }
 
-export async function getAuditLogs(limit = 100, offset = 0) {
+export async function getAuditLogs(limit = 100, offset = 0, userIds?: number[] | null) {
   const db = await getDb();
   if (!db) return [];
+  if (userIds && userIds.length > 0) {
+    return db.select().from(auditLogs)
+      .where(inArray(auditLogs.userId, userIds))
+      .orderBy(desc(auditLogs.createdAt)).limit(limit).offset(offset);
+  }
   return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(limit).offset(offset);
 }
 

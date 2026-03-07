@@ -1,7 +1,9 @@
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
 import { Server as HttpServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript } from "./db";
+import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById } from "./db";
+import { sdk } from "./_core/sdk";
+import type { User } from "../drizzle/schema";
 import {
   ASURA_COPILOT_SYSTEM_PROMPT,
   ASURA_RESPONSE_CACHE,
@@ -447,13 +449,22 @@ export function setupWebSocketServer(server: HttpServer) {
   // "[vite] failed to connect to websocket" console error.
   const wss = new WebSocketServer({ noServer: true });
 
-  server.on("upgrade", (req, socket, head) => {
+  server.on("upgrade", async (req, socket, head) => {
     const url = req.url ?? "";
     const pathname = url.includes("?") ? url.slice(0, url.indexOf("?")) : url;
     if (pathname === "/ws/session") {
-      // Only handle our own path; let all other upgrade requests pass through
-      // to Vite's HMR listener (or any other listener registered later).
+      // Authenticate the WebSocket upgrade request
+      let user: User | null = null;
+      try {
+        user = await sdk.authenticateRequest(req as any);
+      } catch {
+        console.warn("[WS] Unauthenticated upgrade request rejected");
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+        return;
+      }
       wss.handleUpgrade(req, socket as import("net").Socket, head, (ws) => {
+        (ws as any).__user = user;
         wss.emit("connection", ws, req);
       });
     }
@@ -513,6 +524,15 @@ export function setupWebSocketServer(server: HttpServer) {
           if (!msg.sessionId || !msg.userId) {
             send({ type: "error", message: "sessionId and userId required" });
             return;
+          }
+          // Validate session ownership: the authenticated user must own this session
+          const wsUser = (ws as any).__user as User | null;
+          if (wsUser) {
+            const session = await getSessionById(msg.sessionId);
+            if (session && session.userId !== wsUser.id) {
+              send({ type: "error", message: "Not authorized for this session" });
+              return;
+            }
           }
           const state: SessionState = {
             sessionId: msg.sessionId,

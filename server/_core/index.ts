@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
@@ -33,9 +35,25 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // Trust proxy (behind Manus hosting proxy)
+  app.set("trust proxy", 1);
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: false,  // Vite handles CSP in dev
+  }));
+
+  // Rate limiting on API routes
+  app.use("/api/trpc", rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15 minutes
+    max: 200,                    // 200 requests per window
+    standardHeaders: true,
+  }));
+
+  // Configure body parser with reduced size limits
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ limit: "10mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // tRPC API
