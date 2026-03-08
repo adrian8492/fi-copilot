@@ -256,6 +256,36 @@ class SDKServer {
     } as GetUserInfoWithJwtResponse;
   }
 
+  async createMfaPendingToken(openId: string): Promise<string> {
+    const secretKey = this.getSessionSecret();
+    return new SignJWT({
+      openId,
+      appId: ENV.appId,
+      mfaPending: true,
+    })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setExpirationTime("5m")
+      .sign(secretKey);
+  }
+
+  async verifyMfaPendingToken(
+    cookieValue: string | undefined | null
+  ): Promise<{ openId: string } | null> {
+    if (!cookieValue) return null;
+    try {
+      const secretKey = this.getSessionSecret();
+      const { payload } = await jwtVerify(cookieValue, secretKey, {
+        algorithms: ["HS256"],
+      });
+      if (!(payload as any).mfaPending) return null;
+      const openId = (payload as any).openId;
+      if (typeof openId !== "string" || !openId) return null;
+      return { openId };
+    } catch {
+      return null;
+    }
+  }
+
   async authenticateRequest(req: Request): Promise<User> {
     // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);

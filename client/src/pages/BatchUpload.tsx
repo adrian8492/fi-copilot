@@ -62,6 +62,8 @@ export default function BatchUpload() {
       const session = await createSession.mutateAsync({
         customerName: uploadFile.file.name.replace(/\.[^.]+$/, ""),
         dealType: "retail_finance",
+        consentObtained: true,
+        consentMethod: "electronic" as const,
       });
       updateFile(uploadFile.id, { sessionId: session.id, progress: 30 });
 

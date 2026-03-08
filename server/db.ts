@@ -1604,3 +1604,34 @@ export async function getGroupIdForUser(userId: number): Promise<number | null> 
   const dealership = await db.select({ groupId: dealerships.groupId }).from(dealerships).where(eq(dealerships.id, user[0].dealershipId)).limit(1);
   return dealership[0]?.groupId ?? null;
 }
+
+// ─── MFA ──────────────────────────────────────────────────────────────────────
+
+export async function setUserMfaSecret(userId: number, encryptedSecret: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(users).set({ totpSecret: encryptedSecret }).where(eq(users.id, userId));
+}
+
+export async function enableUserMfa(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(users).set({ mfaEnabled: true }).where(eq(users.id, userId));
+}
+
+export async function disableUserMfa(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(users).set({ mfaEnabled: false, totpSecret: null }).where(eq(users.id, userId));
+}
+
+export async function getUserMfaStatus(userId: number): Promise<{ mfaEnabled: boolean; totpSecret: string | null }> {
+  const db = await getDb();
+  if (!db) return { mfaEnabled: false, totpSecret: null };
+  const result = await db.select({ mfaEnabled: users.mfaEnabled, totpSecret: users.totpSecret }).from(users).where(eq(users.id, userId)).limit(1);
+  const row = result[0] ?? { mfaEnabled: false, totpSecret: null };
+  return {
+    mfaEnabled: row.mfaEnabled,
+    totpSecret: row.totpSecret ? decrypt(row.totpSecret) : null,
+  };
+}

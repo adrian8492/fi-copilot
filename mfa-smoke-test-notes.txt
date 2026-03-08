@@ -1,0 +1,20 @@
+MFA Smoke Test Results - 2026-03-08
+=====================================
+
+1. MFA Setup Page (/mfa/setup):
+   - Page renders correctly with "Two-Factor Authentication" heading
+   - Shows "MFA is not enabled" status with shield icon
+   - "Enable MFA" button visible and clickable
+   - Info section about MFA displayed at bottom
+
+2. Enable MFA Flow:
+   - Clicking "Enable MFA" generates QR code and secret
+   - QR code displayed in white box (scannable)
+   - Manual secret key shown: VYIG5A32JH6H34PC4HPH4Y5TPXV2PFWS
+   - Copy button for secret key available
+   - 6-digit code input fields displayed
+   - "Verify & Enable MFA" button shown
+   - "Cancel" button available to abort
+
+3. TypeScript: pnpm check passes with 0 errors
+4. Tests: All 215 tests passing (including 6 new MFA tests)

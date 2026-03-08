@@ -37,6 +37,22 @@ export function registerOAuthRoutes(app: Express) {
         lastSignedIn: new Date(),
       }));
 
+      // Step 4: Check if user has MFA enabled
+      const dbUser = await db.getUserByOpenId(userInfo.openId);
+      if (dbUser && dbUser.mfaEnabled) {
+        // Issue a short-lived MFA-pending token instead of a full session
+        const mfaPendingToken = await sdk.createMfaPendingToken(userInfo.openId);
+        const cookieOptions = getSessionCookieOptions(req);
+        res.cookie("mfa_pending", mfaPendingToken, {
+          ...cookieOptions,
+          maxAge: 5 * 60 * 1000, // 5 minutes
+        });
+        // Redirect to MFA verification page
+        res.redirect(302, "/mfa/verify");
+        return;
+      }
+
+      // Step 5: No MFA — create full session JWT token (existing behavior)
       const sessionToken = await sdk.createSessionToken(userInfo.openId, {
         name: userInfo.name || "",
         expiresInMs: ONE_YEAR_MS,

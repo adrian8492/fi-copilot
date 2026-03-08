@@ -86,6 +86,10 @@ import {
   setRecordingRetention,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
+import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
+import { setUserMfaSecret, enableUserMfa, disableUserMfa, getUserMfaStatus, getUserByOpenId } from "./db";
+import { encrypt } from "./_core/encryption";
+import { sdk } from "./_core/sdk";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { storagePut, storageDelete } from "./storage";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -615,6 +619,87 @@ export const appRouter = router({
         const switched = await switchUserRooftop(ctx.user.id, input.dealershipId);
         if (!switched) throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to this rooftop" });
         await insertAuditLog({ userId: ctx.user.id, action: "auth.switchRooftop", resourceType: "dealership", resourceId: String(input.dealershipId), details: {} });
+        return { success: true };
+      }),
+
+    // ─── MFA ────────────────────────────────────────────────────────────────────
+    mfaSetup: protectedProcedure.mutation(async ({ ctx }) => {
+      const secret = generateTotpSecret();
+      const qrCodeDataUri = await generateQrCodeDataUri(secret, ctx.user.email ?? ctx.user.name ?? "user");
+      const encryptedSecret = encrypt(secret);
+      await setUserMfaSecret(ctx.user.id, encryptedSecret!);
+      return { qrCodeDataUri, secret };
+    }),
+
+    mfaConfirm: protectedProcedure
+      .input(z.object({ code: z.string().length(6) }))
+      .mutation(async ({ ctx, input }) => {
+        const mfaStatus = await getUserMfaStatus(ctx.user.id);
+        if (!mfaStatus.totpSecret) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Run MFA setup first" });
+        }
+        const isValid = verifyTotpCode(mfaStatus.totpSecret, input.code);
+        if (!isValid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid verification code. Please try again." });
+        }
+        await enableUserMfa(ctx.user.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "mfa.enabled", resourceType: "user", resourceId: String(ctx.user.id) });
+        return { success: true };
+      }),
+
+    mfaDisable: protectedProcedure
+      .input(z.object({ code: z.string().length(6) }))
+      .mutation(async ({ ctx, input }) => {
+        const mfaStatus = await getUserMfaStatus(ctx.user.id);
+        if (!mfaStatus.mfaEnabled || !mfaStatus.totpSecret) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "MFA is not enabled" });
+        }
+        const isValid = verifyTotpCode(mfaStatus.totpSecret, input.code);
+        if (!isValid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid code. MFA not disabled." });
+        }
+        await disableUserMfa(ctx.user.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "mfa.disabled", resourceType: "user", resourceId: String(ctx.user.id) });
+        return { success: true };
+      }),
+
+    mfaStatus: protectedProcedure.query(async ({ ctx }) => {
+      const status = await getUserMfaStatus(ctx.user.id);
+      return { mfaEnabled: status.mfaEnabled };
+    }),
+
+    mfaVerifyLogin: publicProcedure
+      .input(z.object({ code: z.string().length(6) }))
+      .mutation(async ({ ctx, input }) => {
+        const cookies = new Map(
+          (ctx.req.headers.cookie || "").split(";").map((c) => {
+            const [k, ...v] = c.trim().split("=");
+            return [k, v.join("=")] as [string, string];
+          })
+        );
+        const pendingToken = cookies.get("mfa_pending");
+        const pending = await sdk.verifyMfaPendingToken(pendingToken);
+        if (!pending) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "MFA session expired. Please log in again." });
+        }
+        const user = await getUserByOpenId(pending.openId);
+        if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+        const mfaStatus = await getUserMfaStatus(user.id);
+        if (!mfaStatus.totpSecret) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "MFA configuration error" });
+        }
+        const isValid = verifyTotpCode(mfaStatus.totpSecret, input.code);
+        if (!isValid) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid verification code" });
+        }
+        const sessionToken = await sdk.createSessionToken(pending.openId, {
+          name: user.name || "",
+          expiresInMs: 365 * 24 * 60 * 60 * 1000,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+        ctx.res.clearCookie("mfa_pending", { ...cookieOptions, maxAge: -1 });
+        await insertAuditLog({ userId: user.id, action: "mfa.login_verified", resourceType: "user", resourceId: String(user.id) });
         return { success: true };
       }),
   }),

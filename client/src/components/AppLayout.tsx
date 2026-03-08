@@ -25,6 +25,7 @@ import {
   ClipboardList,
   GitCompareArrows,
   Activity,
+  KeyRound,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ const ADMIN_ITEMS = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck },
   { path: "/compliance-rules", label: "Compliance Rules", icon: Shield },
   { path: "/diagnostics", label: "Pipeline Diagnostics", icon: Activity },
+  { path: "/mfa/setup", label: "MFA Security", icon: KeyRound },
 ];
 
 // Extracted outside the component to avoid re-creation on every render

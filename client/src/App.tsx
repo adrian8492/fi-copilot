@@ -25,6 +25,8 @@ const JoinPage = lazy(() => import("./pages/JoinPage"));
 const ManagerScorecard = lazy(() => import("./pages/ManagerScorecard"));
 const SessionComparison = lazy(() => import("./components/SessionComparison"));
 const PipelineDiagnostics = lazy(() => import("./pages/PipelineDiagnostics"));
+const MfaVerify = lazy(() => import("./pages/MfaVerify"));
+const MfaSetup = lazy(() => import("./pages/MfaSetup"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -58,6 +60,8 @@ function Router() {
         <Route path="/compare" component={SessionComparison} />
         <Route path="/join" component={JoinPage} />
         <Route path="/diagnostics" component={PipelineDiagnostics} />
+        <Route path="/mfa/verify" component={MfaVerify} />
+        <Route path="/mfa/setup" component={MfaSetup} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

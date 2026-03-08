@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, customerName, consentObtained, consentMethod, consentTimestamp FROM sessions WHERE customerName LIKE 'enc:v1:%' ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute SELECT id, customerName, consentObtained, consentMethod, consentTimestamp FROM sessions WHERE customerName LIKE 'enc:v1:%' ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "300001",
+      "customerName": "enc:v1:flFVsWhhUjTMmp0/:hH7Titio2S30eSxGkdN//A==:6PcBgCbwmZ7hCsGA8yBGjTXx",
+      "consentObtained": "1",
+      "consentMethod": "verbal",
+      "consentTimestamp": "2026-03-08 00:01:04"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcustomerName\tconsentObtained\tconsentMethod\tconsentTimestamp\n300001\tenc:v1:flFVsWhhUjTMmp0/:hH7Titio2S30eSxGkdN//A==:6PcBgCbwmZ7hCsGA8yBGjTXx\t1\tverbal\t2026-03-08 00:01:04\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}

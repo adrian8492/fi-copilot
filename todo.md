@@ -586,3 +586,21 @@
 - [x] AEO: FAQPage schema with 4 Q&As (what is, compliance, multi-dealership, analytics)
 - [x] GEO: WebApplication schema with BusinessAudience targeting
 - [x] Result: main bundle 748KB (214KB gzipped) — 67% reduction. pnpm check: 0 errors, pnpm test: 197/197, pnpm build: success
+- [x] CFPB Verify Step 1: Confirm ENCRYPTION_KEY is set in env (64 chars)
+- [x] CFPB Verify Step 2: Schema already applied via migration SQL (db:push aborted due to unrelated type column issue)
+- [x] CFPB Verify Step 3: TypeScript compiles cleanly (0 errors)
+- [x] CFPB Verify Step 4: Restart server
+- [x] CFPB Verify Step 5a: LiveSession shows CFPB disclosure, consent method, consent checkbox
+- [x] CFPB Verify Step 5b: Session creation blocked without consent (button click had no effect, stayed on setup page)
+- [x] CFPB Verify Step 5c: New session customerName encrypted in DB (enc:v1:... confirmed, 1 row)
+- [x] CFPB Verify Step 5d: Customer name displays correctly in UI ("CFPB Test Customer" shown in Recent Sessions)
+- [x] MFA Step 1: Install otpauth + qrcode dependencies
+- [x] MFA Step 2: Add mfaEnabled + totpSecret to users schema
+- [x] MFA Step 3: Create TOTP module (server/_core/totp.ts)
+- [x] MFA Step 4: Add MFA database functions to db.ts
+- [x] MFA Step 5: Add MFA pending token support to sdk.ts
+- [x] MFA Step 6: Update OAuth callback for MFA check
+- [x] MFA Step 7: Add MFA tRPC procedures to routers.ts
+- [x] MFA Step 8: Create MFA verify page (client/src/pages/MfaVerify.tsx)
+- [x] MFA Step 9: Create MFA setup page (client/src/pages/MfaSetup.tsx)
+- [x] MFA Step 10: Add MFA routes to App.tsx + navigation link
