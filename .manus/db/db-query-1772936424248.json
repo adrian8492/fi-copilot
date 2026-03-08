@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `sessions` RENAME COLUMN `term` TO `termMonths`;\nALTER TABLE `sessions` MODIFY COLUMN `vehicleYear` varchar(4);\nALTER TABLE `sessions` MODIFY COLUMN `vehicleModel` varchar(128);\nALTER TABLE `sessions` MODIFY COLUMN `salePrice` float;\nALTER TABLE `sessions` MODIFY COLUMN `tradeValue` float;\nALTER TABLE `sessions` MODIFY COLUMN `amountFinanced` float;\nALTER TABLE `sessions` MODIFY COLUMN `lenderName` varchar(255);\nALTER TABLE `sessions` MODIFY COLUMN `apr` float;\nALTER TABLE `sessions` MODIFY COLUMN `monthlyPayment` float;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute ALTER TABLE `sessions` RENAME COLUMN `term` TO `termMonths`;\nALTER TABLE `sessions` MODIFY COLUMN `vehicleYear` varchar(4);\nALTER TABLE `sessions` MODIFY COLUMN `vehicleModel` varchar(128);\nALTER TABLE `sessions` MODIFY COLUMN `salePrice` float;\nALTER TABLE `sessions` MODIFY COLUMN `tradeValue` float;\nALTER TABLE `sessions` MODIFY COLUMN `amountFinanced` float;\nALTER TABLE `sessions` MODIFY COLUMN `lenderName` varchar(255);\nALTER TABLE `sessions` MODIFY COLUMN `apr` float;\nALTER TABLE `sessions` MODIFY COLUMN `monthlyPayment` float;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1921
+}

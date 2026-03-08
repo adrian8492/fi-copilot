@@ -11,8 +11,10 @@ import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
-  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2,
+  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2, DollarSign, Save,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -84,6 +86,40 @@ export default function SessionDetail() {
     onSuccess: () => toast.success("Coaching report generated!"),
     onError: () => toast.error("Report generation failed."),
   });
+
+  // Deal details state
+  const [dealEdit, setDealEdit] = useState<{
+    vehicleYear: string; vehicleMake: string; vehicleModel: string; vin: string;
+    salePrice: string; tradeValue: string; amountFinanced: string; lenderName: string;
+    apr: string; termMonths: string; monthlyPayment: string;
+  } | null>(null);
+  const updateDealDetails = trpc.sessions.updateDealDetails.useMutation({
+    onSuccess: () => {
+      utils.sessions.get.invalidate({ id: sessionId });
+      setDealEdit(null);
+      toast.success("Deal details saved.");
+    },
+    onError: (err) => toast.error(err.message || "Failed to save deal details."),
+  });
+  const handleSaveDeal = () => {
+    if (!dealEdit) return;
+    const parseNum = (s: string) => s.trim() === "" ? null : parseFloat(s);
+    const parseIntVal = (s: string): number | null => s.trim() === "" ? null : Number.parseInt(s, 10);
+    updateDealDetails.mutate({
+      sessionId,
+      vehicleYear: dealEdit.vehicleYear || null,
+      vehicleMake: dealEdit.vehicleMake || null,
+      vehicleModel: dealEdit.vehicleModel || null,
+      vin: dealEdit.vin || null,
+      salePrice: parseNum(dealEdit.salePrice),
+      tradeValue: parseNum(dealEdit.tradeValue),
+      amountFinanced: parseNum(dealEdit.amountFinanced),
+      lenderName: dealEdit.lenderName || null,
+      apr: parseNum(dealEdit.apr),
+      termMonths: parseIntVal(dealEdit.termMonths),
+      monthlyPayment: parseNum(dealEdit.monthlyPayment),
+    });
+  };
 
   const deleteSession = trpc.sessions.delete.useMutation({
     onSuccess: () => {
@@ -406,6 +442,10 @@ export default function SessionDetail() {
               )}
             </TabsTrigger>
             <TabsTrigger value="coaching">Coaching Report</TabsTrigger>
+            <TabsTrigger value="deal-details" className="gap-1.5">
+              <DollarSign className="w-3.5 h-3.5" />
+              Deal Details
+            </TabsTrigger>
           </TabsList>
 
           {/* Grade Tab */}
@@ -887,6 +927,121 @@ export default function SessionDetail() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Deal Details Tab */}
+          <TabsContent value="deal-details" className="mt-4">
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-primary" />
+                    Deal Details
+                  </CardTitle>
+                  {!dealEdit && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDealEdit({
+                        vehicleYear: session.vehicleYear ?? "",
+                        vehicleMake: session.vehicleMake ?? "",
+                        vehicleModel: session.vehicleModel ?? "",
+                        vin: session.vin ?? "",
+                        salePrice: session.salePrice != null ? String(session.salePrice) : "",
+                        tradeValue: session.tradeValue != null ? String(session.tradeValue) : "",
+                        amountFinanced: session.amountFinanced != null ? String(session.amountFinanced) : "",
+                        lenderName: session.lenderName ?? "",
+                        apr: session.apr != null ? String(session.apr) : "",
+                        termMonths: session.termMonths != null ? String(session.termMonths) : "",
+                        monthlyPayment: session.monthlyPayment != null ? String(session.monthlyPayment) : "",
+                      })}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {dealEdit ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Year</Label>
+                        <Input value={dealEdit.vehicleYear} onChange={e => setDealEdit(p => p && ({ ...p, vehicleYear: e.target.value }))} placeholder="2024" maxLength={4} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Make</Label>
+                        <Input value={dealEdit.vehicleMake} onChange={e => setDealEdit(p => p && ({ ...p, vehicleMake: e.target.value }))} placeholder="Toyota" />
+                      </div>
+                      <div className="col-span-2 space-y-1.5">
+                        <Label className="text-xs">Model</Label>
+                        <Input value={dealEdit.vehicleModel} onChange={e => setDealEdit(p => p && ({ ...p, vehicleModel: e.target.value }))} placeholder="Camry XSE" />
+                      </div>
+                      <div className="col-span-2 space-y-1.5">
+                        <Label className="text-xs">VIN</Label>
+                        <Input value={dealEdit.vin} onChange={e => setDealEdit(p => p && ({ ...p, vin: e.target.value }))} placeholder="1HGCM82633A004352" maxLength={17} className="font-mono" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Sale Price ($)</Label>
+                        <Input type="number" value={dealEdit.salePrice} onChange={e => setDealEdit(p => p && ({ ...p, salePrice: e.target.value }))} placeholder="32500" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Trade Value ($)</Label>
+                        <Input type="number" value={dealEdit.tradeValue} onChange={e => setDealEdit(p => p && ({ ...p, tradeValue: e.target.value }))} placeholder="8000" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Amount Financed ($)</Label>
+                        <Input type="number" value={dealEdit.amountFinanced} onChange={e => setDealEdit(p => p && ({ ...p, amountFinanced: e.target.value }))} placeholder="24500" />
+                      </div>
+                      <div className="col-span-2 space-y-1.5">
+                        <Label className="text-xs">Lender</Label>
+                        <Input value={dealEdit.lenderName} onChange={e => setDealEdit(p => p && ({ ...p, lenderName: e.target.value }))} placeholder="Chase Auto" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">APR (%)</Label>
+                        <Input type="number" step="0.01" value={dealEdit.apr} onChange={e => setDealEdit(p => p && ({ ...p, apr: e.target.value }))} placeholder="6.99" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Term (months)</Label>
+                        <Input type="number" value={dealEdit.termMonths} onChange={e => setDealEdit(p => p && ({ ...p, termMonths: e.target.value }))} placeholder="72" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Monthly Payment ($)</Label>
+                        <Input type="number" value={dealEdit.monthlyPayment} onChange={e => setDealEdit(p => p && ({ ...p, monthlyPayment: e.target.value }))} placeholder="425" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" size="sm" onClick={() => setDealEdit(null)}>Cancel</Button>
+                      <Button size="sm" onClick={handleSaveDeal} disabled={updateDealDetails.isPending} className="gap-2">
+                        <Save className="w-3.5 h-3.5" />
+                        {updateDealDetails.isPending ? "Saving…" : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {[
+                      { label: "Vehicle", value: [session.vehicleYear, session.vehicleMake, session.vehicleModel].filter(Boolean).join(" ") || null },
+                      { label: "VIN", value: session.vin, mono: true },
+                      { label: "Sale Price", value: session.salePrice != null ? `$${Number(session.salePrice).toLocaleString()}` : null },
+                      { label: "Trade Value", value: session.tradeValue != null ? `$${Number(session.tradeValue).toLocaleString()}` : null },
+                      { label: "Amount Financed", value: session.amountFinanced != null ? `$${Number(session.amountFinanced).toLocaleString()}` : null },
+                      { label: "Lender", value: session.lenderName },
+                      { label: "APR", value: session.apr != null ? `${session.apr}%` : null },
+                      { label: "Term", value: session.termMonths != null ? `${session.termMonths} mo` : null },
+                      { label: "Monthly Payment", value: session.monthlyPayment != null ? `$${Number(session.monthlyPayment).toLocaleString()}` : null },
+                    ].map(({ label, value, mono }) => (
+                      <div key={label} className="space-y-0.5">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+                        <p className={cn("text-sm font-medium", mono && "font-mono text-xs", !value && "text-muted-foreground italic")}>
+                          {value ?? "Not entered"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 

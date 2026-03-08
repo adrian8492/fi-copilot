@@ -607,3 +607,28 @@
 - [x] Feature: Add Delete Session button with confirmation dialog to SessionDetail page
 - [x] Feature: Data migration script to encrypt legacy plaintext PII in database (434 fields encrypted, idempotent)
 - [x] Feature: End-to-end MFA login flow test (enable, verify TOTP code, disable — all passed)
+
+## Phase 1: Critical Bug Fixes
+- [x] 1.1 Persist dealership settings to database (dealership_settings table, settings.get/update procedures, wire AdminPanel)
+- [x] 1.2 Enforce dealership-scoped data isolation (add dealershipId filter to all session/recording/analytics queries)
+- [x] 1.3 Add deal detail fields to sessions schema (vehicle, pricing, lender) + LiveSession deal info panel
+
+## Phase 2: Beta Essentials
+- [ ] 2.1 Health check endpoint GET /api/health (DB, Deepgram, LLM status)
+- [ ] 2.2 Session reconnection resilience (localStorage buffer, reconnect banner, resumeSessionId)
+- [ ] 2.3 Email notifications (critical compliance, low grade, weekly summary, admin invite)
+- [ ] 2.4 Create .env.example with all required variables documented
+- [ ] 2.5 Cursor-based pagination on admin.allSessions, admin.auditLogs, sessions.list
+
+## Phase 1 Spec Implementation
+- [x] 1.1a: Align dealership_settings schema to spec (defaultConsentMethod vs consentMethod)
+- [x] 1.1b: Add upsertDealershipSettings (onDuplicateKeyUpdate) to db.ts
+- [x] 1.1c: Add settings.get / settings.update tRPC router (separate from admin router)
+- [x] 1.1d: Wire AdminPanel form to backend settings
+- [x] 1.2a: Add assertSessionAccess() helper to routers.ts
+- [x] 1.2b: Apply assertSessionAccess to all session-related procedures
+- [x] 1.3a: Align deal detail fields to spec (float, termMonths)
+- [x] 1.3b: Update sessions.create to accept deal detail fields
+- [x] 1.3c: Add sessions.updateDealDetails using assertSessionAccess
+- [x] 1.3d: Add updateSessionDealDetails DB function (float-based)
+- [x] 1.3e: Add deal details collapsible panel to LiveSession setup dialog

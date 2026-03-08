@@ -8,6 +8,7 @@ import {
   float,
   boolean,
   json,
+  decimal,
 } from "drizzle-orm/mysql-core";
 
 // ─── Dealership Groups ───────────────────────────────────────────────────────
@@ -68,6 +69,18 @@ export const sessions = mysqlTable("sessions", {
   endedAt: timestamp("endedAt"),
   durationSeconds: int("durationSeconds"),
   notes: text("notes"),
+  // Deal detail fields (Phase 1.3)
+  vehicleYear: varchar("vehicleYear", { length: 4 }),
+  vehicleMake: varchar("vehicleMake", { length: 64 }),
+  vehicleModel: varchar("vehicleModel", { length: 128 }),
+  vin: varchar("vin", { length: 17 }),
+  salePrice: float("salePrice"),
+  tradeValue: float("tradeValue"),
+  amountFinanced: float("amountFinanced"),
+  lenderName: varchar("lenderName", { length: 255 }),
+  apr: float("apr"),
+  termMonths: int("termMonths"),
+  monthlyPayment: float("monthlyPayment"),
 });
 
 // ─── Transcripts ──────────────────────────────────────────────────────────────
@@ -395,3 +408,19 @@ export type DealershipGroup = typeof dealershipGroups.$inferSelect;
 export type InsertDealershipGroup = typeof dealershipGroups.$inferInsert;
 export type UserRooftopAssignment = typeof userRooftopAssignments.$inferSelect;
 export type Invitation = typeof invitations.$inferSelect;
+
+// ─── Dealership Settings ──────────────────────────────────────────────────────
+export const dealershipSettings = mysqlTable("dealership_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  dealershipId: int("dealershipId").notNull().unique(),
+  maxSessionDuration: int("maxSessionDuration").notNull().default(120),
+  autoGradeEnabled: boolean("autoGradeEnabled").notNull().default(true),
+  requireCustomerName: boolean("requireCustomerName").notNull().default(true),
+  requireDealNumber: boolean("requireDealNumber").notNull().default(false),
+  consentMethod: mysqlEnum("consentMethod", ["verbal", "written", "electronic"]).notNull().default("verbal"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DealershipSettings = typeof dealershipSettings.$inferSelect;
+export type InsertDealershipSettings = typeof dealershipSettings.$inferInsert;

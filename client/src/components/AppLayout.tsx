@@ -50,6 +50,7 @@ const PERFORMANCE_ITEMS = [
 const ADMIN_ITEMS = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck },
   { path: "/compliance-rules", label: "Compliance Rules", icon: Shield },
+  { path: "/settings", label: "Dealership Settings", icon: Settings },
   { path: "/diagnostics", label: "Pipeline Diagnostics", icon: Activity },
   { path: "/mfa/setup", label: "MFA Security", icon: KeyRound },
 ];

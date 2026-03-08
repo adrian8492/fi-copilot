@@ -12,6 +12,7 @@ import {
   copilotSuggestions,
   dealerships,
   dealershipGroups,
+  dealershipSettings,
   invitations,
   userRooftopAssignments,
   objectionLogs,
@@ -1634,4 +1635,87 @@ export async function getUserMfaStatus(userId: number): Promise<{ mfaEnabled: bo
     mfaEnabled: row.mfaEnabled,
     totpSecret: row.totpSecret ? decrypt(row.totpSecret) : null,
   };
+}
+
+// ─── Dealership Settings ──────────────────────────────────────────────────────
+export async function getDealershipSettings(dealershipId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(dealershipSettings)
+    .where(eq(dealershipSettings.dealershipId, dealershipId))
+    .limit(1);
+  if (result[0]) return result[0];
+  // Return defaults if no settings row yet
+  return {
+    id: null as number | null,
+    dealershipId,
+    maxSessionDuration: 120,
+    autoGradeEnabled: true,
+    requireCustomerName: true,
+    requireDealNumber: false,
+    consentMethod: "verbal" as "verbal" | "written" | "electronic",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+export async function updateDealershipSettings(
+  dealershipId: number,
+  data: {
+    maxSessionDuration?: number;
+    autoGradeEnabled?: boolean;
+    requireCustomerName?: boolean;
+    requireDealNumber?: boolean;
+    consentMethod?: "verbal" | "written" | "electronic";
+  }
+) {
+  return upsertDealershipSettings(dealershipId, data);
+}
+
+// Spec-aligned upsert using onDuplicateKeyUpdate
+export async function upsertDealershipSettings(
+  dealershipId: number,
+  data: {
+    maxSessionDuration?: number;
+    autoGradeEnabled?: boolean;
+    requireCustomerName?: boolean;
+    requireDealNumber?: boolean;
+    consentMethod?: "verbal" | "written" | "electronic";
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db
+    .insert(dealershipSettings)
+    .values({ dealershipId, ...data })
+    .onDuplicateKeyUpdate({ set: { ...data } });
+}
+
+// ─── Session Deal Details Update ─────────────────────────────────────────────
+export async function updateSessionDealDetails(
+  sessionId: number,
+  data: {
+    vehicleYear?: string | null;
+    vehicleMake?: string | null;
+    vehicleModel?: string | null;
+    vin?: string | null;
+    salePrice?: number | null;
+    tradeValue?: number | null;
+    amountFinanced?: number | null;
+    lenderName?: string | null;
+    apr?: number | null;
+    termMonths?: number | null;
+    monthlyPayment?: number | null;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  // Remove undefined values so we only update provided fields
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined)
+  );
+  if (Object.keys(cleanData).length === 0) return;
+  await db.update(sessions).set(cleanData).where(eq(sessions.id, sessionId));
 }

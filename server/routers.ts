@@ -84,6 +84,10 @@ import {
   deleteSessionData,
   getExpiredRecordings,
   setRecordingRetention,
+  getDealershipSettings,
+  updateDealershipSettings,
+  upsertDealershipSettings,
+  updateSessionDealDetails,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
@@ -109,7 +113,26 @@ const groupAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 
-// ─── AI Co-Pilot Engine ───────────────────────────────────────────────────────
+/**
+ * Enforce dealership-scoped data isolation.
+ * Super admins can access everything. Group admins can access their group's dealerships.
+ * Regular admins can access their own dealership. Users can only access their own sessions.
+ */
+async function assertSessionAccess(
+  ctx: { user: { id: number; role: string; dealershipId: number | null; isSuperAdmin: boolean; isGroupAdmin: boolean } },
+  session: { userId: number; dealershipId: number | null }
+) {
+  if (ctx.user.isSuperAdmin) return;
+  if (ctx.user.isGroupAdmin) {
+    const accessibleIds = await getUserAccessibleDealershipIds(ctx.user.id);
+    if (session.dealershipId && accessibleIds.includes(session.dealershipId)) return;
+  }
+  if (ctx.user.role === "admin" && session.dealershipId === ctx.user.dealershipId) return;
+  if (session.userId === ctx.user.id) return;
+  throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to this session" });
+}
+
+// ─── AI Co-Pilot Enginee ───────────────────────────────────────────────────────
 async function runCopilotAnalysis(transcriptText: string, sessionId: number, context: string) {
   // Pull top matching ASURA verbatim scripts for this transcript excerpt
   const matchingScripts = retrieveAllMatchingScripts(transcriptText, 4);
@@ -748,7 +771,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.id);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         return session;
       }),
 
@@ -757,7 +780,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const session = await getSessionById(input.id);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         await endSession(input.id, input.durationSeconds);
         await insertAuditLog({ userId: ctx.user.id, action: "session.end", resourceType: "session", resourceId: String(input.id) });
         return { success: true };
@@ -805,7 +828,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.id);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         const [transcriptList, suggestions, flags, grade, report, recordings] = await Promise.all([
           getTranscriptsBySession(input.id),
           getSuggestionsBySession(input.id),
@@ -825,7 +848,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
 
         const [transcripts, flags, grade, report] = await Promise.all([
           getTranscriptsBySession(input.sessionId),
@@ -881,6 +904,27 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         return await updateSessionNotes(input.sessionId, input.notes);
+      }),
+
+    updateDealDetails: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        vehicleYear: z.string().max(4).optional().nullable(),
+        vehicleMake: z.string().max(64).optional().nullable(),
+        vehicleModel: z.string().max(128).optional().nullable(),
+        vin: z.string().max(17).optional().nullable(),
+        salePrice: z.number().optional().nullable(),
+        tradeValue: z.number().optional().nullable(),
+        amountFinanced: z.number().optional().nullable(),
+        lenderName: z.string().max(255).optional().nullable(),
+        apr: z.number().optional().nullable(),
+        termMonths: z.number().int().optional().nullable(),
+        monthlyPayment: z.number().optional().nullable(),
+      }))
+      .mutation(async ({ input }) => {
+        const { sessionId, ...data } = input;
+        await updateSessionDealDetails(sessionId, data);
+        return { success: true };
       }),
 
     search: protectedProcedure
@@ -940,7 +984,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         return getTranscriptsBySession(input.sessionId);
       }),
 
@@ -973,7 +1017,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         return getSuggestionUtilizationRate(input.sessionId);
       }),
   }),
@@ -984,7 +1028,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
 
         const transcriptList = await getTranscriptsBySession(input.sessionId);
         const fullText = transcriptList.map((t) => `${t.speaker.toUpperCase()}: ${t.text}`).join("\n");
@@ -1013,7 +1057,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         return getGradeBySession(input.sessionId);
       }),
 
@@ -1031,7 +1075,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         return getFlagsBySession(input.sessionId);
       }),
 
@@ -1102,7 +1146,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
 
         const buffer = Buffer.from(input.fileDataBase64, "base64");
         const fileKey = `recordings/${ctx.user.id}/${input.sessionId}/${Date.now()}-${input.fileName}`;
@@ -1132,7 +1176,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         return getRecordingsBySession(input.sessionId);
       }),
 
@@ -1183,7 +1227,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
 
         const recordings = await getRecordingsBySession(input.sessionId);
         if (!recordings || recordings.length === 0) {
@@ -1263,7 +1307,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
 
         const [transcriptList, grade] = await Promise.all([
           getTranscriptsBySession(input.sessionId),
@@ -1286,7 +1330,7 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND" });
-        if (ctx.user.role !== "admin" && session.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        await assertSessionAccess(ctx, session);
         return getReportBySession(input.sessionId);
       }),
 
@@ -1483,6 +1527,35 @@ export const appRouter = router({
         }
 
         return { dryRun: false, processed, sessionIds };
+      }),
+
+    // ─── Dealership Settings ──────────────────────────────────────────────────────────────────
+    getSettings: adminProcedure.query(async ({ ctx }) => {
+      const dealershipId = ctx.user.dealershipId;
+      if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+      return getDealershipSettings(dealershipId);
+    }),
+
+    updateSettings: adminProcedure
+      .input(z.object({
+        maxSessionDuration: z.number().min(15).max(480).optional(),
+        autoGradeEnabled: z.boolean().optional(),
+        requireCustomerName: z.boolean().optional(),
+        requireDealNumber: z.boolean().optional(),
+        consentMethod: z.enum(["verbal", "written", "electronic"]).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        await updateDealershipSettings(dealershipId, input);
+        await insertAuditLog({
+          userId: ctx.user.id,
+          action: "admin.updateSettings",
+          resourceType: "dealership",
+          resourceId: String(dealershipId),
+          details: input,
+        });
+        return { success: true };
       }),
 
     allSessions: adminProcedure
@@ -1777,6 +1850,37 @@ export const appRouter = router({
         uptime: Math.floor(process.uptime()),
       };
     }),
+  }),
+
+  // ─── Settings Router (spec-aligned, separate from admin) ─────────────────
+  settings: router({
+    get: protectedProcedure.query(async ({ ctx }) => {
+      const dealershipId = ctx.user.dealershipId;
+      if (!dealershipId) return null;
+      return getDealershipSettings(dealershipId);
+    }),
+
+    update: adminProcedure
+      .input(z.object({
+        maxSessionDuration: z.number().min(10).max(480).optional(),
+        autoGradeEnabled: z.boolean().optional(),
+        requireCustomerName: z.boolean().optional(),
+        requireDealNumber: z.boolean().optional(),
+        consentMethod: z.enum(["verbal", "written", "electronic"]).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        await upsertDealershipSettings(dealershipId, input);
+        await insertAuditLog({
+          userId: ctx.user.id,
+          action: "settings.update",
+          resourceType: "dealership",
+          resourceId: String(dealershipId),
+          details: input,
+        });
+        return { success: true };
+      }),
   }),
 });
 export type AppRouter = typeof appRouter;
