@@ -614,9 +614,9 @@
 - [x] 1.3 Add deal detail fields to sessions schema (vehicle, pricing, lender) + LiveSession deal info panel
 
 ## Phase 2: Beta Essentials
-- [ ] 2.1 Health check endpoint GET /api/health (DB, Deepgram, LLM status)
-- [ ] 2.2 Session reconnection resilience (localStorage buffer, reconnect banner, resumeSessionId)
-- [ ] 2.3 Email notifications (critical compliance, low grade, weekly summary, admin invite)
+- [x] 2.1 Health check endpoint GET /api/health (DB, Deepgram, LLM status)
+- [x] 2.2 Session reconnection resilience (localStorage buffer, reconnect banner, resumeSessionId)
+- [x] 2.3 Email notifications (critical compliance, low grade, weekly summary, admin invite)
 - [ ] 2.4 Create .env.example with all required variables documented
 - [ ] 2.5 Cursor-based pagination on admin.allSessions, admin.auditLogs, sessions.list
 
@@ -632,3 +632,56 @@
 - [x] 1.3c: Add sessions.updateDealDetails using assertSessionAccess
 - [x] 1.3d: Add updateSessionDealDetails DB function (float-based)
 - [x] 1.3e: Add deal details collapsible panel to LiveSession setup dialog
+
+## Phase 2: Beta Essentials (Implementation)
+- [x] 2.1: Health check endpoint GET /api/health (DB, Deepgram, LLM, Encryption status)
+- [x] 2.2a: Client-side auto-reconnect with exponential backoff in LiveSession.tsx
+- [x] 2.2b: Reconnect banner + sessionIdRef + cleanup on end session
+- [x] 2.3a: Create server/_core/email.ts with Resend integration + email builders
+- [x] 2.3b: Add resendApiKey + emailFrom to server/_core/env.ts
+- [x] 2.3c: Wire critical compliance alerts to email in websocket.ts (both paths)
+- [ ] 2.3d: Wire session summary email after grades.generate in routers.ts (deferred - no Resend key yet)
+- [x] 2.4: Create ENV_REFERENCE.md with all variables documented (platform manages secrets)
+- [ ] 2.5a: Add count DB functions (getSessionCount, getSessionCountByDealershipIds, getSessionCountByUser, getAuditLogCount)
+- [ ] 2.5b: Update admin.allSessions, admin.auditLogs, sessions.list to return {rows, total, limit, offset}
+- [ ] 2.5c: Add pagination UI to AdminPanel.tsx (sessions + audit log tabs)
+- [ ] 2.5d: Add pagination UI to SessionHistory.tsx
+
+## Phase 3 — Customer Management, Product Menu, CSV Export, Mobile Polish
+
+- [ ] Fix TypeScript pagination errors: SessionComparison.tsx, AdminPanel.tsx, Dashboard.tsx use .rows
+- [ ] 3.1a: customers table + customerId FK on sessions in schema.ts
+- [ ] 3.1b: Customer DB functions (createCustomer, getCustomersByDealership, getCustomerById, updateCustomer, searchCustomers, getCustomerCountByDealership, getSessionsByCustomerId)
+- [ ] 3.1c: Customer tRPC procedures (list, get, create, update, search)
+- [ ] 3.1d: Customers.tsx page (list, search, create dialog)
+- [ ] 3.1e: CustomerDetail.tsx page (edit form + session history)
+- [ ] 3.1f: Routes + sidebar nav for customers
+- [ ] 3.2a: product_menu table with 12 product types
+- [ ] 3.2b: Product menu DB functions (getProductMenuByDealership, upsertProductMenuItem, deleteProductMenuItem)
+- [ ] 3.2c: Product menu tRPC procedures (list, upsert, delete)
+- [ ] 3.2d: ProductMenu.tsx admin page
+- [ ] 3.2e: Route + admin nav for product menu
+- [ ] 3.3a: sessions.bulkExport adminProcedure in routers.ts
+- [ ] 3.3b: Export CSV button in SessionHistory.tsx
+- [ ] 3.4a: Mobile responsive fixes for AppLayout.tsx sidebar
+- [ ] 3.4b: Mobile responsive fixes for LiveSession.tsx
+- [ ] 3.4c: Mobile responsive fixes for Dashboard.tsx
+
+## Phase 3 — Customer Management, Product Menu, CSV Export, Mobile Polish
+- [x] Fix TS pagination errors in SessionComparison/AdminPanel/Dashboard
+- [x] 3.1a customers table + customerId FK
+- [x] 3.1b Customer DB functions
+- [x] 3.1c Customer tRPC procedures
+- [x] 3.1d Customers.tsx page
+- [x] 3.1e CustomerDetail.tsx page
+- [x] 3.1f Routes + nav for customers
+- [x] 3.2a product_menu table
+- [x] 3.2b Product menu DB functions
+- [x] 3.2c Product menu tRPC procedures
+- [x] 3.2d ProductMenu.tsx page
+- [x] 3.2e Route + admin nav for product menu
+- [x] 3.3a sessions.bulkExport procedure
+- [ ] 3.3b Export CSV button in SessionHistory
+- [ ] 3.4a Mobile responsive AppLayout.tsx
+- [ ] 3.4b Mobile responsive LiveSession.tsx
+- [ ] 3.4c Mobile responsive Dashboard.tsx

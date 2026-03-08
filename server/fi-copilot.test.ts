@@ -122,6 +122,34 @@ vi.mock("./db", () => ({
   getAllUsersByDealershipIds: vi.fn().mockResolvedValue([]),
   getAllSessionsByDealershipIds: vi.fn().mockResolvedValue([]),
   getGroupIdForUser: vi.fn().mockResolvedValue(null),
+  // ─── Pagination count helpers ─────────────────────────────────────────────
+  getSessionCountByUser: vi.fn().mockResolvedValue(0),
+  getSessionCount: vi.fn().mockResolvedValue(0),
+  getSessionCountByDealershipIds: vi.fn().mockResolvedValue(0),
+  getAuditLogCount: vi.fn().mockResolvedValue(0),
+  getUserById: vi.fn().mockResolvedValue(null),
+  deleteSessionData: vi.fn().mockResolvedValue(undefined),
+  getExpiredRecordings: vi.fn().mockResolvedValue([]),
+  setRecordingRetention: vi.fn().mockResolvedValue(undefined),
+  getDealershipSettings: vi.fn().mockResolvedValue(null),
+  updateDealershipSettings: vi.fn().mockResolvedValue(undefined),
+  upsertDealershipSettings: vi.fn().mockResolvedValue(undefined),
+  updateSessionDealDetails: vi.fn().mockResolvedValue(undefined),
+  // ─── Customer & Product Menu ──────────────────────────────────────────────
+  createCustomer: vi.fn().mockResolvedValue({ id: 1, firstName: "John", lastName: "Smith", email: null, phone: null, address: null, notes: null, dealershipId: 1, createdAt: new Date(), updatedAt: new Date() }),
+  getCustomersByDealership: vi.fn().mockResolvedValue([]),
+  getCustomerById: vi.fn().mockResolvedValue(null),
+  updateCustomer: vi.fn().mockResolvedValue(undefined),
+  searchCustomers: vi.fn().mockResolvedValue([]),
+  getCustomerCountByDealership: vi.fn().mockResolvedValue(0),
+  getSessionsByCustomerId: vi.fn().mockResolvedValue([]),
+  getProductMenuByDealership: vi.fn().mockResolvedValue([]),
+  upsertProductMenuItem: vi.fn().mockResolvedValue(undefined),
+  deleteProductMenuItem: vi.fn().mockResolvedValue(undefined),
+  setUserMfaSecret: vi.fn().mockResolvedValue(undefined),
+  enableUserMfa: vi.fn().mockResolvedValue(undefined),
+  disableUserMfa: vi.fn().mockResolvedValue(undefined),
+  getUserMfaStatus: vi.fn().mockResolvedValue({ mfaEnabled: false, mfaSecret: null }),
 }));
 
 vi.mock("./storage", () => ({
@@ -236,10 +264,12 @@ describe("sessions.create", () => {
 });
 
 describe("sessions.list", () => {
-  it("returns an array", async () => {
+  it("returns a paginated response", async () => {
     const caller = appRouter.createCaller(makeCtx());
-    const sessions = await caller.sessions.list({ limit: 10, offset: 0 });
-    expect(Array.isArray(sessions)).toBe(true);
+    const result = await caller.sessions.list({ limit: 10, offset: 0 });
+    expect(result).toHaveProperty("rows");
+    expect(Array.isArray(result.rows)).toBe(true);
+    expect(result).toHaveProperty("total");
   });
 });
 
@@ -608,8 +638,9 @@ describe("admin.listUsers", () => {
 describe("admin.auditLogs", () => {
   it("allows admin to view audit logs", async () => {
     const caller = appRouter.createCaller(makeAdminCtx());
-    const logs = await caller.admin.auditLogs({ limit: 10, offset: 0 });
-    expect(Array.isArray(logs)).toBe(true);
+    const result = await caller.admin.auditLogs({ limit: 10, offset: 0 });
+    expect(result).toHaveProperty("rows");
+    expect(Array.isArray(result.rows)).toBe(true);
   });
 
   it("throws FORBIDDEN for non-admin", async () => {
@@ -1087,16 +1118,15 @@ describe("admin.auditLogs", () => {
     ] as any);
     const caller = appRouter.createCaller(makeAdminCtx());
     const result = await caller.admin.auditLogs({ limit: 100, offset: 0 });
-    expect(result).toHaveLength(2);
+    expect(result.rows).toHaveLength(2);
   });
-
   it("returns empty when no logs", async () => {
     const { getAuditLogs } = await import("./db");
     vi.mocked(getAuditLogs).mockResolvedValueOnce([] as any);
     const caller = appRouter.createCaller(makeAdminCtx());
     const result = await caller.admin.auditLogs({ limit: 100, offset: 0 });
-    expect(result).toEqual([]);
-  });
+    expect(result.rows).toEqual([]);
+  });;
 
   it("forbids access for non-admin users", async () => {
     const caller = appRouter.createCaller(makeCtx());
@@ -1170,7 +1200,7 @@ describe("admin.allSessions", () => {
     ] as any);
     const caller = appRouter.createCaller(makeAdminCtx());
     const result = await caller.admin.allSessions({ limit: 100, offset: 0 });
-    expect(result).toHaveLength(2);
+    expect(result.rows).toHaveLength(2);
   });
 
   it("forbids access for non-admin users", async () => {

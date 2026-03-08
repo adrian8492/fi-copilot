@@ -21,6 +21,8 @@ import {
   sessions,
   transcripts,
   users,
+  customers,
+  productMenu,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
@@ -102,6 +104,13 @@ export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return null;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return result[0] ?? null;
 }
 
@@ -1718,4 +1727,179 @@ export async function updateSessionDealDetails(
   );
   if (Object.keys(cleanData).length === 0) return;
   await db.update(sessions).set(cleanData).where(eq(sessions.id, sessionId));
+}
+
+// ─── Pagination Count Functions ───────────────────────────────────────────────
+export async function getSessionCount(dealershipId?: number | null): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const q = db.select({ total: count() }).from(sessions);
+  const filtered = dealershipId != null ? q.where(eq(sessions.dealershipId, dealershipId)) : q;
+  const result = await filtered;
+  return Number(result[0]?.total ?? 0);
+}
+
+export async function getSessionCountByUser(userId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ total: count() }).from(sessions).where(eq(sessions.userId, userId));
+  return Number(result[0]?.total ?? 0);
+}
+
+export async function getSessionCountByDealershipIds(dealershipIds: number[]): Promise<number> {
+  if (dealershipIds.length === 0) return 0;
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ total: count() }).from(sessions).where(inArray(sessions.dealershipId, dealershipIds));
+  return Number(result[0]?.total ?? 0);
+}
+
+export async function getAuditLogCount(userIds?: number[] | null): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  if (userIds && userIds.length > 0) {
+    const result = await db.select({ total: count() }).from(auditLogs).where(inArray(auditLogs.userId, userIds));
+    return Number(result[0]?.total ?? 0);
+  }
+  const result = await db.select({ total: count() }).from(auditLogs);
+  return Number(result[0]?.total ?? 0);
+}
+
+// ─── Customers ───────────────────────────────────────────────────────────────
+
+export async function createCustomer(data: {
+  dealershipId: number;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const encData = {
+    ...data,
+    firstName: encrypt(data.firstName) ?? data.firstName,
+    lastName: encrypt(data.lastName) ?? data.lastName,
+    email: data.email ? (encrypt(data.email) ?? data.email) : null,
+    phone: data.phone ? (encrypt(data.phone) ?? data.phone) : null,
+    address: data.address ? (encrypt(data.address) ?? data.address) : null,
+  };
+  await db.insert(customers).values(encData);
+  const result = await db.select().from(customers).orderBy(desc(customers.id)).limit(1);
+  return result[0] ? decryptFields(result[0], ["firstName", "lastName", "email", "phone", "address"]) : null;
+}
+
+export async function getCustomersByDealership(dealershipId: number, limit = 100, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(customers)
+    .where(eq(customers.dealershipId, dealershipId))
+    .orderBy(desc(customers.updatedAt))
+    .limit(limit).offset(offset);
+  return decryptRows(rows, ["firstName", "lastName", "email", "phone", "address"]);
+}
+
+export async function getCustomerById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+  return result[0] ? decryptFields(result[0], ["firstName", "lastName", "email", "phone", "address"]) : null;
+}
+
+export async function updateCustomer(id: number, data: {
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const encData: Record<string, unknown> = {};
+  if (data.firstName !== undefined) encData.firstName = encrypt(data.firstName) ?? data.firstName;
+  if (data.lastName !== undefined) encData.lastName = encrypt(data.lastName) ?? data.lastName;
+  if (data.email !== undefined) encData.email = data.email ? (encrypt(data.email) ?? data.email) : null;
+  if (data.phone !== undefined) encData.phone = data.phone ? (encrypt(data.phone) ?? data.phone) : null;
+  if (data.address !== undefined) encData.address = data.address ? (encrypt(data.address) ?? data.address) : null;
+  if (data.notes !== undefined) encData.notes = data.notes;
+  if (Object.keys(encData).length === 0) return;
+  await db.update(customers).set(encData).where(eq(customers.id, id));
+}
+
+export async function searchCustomers(dealershipId: number, query: string, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  // Since names are encrypted, fetch all and filter client-side
+  const allCustomers = await getCustomersByDealership(dealershipId, 500, 0);
+  const q = query.toLowerCase();
+  return allCustomers
+    .filter((c) =>
+      c.firstName?.toLowerCase().includes(q) ||
+      c.lastName?.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.phone?.includes(q)
+    )
+    .slice(0, limit);
+}
+
+export async function getCustomerCountByDealership(dealershipId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ count: count() }).from(customers)
+    .where(eq(customers.dealershipId, dealershipId));
+  return result[0]?.count ?? 0;
+}
+
+export async function getSessionsByCustomerId(customerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(sessions)
+    .where(eq(sessions.customerId, customerId))
+    .orderBy(desc(sessions.startedAt));
+  return decryptRows(rows, ["customerName"]);
+}
+
+// ─── Product Menu ────────────────────────────────────────────────────────────
+
+export async function getProductMenuByDealership(dealershipId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(productMenu)
+    .where(eq(productMenu.dealershipId, dealershipId))
+    .orderBy(productMenu.sortOrder);
+}
+
+export async function upsertProductMenuItem(data: {
+  id?: number;
+  dealershipId: number;
+  productType: string;
+  displayName: string;
+  providerName?: string | null;
+  description?: string | null;
+  costToDealer?: number | null;
+  retailPrice?: number | null;
+  termMonths?: number | null;
+  maxMileage?: number | null;
+  isActive?: boolean;
+  sortOrder?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  if (data.id) {
+    const { id, ...updates } = data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.update(productMenu).set(updates as any).where(eq(productMenu.id, id));
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.insert(productMenu).values(data as any);
+  }
+}
+
+export async function deleteProductMenuItem(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(productMenu).where(eq(productMenu.id, id));
 }

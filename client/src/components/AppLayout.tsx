@@ -26,6 +26,8 @@ import {
   GitCompareArrows,
   Activity,
   KeyRound,
+  Users,
+  Package,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,8 @@ const NAV_ITEMS = [
   { path: "/session/new", label: "Live Session", icon: Mic, highlight: true },
   { path: "/history", label: "Session History", icon: History },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
+  { path: "/customers", label: "Customers", icon: Users },
+  { path: "/product-menu", label: "Product Menu", icon: Package },
   { path: "/upload", label: "Batch Upload", icon: Upload },
 ];
 

@@ -28,6 +28,9 @@ const PipelineDiagnostics = lazy(() => import("./pages/PipelineDiagnostics"));
 const MfaVerify = lazy(() => import("./pages/MfaVerify"));
 const MfaSetup = lazy(() => import("./pages/MfaSetup"));
 const DealershipSettings = lazy(() => import("./pages/DealershipSettings"));
+const Customers = lazy(() => import("./pages/Customers"));
+const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
+const ProductMenu = lazy(() => import("./pages/ProductMenu"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -64,6 +67,9 @@ function Router() {
         <Route path="/mfa/verify" component={MfaVerify} />
         <Route path="/mfa/setup" component={MfaSetup} />
         <Route path="/settings" component={DealershipSettings} />
+        <Route path="/customers" component={Customers} />
+        <Route path="/customers/:id" component={CustomerDetail} />
+        <Route path="/product-menu" component={ProductMenu} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

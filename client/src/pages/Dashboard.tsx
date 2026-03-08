@@ -62,7 +62,8 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
 export default function Dashboard() {
   const [, navigate] = useLocation();
   const { data: summary } = trpc.analytics.summary.useQuery();
-  const { data: sessions } = trpc.sessions.list.useQuery({ limit: 5, offset: 0 });
+  const { data: sessionsData } = trpc.sessions.list.useQuery({ limit: 5, offset: 0 });
+  const sessions = sessionsData?.rows;
   const { data: grades } = trpc.grades.myHistory.useQuery({ limit: 5 });
 
   const avgScore = grades && grades.length > 0
@@ -187,7 +188,7 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
-              {sessions && sessions.length > 0 ? sessions.map((session) => (
+              {sessions && sessions.length > 0 ? sessions.map((session: (typeof sessions)[number]) => (
                 <div
                   key={session.id}
                   className="flex items-center gap-3 p-3 rounded-lg bg-accent/30 hover:bg-accent/50 cursor-pointer transition-colors"

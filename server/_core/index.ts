@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import { sql } from "drizzle-orm";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
@@ -70,12 +71,50 @@ async function startServer() {
     standardHeaders: true,
   }));
 
-  // Health check endpoint (for uptime monitoring)
-  app.get("/api/health", (_req, res) => {
-    res.status(200).json({
-      status: "ok",
+  // Health check endpoint (for uptime monitoring and load balancers)
+  app.get("/api/health", async (_req, res) => {
+    const checks: Record<string, { status: string; latencyMs?: number }> = {};
+
+    // Database check
+    try {
+      const { getDb } = await import("../db.js");
+      const dbStart = Date.now();
+      const db = await getDb();
+      if (db) {
+        await db.execute(sql`SELECT 1`);
+        checks.database = { status: "healthy", latencyMs: Date.now() - dbStart };
+      } else {
+        checks.database = { status: "unavailable" };
+      }
+    } catch {
+      checks.database = { status: "unhealthy", latencyMs: 0 };
+    }
+
+    // Deepgram API key check
+    checks.deepgram = {
+      status: process.env.DEEPGRAM_API_KEY ? "configured" : "missing",
+    };
+
+    // LLM API check
+    checks.llm = {
+      status: process.env.BUILT_IN_FORGE_API_URL ? "configured" : "missing",
+    };
+
+    // Encryption key check
+    checks.encryption = {
+      status: process.env.ENCRYPTION_KEY ? "configured" : "missing",
+    };
+
+    const allHealthy =
+      checks.database.status === "healthy" &&
+      checks.deepgram.status === "configured" &&
+      checks.llm.status === "configured";
+
+    res.status(allHealthy ? 200 : 503).json({
+      status: allHealthy ? "healthy" : "degraded",
+      timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      timestamp: Date.now(),
+      checks,
     });
   });
 

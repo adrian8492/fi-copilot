@@ -11,7 +11,8 @@ export function SessionComparison() {
   const [session1Id, setSession1Id] = useState<string>('');
   const [session2Id, setSession2Id] = useState<string>('');
 
-  const { data: sessions } = trpc.sessions.list.useQuery({ limit: 100 });
+  const { data: sessionsData } = trpc.sessions.list.useQuery({ limit: 100 });
+  const sessions = sessionsData?.rows;
   
   const { data: comparison } = trpc.sessions.compare.useQuery(
     {

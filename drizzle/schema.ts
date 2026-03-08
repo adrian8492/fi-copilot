@@ -57,6 +57,7 @@ export const sessions = mysqlTable("sessions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   dealershipId: int("dealershipId"),
+  customerId: int("customerId"),
   customerName: varchar("customerName", { length: 512 }),
   dealNumber: varchar("dealNumber", { length: 64 }),
   vehicleType: mysqlEnum("vehicleType", ["new", "used", "cpo"]).default("new"),
@@ -424,3 +425,54 @@ export const dealershipSettings = mysqlTable("dealership_settings", {
 
 export type DealershipSettings = typeof dealershipSettings.$inferSelect;
 export type InsertDealershipSettings = typeof dealershipSettings.$inferInsert;
+
+// ─── Customers ────────────────────────────────────────────────────────────────
+export const customers = mysqlTable("customers", {
+  id: int("id").autoincrement().primaryKey(),
+  dealershipId: int("dealershipId").notNull(),
+  firstName: varchar("firstName", { length: 255 }).notNull(),
+  lastName: varchar("lastName", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 32 }),
+  address: text("address"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = typeof customers.$inferInsert;
+
+// ─── Product Menu ─────────────────────────────────────────────────────────────
+export const productMenu = mysqlTable("product_menu", {
+  id: int("id").autoincrement().primaryKey(),
+  dealershipId: int("dealershipId").notNull(),
+  productType: mysqlEnum("productType", [
+    "vehicle_service_contract",
+    "gap_insurance",
+    "prepaid_maintenance",
+    "interior_exterior_protection",
+    "road_hazard",
+    "paintless_dent_repair",
+    "key_replacement",
+    "windshield_protection",
+    "lease_wear_tear",
+    "tire_wheel",
+    "theft_protection",
+    "other",
+  ]).notNull(),
+  displayName: varchar("displayName", { length: 255 }).notNull(),
+  providerName: varchar("providerName", { length: 255 }),
+  description: text("description"),
+  costToDealer: float("costToDealer"),
+  retailPrice: float("retailPrice"),
+  termMonths: int("termMonths"),
+  maxMileage: int("maxMileage"),
+  isActive: boolean("isActive").notNull().default(true),
+  sortOrder: int("sortOrder").notNull().default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProductMenuItem = typeof productMenu.$inferSelect;
+export type InsertProductMenuItem = typeof productMenu.$inferInsert;

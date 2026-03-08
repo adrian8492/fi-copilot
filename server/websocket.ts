@@ -1,7 +1,8 @@
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
 import { Server as HttpServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById } from "./db";
+import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById, getUserById } from "./db";
+import { sendEmail, buildCriticalComplianceAlertEmail } from "./_core/email";
 import { sdk } from "./_core/sdk";
 import type { User } from "../drizzle/schema";
 import {
@@ -71,6 +72,10 @@ interface SessionState {
   dbFailCount: number;
   // Suggestion deduplication — track recently-fired scriptIds to prevent repeats
   recentScriptIds: Map<string, number>; // scriptId → timestamp
+  // User info for notifications
+  userEmail: string;
+  userName: string;
+  customerName: string;
 }
 
 const activeSessions = new Map<WebSocket, SessionState>();
@@ -306,17 +311,31 @@ function createDeepgramConnection(
     }
 
     // Compliance check (manager speech only)
-    if (speaker === "manager") {
-      const flags = checkComplianceRules(text, state.elapsedSeconds);
-      for (const flag of flags) {
-        try {
-          await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
-        } catch (err) {
-          console.error(`[WS] insertComplianceFlag error:`, err);
-        }
-        send({ type: "compliance_flag", data: flag });
-      }
-    }
+          if (speaker === "manager") {
+            const flags = checkComplianceRules(text, state.elapsedSeconds);
+            for (const flag of flags) {
+              try {
+                await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
+              } catch (err) {
+                console.error(`[WS] insertComplianceFlag error:`, err);
+              }
+              send({ type: "compliance_flag", data: flag });
+              // Send email for critical compliance flags
+              if (flag.severity === "critical" && state.userEmail) {
+                const emailOpts = buildCriticalComplianceAlertEmail({
+                  managerEmail: state.userEmail,
+                  managerName: state.userName || "F&I Manager",
+                  sessionId: state.sessionId,
+                  customerName: state.customerName || "Unknown Customer",
+                  rule: flag.rule,
+                  description: flag.description,
+                  excerpt: flag.excerpt,
+                  remediation: (flag as { remediation?: string }).remediation,
+                });
+                sendEmail(emailOpts).catch(() => {});
+              }
+            }
+          }
 
     // Co-pilot analysis
     state.analysisBuffer += ` ${text}`;
@@ -537,6 +556,15 @@ export function setupWebSocketServer(server: HttpServer) {
             send({ type: "error", message: "CONSENT_REQUIRED: Recording consent must be obtained before streaming." });
             return;
           }
+          // Load user info for email notifications
+          let userEmail = "";
+          let userName = "";
+          let wsCustomerName = "";
+          try {
+            const dbUser = await getUserById(msg.userId);
+            if (dbUser) { userEmail = dbUser.email ?? ""; userName = dbUser.name ?? ""; }
+            if (wsSession) wsCustomerName = wsSession.customerName ?? "";
+          } catch { /* non-fatal */ }
           const state: SessionState = {
             sessionId: msg.sessionId,
             userId: msg.userId,
@@ -555,6 +583,9 @@ export function setupWebSocketServer(server: HttpServer) {
             lastFinalText: "",
             dbFailCount: 0,
             recentScriptIds: new Map(),
+            userEmail,
+            userName,
+            customerName: wsCustomerName,
           };
           activeSessions.set(ws, state);
           state.deepgramConnection = createDeepgramConnection(state, ws, send);
@@ -604,6 +635,20 @@ export function setupWebSocketServer(server: HttpServer) {
             for (const flag of flags) {
               await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
               send({ type: "compliance_flag", data: flag });
+              // Send email for critical compliance flags
+              if (flag.severity === "critical" && state.userEmail) {
+                const emailOpts = buildCriticalComplianceAlertEmail({
+                  managerEmail: state.userEmail,
+                  managerName: state.userName || "F&I Manager",
+                  sessionId: state.sessionId,
+                  customerName: state.customerName || "Unknown Customer",
+                  rule: flag.rule,
+                  description: flag.description,
+                  excerpt: flag.excerpt,
+                  remediation: (flag as { remediation?: string }).remediation,
+                });
+                sendEmail(emailOpts).catch(() => {});
+              }
             }
           }
           // Quick regex trigger (instant)

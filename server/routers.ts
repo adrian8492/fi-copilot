@@ -88,6 +88,21 @@ import {
   updateDealershipSettings,
   upsertDealershipSettings,
   updateSessionDealDetails,
+  getSessionCount,
+  getSessionCountByUser,
+  getSessionCountByDealershipIds,
+  getAuditLogCount,
+  getUserById,
+  createCustomer,
+  getCustomersByDealership,
+  getCustomerById,
+  updateCustomer,
+  searchCustomers,
+  getCustomerCountByDealership,
+  getSessionsByCustomerId,
+  getProductMenuByDealership,
+  upsertProductMenuItem,
+  deleteProductMenuItem,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
@@ -761,9 +776,17 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }))
       .query(async ({ ctx, input }) => {
         // Super-admins see all; admins see their dealership; users see only their own sessions
-        if (ctx.user.isSuperAdmin) return getAllSessions(input.limit, input.offset);
-        if (ctx.user.role === "admin") return getAllSessions(input.limit, input.offset, ctx.user.dealershipId ?? null);
-        return getSessionsByUserId(ctx.user.id, input.limit, input.offset);
+        if (ctx.user.isSuperAdmin) {
+          const [rows, total] = await Promise.all([getAllSessions(input.limit, input.offset), getSessionCount()]);
+          return { rows, total, limit: input.limit, offset: input.offset };
+        }
+        if (ctx.user.role === "admin") {
+          const dealershipId = ctx.user.dealershipId ?? null;
+          const [rows, total] = await Promise.all([getAllSessions(input.limit, input.offset, dealershipId), getSessionCount(dealershipId)]);
+          return { rows, total, limit: input.limit, offset: input.offset };
+        }
+        const [rows, total] = await Promise.all([getSessionsByUserId(ctx.user.id, input.limit, input.offset), getSessionCountByUser(ctx.user.id)]);
+        return { rows, total, limit: input.limit, offset: input.offset };
       }),
 
     get: protectedProcedure
@@ -1477,21 +1500,29 @@ export const appRouter = router({
     auditLogs: adminProcedure
       .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
       .query(async ({ ctx, input }) => {
-        if (ctx.user.isSuperAdmin) return getAuditLogs(input.limit, input.offset);
+        if (ctx.user.isSuperAdmin) {
+          const [rows, total] = await Promise.all([getAuditLogs(input.limit, input.offset), getAuditLogCount()]);
+          return { rows, total, limit: input.limit, offset: input.offset };
+        }
         if (ctx.user.isGroupAdmin) {
           const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
           const scopedUsers = await getAllUsersByDealershipIds(dealershipIds);
           const userIds = scopedUsers.map(u => u.id);
-          return getAuditLogs(input.limit, input.offset, userIds.length > 0 ? userIds : null);
+          const scopedIds = userIds.length > 0 ? userIds : null;
+          const [rows, total] = await Promise.all([getAuditLogs(input.limit, input.offset, scopedIds), getAuditLogCount(scopedIds)]);
+          return { rows, total, limit: input.limit, offset: input.offset };
         }
         // Store admin: scope to users in their dealership
         const dealershipId = ctx.user.dealershipId;
         if (dealershipId) {
           const scopedUsers = await getAllUsersByDealershipIds([dealershipId]);
           const userIds = scopedUsers.map(u => u.id);
-          return getAuditLogs(input.limit, input.offset, userIds.length > 0 ? userIds : null);
+          const scopedIds = userIds.length > 0 ? userIds : null;
+          const [rows, total] = await Promise.all([getAuditLogs(input.limit, input.offset, scopedIds), getAuditLogCount(scopedIds)]);
+          return { rows, total, limit: input.limit, offset: input.offset };
         }
-        return getAuditLogs(input.limit, input.offset, [ctx.user.id]);
+        const [rows, total] = await Promise.all([getAuditLogs(input.limit, input.offset, [ctx.user.id]), getAuditLogCount([ctx.user.id])]);
+        return { rows, total, limit: input.limit, offset: input.offset };
       }),
 
     // CFPB: Enforce data retention policy — delete expired recordings
@@ -1561,13 +1592,18 @@ export const appRouter = router({
     allSessions: adminProcedure
       .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
       .query(async ({ ctx, input }) => {
-        if (ctx.user.isSuperAdmin) return getAllSessions(input.limit, input.offset, null);
+        if (ctx.user.isSuperAdmin) {
+          const [rows, total] = await Promise.all([getAllSessions(input.limit, input.offset, null), getSessionCount()]);
+          return { rows, total, limit: input.limit, offset: input.offset };
+        }
         if (ctx.user.isGroupAdmin) {
           const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
-          return getAllSessionsByDealershipIds(dealershipIds, input.limit, input.offset);
+          const [rows, total] = await Promise.all([getAllSessionsByDealershipIds(dealershipIds, input.limit, input.offset), getSessionCountByDealershipIds(dealershipIds)]);
+          return { rows, total, limit: input.limit, offset: input.offset };
         }
         const dealershipId = ctx.user.dealershipId ?? null;
-        return getAllSessions(input.limit, input.offset, dealershipId);
+        const [rows, total] = await Promise.all([getAllSessions(input.limit, input.offset, dealershipId), getSessionCount(dealershipId)]);
+        return { rows, total, limit: input.limit, offset: input.offset };
       }),
 
     // ─── Group Management (multi-tenant) ────────────────────────────────────
@@ -1879,6 +1915,132 @@ export const appRouter = router({
           resourceId: String(dealershipId),
           details: input,
         });
+        return { success: true };
+      }),
+  }),
+
+  // ─── Customers ────────────────────────────────────────────────────────────
+  customers: router({
+    list: protectedProcedure
+      .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) return { rows: [], total: 0 };
+        const [rows, total] = await Promise.all([
+          getCustomersByDealership(dealershipId, input.limit, input.offset),
+          getCustomerCountByDealership(dealershipId),
+        ]);
+        return { rows, total, limit: input.limit, offset: input.offset };
+      }),
+
+    search: protectedProcedure
+      .input(z.object({ query: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) return [];
+        return searchCustomers(dealershipId, input.query);
+      }),
+
+    get: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const customer = await getCustomerById(input.id);
+        if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
+        if (customer.dealershipId !== ctx.user.dealershipId && !ctx.user.isSuperAdmin && !ctx.user.isGroupAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const sessions = await getSessionsByCustomerId(input.id);
+        return { customer, sessions };
+      }),
+
+    create: protectedProcedure
+      .input(z.object({
+        firstName: z.string().min(1),
+        lastName: z.string().min(1),
+        email: z.string().email().optional().nullable(),
+        phone: z.string().optional().nullable(),
+        address: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        const customer = await createCustomer({ ...input, dealershipId });
+        await insertAuditLog({ userId: ctx.user.id, action: "customer.create", resourceType: "customer", resourceId: String(customer?.id ?? 0), details: { name: `${input.firstName} ${input.lastName}` } });
+        return customer;
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        firstName: z.string().min(1).optional(),
+        lastName: z.string().min(1).optional(),
+        email: z.string().email().optional().nullable(),
+        phone: z.string().optional().nullable(),
+        address: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        const existing = await getCustomerById(id);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+        if (existing.dealershipId !== ctx.user.dealershipId && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        await updateCustomer(id, data);
+        await insertAuditLog({ userId: ctx.user.id, action: "customer.update", resourceType: "customer", resourceId: String(id), details: data });
+        return { success: true };
+      }),
+
+    exportCsv: protectedProcedure
+      .query(async ({ ctx }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        const rows = await getCustomersByDealership(dealershipId, 10000, 0);
+        const header = "id,firstName,lastName,email,phone,address,notes,createdAt";
+        const lines = rows.map((c) =>
+          [c.id, c.firstName, c.lastName, c.email ?? "", c.phone ?? "", (c.address ?? "").replace(/,/g, " "), (c.notes ?? "").replace(/,/g, " "), new Date(c.createdAt).toISOString()].join(",")
+        );
+        return { csv: [header, ...lines].join("\n"), count: rows.length };
+      }),
+  }),
+
+  // ─── Product Menu ──────────────────────────────────────────────────────────
+  productMenu: router({
+    list: protectedProcedure
+      .query(async ({ ctx }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) return [];
+        return getProductMenuByDealership(dealershipId);
+      }),
+
+    upsert: protectedProcedure
+      .input(z.object({
+        id: z.number().optional(),
+        productType: z.enum(["vehicle_service_contract","gap_insurance","prepaid_maintenance","interior_exterior_protection","road_hazard","paintless_dent_repair","key_replacement","windshield_protection","lease_wear_tear","tire_wheel","theft_protection","other"]),
+        displayName: z.string().min(1),
+        providerName: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
+        costToDealer: z.number().optional().nullable(),
+        retailPrice: z.number().optional().nullable(),
+        termMonths: z.number().optional().nullable(),
+        maxMileage: z.number().optional().nullable(),
+        isActive: z.boolean().optional(),
+        sortOrder: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        await upsertProductMenuItem({ ...input, dealershipId });
+        await insertAuditLog({ userId: ctx.user.id, action: input.id ? "productMenu.update" : "productMenu.create", resourceType: "productMenu", resourceId: String(input.id ?? 0), details: { name: input.displayName } });
+        return { success: true };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteProductMenuItem(input.id);
+        await insertAuditLog({ userId: ctx.user.id, action: "productMenu.delete", resourceType: "productMenu", resourceId: String(input.id), details: {} });
         return { success: true };
       }),
   }),

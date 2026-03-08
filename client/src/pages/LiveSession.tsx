@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Square, Zap, AlertTriangle, CheckCircle2,
   Lightbulb, Shield, Clock, ChevronDown, User, Users,
-  ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen, ThumbsUp,
+  ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen, ThumbsUp, Loader2, WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -174,6 +174,13 @@ export default function LiveSession() {
   // Deepgram / transcription status
   const [deepgramConnected, setDeepgramConnected] = useState(false);
   const [transcriptionMode, setTranscriptionMode] = useState<"deepgram" | "browser" | "pending">("pending");
+
+  // Reconnection state
+  const [reconnecting, setReconnecting] = useState(false);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 10;
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionIdRef = useRef<number | null>(null);
 
   // Audio level indicator
   const [audioLevel, setAudioLevel] = useState(0);
@@ -539,6 +546,28 @@ export default function LiveSession() {
         setIsConnected(false);
         setDeepgramConnected(false);
         if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
+        // Auto-reconnect with exponential backoff (only if session is still active)
+        if (isRecording && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          const attempt = reconnectAttemptsRef.current + 1;
+          reconnectAttemptsRef.current = attempt;
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 30000); // 1s, 2s, 4s, ... 30s max
+          console.log(`[WS] Disconnected. Reconnect attempt ${attempt}/${maxReconnectAttempts} in ${delay}ms`);
+          setReconnecting(true);
+          reconnectTimerRef.current = setTimeout(() => {
+            if (sessionIdRef.current && isRecording) {
+              connectWebSocket(sessionIdRef.current).then((ok) => {
+                if (ok) {
+                  setReconnecting(false);
+                  reconnectAttemptsRef.current = 0;
+                  toast.success("Reconnected to session", { duration: 3000 });
+                }
+              });
+            }
+          }, delay);
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          setReconnecting(false);
+          toast.error("Connection lost. Please end and restart the session.", { duration: 0 });
+        }
       };
 
       ws.onerror = () => {
@@ -633,6 +662,7 @@ export default function LiveSession() {
 
       if (!session) throw new Error("Failed to create session");
       setSessionId(session.id);
+      sessionIdRef.current = session.id;
       setShowSetup(false);
 
       // Step 1: Get microphone access
@@ -816,6 +846,10 @@ export default function LiveSession() {
 
     // Stop keepalive
     if (keepaliveRef.current) { clearInterval(keepaliveRef.current); keepaliveRef.current = null; }
+    // Cancel any pending reconnect
+    if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+    reconnectAttemptsRef.current = 0;
+    setReconnecting(false);
 
     // Notify server via WebSocket or HTTP
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -1188,6 +1222,15 @@ export default function LiveSession() {
           </div>
         </div>
         <KeyboardShortcutsHelp isOpen={showShortcutsHelp} onClose={() => setShowShortcutsHelp(false)} />
+
+        {/* Reconnecting Banner */}
+        {reconnecting && (
+          <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 flex items-center gap-2 text-amber-400 text-xs font-medium">
+            <WifiOff className="w-3.5 h-3.5 shrink-0" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+            <span>Connection lost — reconnecting (attempt {reconnectAttemptsRef.current}/{maxReconnectAttempts})... Your session data is preserved.</span>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">

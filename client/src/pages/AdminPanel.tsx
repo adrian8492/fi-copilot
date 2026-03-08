@@ -47,8 +47,10 @@ export default function AdminPanel() {
 
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: users, refetch: refetchUsers } = trpc.admin.listUsers.useQuery();
-  const { data: auditLogs } = trpc.admin.auditLogs.useQuery({ limit: 100, offset: 0 });
-  const { data: allSessions } = trpc.admin.allSessions.useQuery({ limit: 100, offset: 0 });
+  const { data: auditLogsData } = trpc.admin.auditLogs.useQuery({ limit: 100, offset: 0 });
+  const { data: allSessionsData } = trpc.admin.allSessions.useQuery({ limit: 100, offset: 0 });
+  const auditLogs = auditLogsData?.rows;
+  const allSessions = allSessionsData?.rows;
   const { data: dealershipsList, refetch: refetchDealerships } = trpc.admin.listDealerships.useQuery();
   const { data: groupsList, refetch: refetchGroups } = trpc.admin.listGroups.useQuery();
 
@@ -165,8 +167,8 @@ export default function AdminPanel() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: "Total Users", value: users?.length ?? 0, icon: Users, color: "text-blue-400" },
-            { label: "Total Sessions", value: allSessions?.length ?? 0, icon: Activity, color: "text-purple-400" },
-            { label: "Audit Events", value: auditLogs?.length ?? 0, icon: Shield, color: "text-yellow-400" },
+            { label: "Total Sessions", value: allSessionsData?.total ?? 0, icon: Activity, color: "text-purple-400" },
+            { label: "Audit Events", value: auditLogsData?.total ?? 0, icon: Shield, color: "text-yellow-400" },
           ].map((stat) => (
             <Card key={stat.label} className="bg-card border-border">
               <CardContent className="p-4">
@@ -566,7 +568,7 @@ export default function AdminPanel() {
           <TabsContent value="sessions" className="mt-4">
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">All Sessions ({allSessions?.length ?? 0})</CardTitle>
+                <CardTitle className="text-sm">All Sessions ({allSessionsData?.total ?? 0})</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-[500px] overflow-y-auto">

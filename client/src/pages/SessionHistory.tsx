@@ -46,7 +46,9 @@ export default function SessionHistory() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data: sessions, isLoading } = trpc.sessions.list.useQuery({ limit: 200, offset: 0 });
+  const { data: sessionsData, isLoading } = trpc.sessions.list.useQuery({ limit: 200, offset: 0 });
+  const sessions = sessionsData?.rows;
+  const totalSessions = sessionsData?.total ?? 0;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -95,7 +97,7 @@ export default function SessionHistory() {
 
   const statusCounts = useMemo(() => {
     if (!sessions) return {};
-    return sessions.reduce((acc, s) => {
+    return (sessions ?? []).reduce((acc, s) => {
       acc[s.status] = (acc[s.status] ?? 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -141,7 +143,7 @@ export default function SessionHistory() {
                     : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
                 )}
               >
-                {s === "all" ? `All (${sessions?.length ?? 0})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${statusCounts[s] ?? 0})`}
+                {s === "all" ? `All (${totalSessions})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${statusCounts[s] ?? 0})`}
               </button>
             ))}
           </div>
@@ -293,7 +295,7 @@ export default function SessionHistory() {
         {/* Row count */}
         {!isLoading && filtered.length > 0 && (
           <p className="text-xs text-muted-foreground text-right">
-            Showing {filtered.length} of {sessions?.length ?? 0} sessions
+            Showing {filtered.length} of {totalSessions} sessions
           </p>
         )}
       </div>
