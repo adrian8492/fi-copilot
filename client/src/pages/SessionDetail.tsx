@@ -11,8 +11,12 @@ import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
-  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag,
+  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import AudioWaveform from "@/components/AudioWaveform";
 import { SessionNotes } from "@/components/SessionNotes";
 import { PrintReportButton } from "@/components/PrintReportButton";
@@ -80,6 +84,16 @@ export default function SessionDetail() {
     onSuccess: () => toast.success("Coaching report generated!"),
     onError: () => toast.error("Report generation failed."),
   });
+
+  const deleteSession = trpc.sessions.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Session and all associated data permanently deleted.");
+      navigate("/history");
+    },
+    onError: (err: { message: string }) => toast.error(err.message || "Failed to delete session."),
+  });
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const utils = trpc.useUtils();
   const reTranscribe = trpc.recordings.reTranscribe.useMutation({
@@ -226,6 +240,47 @@ export default function SessionDetail() {
             >
               <FileText className="w-3.5 h-3.5" /> Export CSV
             </Button>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeleteReason(""); }}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs text-red-400 border-red-400/30 hover:bg-red-400/10"
+                  disabled={deleteSession.isPending}
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> {deleteSession.isPending ? "Deleting..." : "Delete"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Permanently Delete Session?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete this session and all associated data including transcripts, compliance flags, grades, coaching reports, checklists, and audio recordings. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="px-1">
+                  <label className="text-sm font-medium text-foreground">Reason for deletion</label>
+                  <input
+                    type="text"
+                    className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., Customer requested data removal"
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    maxLength={500}
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    disabled={!deleteReason.trim()}
+                    onClick={() => deleteSession.mutate({ sessionId, reason: deleteReason.trim() })}
+                  >
+                    Delete Permanently
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           <Badge variant="outline" className={cn(
             "text-xs",

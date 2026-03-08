@@ -604,3 +604,6 @@
 - [x] MFA Step 8: Create MFA verify page (client/src/pages/MfaVerify.tsx)
 - [x] MFA Step 9: Create MFA setup page (client/src/pages/MfaSetup.tsx)
 - [x] MFA Step 10: Add MFA routes to App.tsx + navigation link
+- [x] Feature: Add Delete Session button with confirmation dialog to SessionDetail page
+- [x] Feature: Data migration script to encrypt legacy plaintext PII in database (434 fields encrypted, idempotent)
+- [x] Feature: End-to-end MFA login flow test (enable, verify TOTP code, disable — all passed)
