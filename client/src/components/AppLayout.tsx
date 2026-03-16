@@ -28,6 +28,7 @@ import {
   KeyRound,
   Users,
   Package,
+  DollarSign,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/scorecard", label: "Scorecard", icon: ClipboardList },
   { path: "/objections", label: "Objection Analysis", icon: AlertTriangle },
   { path: "/demo", label: "Demo Mode", icon: Play },
+  { path: "/deal-recovery", label: "Deal Recovery", icon: DollarSign },
   { path: "/compare", label: "Compare Sessions", icon: GitCompareArrows },
 ];
 
