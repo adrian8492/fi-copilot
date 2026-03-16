@@ -1,0 +1,23 @@
+{
+  "name": "F&I Co-Pilot",
+  "short_name": "Co-Pilot",
+  "description": "AI coaching platform for F&I managers — powered by ASURA OPS",
+  "theme_color": "#1e293b",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

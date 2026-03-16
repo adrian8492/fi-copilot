@@ -476,3 +476,67 @@ export const productMenu = mysqlTable("product_menu", {
 
 export type ProductMenuItem = typeof productMenu.$inferSelect;
 export type InsertProductMenuItem = typeof productMenu.$inferInsert;
+
+// ─── Product Intelligence (AI coaching layer) ─────────────────────────────────
+export const productIntelligence = mysqlTable("product_intelligence", {
+  id: int("id").autoincrement().primaryKey(),
+  productType: mysqlEnum("productType", [
+    "vehicle_service_contract",
+    "gap_insurance",
+    "prepaid_maintenance",
+    "interior_exterior_protection",
+    "road_hazard",
+    "paintless_dent_repair",
+    "key_replacement",
+    "windshield_protection",
+    "lease_wear_tear",
+    "tire_wheel",
+    "theft_protection",
+    "other",
+  ]).notNull(),
+  coverageSummary: text("coverageSummary"),
+  commonObjections: text("commonObjections"),
+  objectionResponses: text("objectionResponses"),
+  sellingPoints: text("sellingPoints"),
+  asuraCoachingTips: text("asuraCoachingTips"),
+  targetCustomerProfile: text("targetCustomerProfile"),
+  avgCloseRate: float("avgCloseRate"),
+  avgProfit: float("avgProfit"),
+  complianceNotes: text("complianceNotes"),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProductIntelligenceItem = typeof productIntelligence.$inferSelect;
+export type InsertProductIntelligenceItem = typeof productIntelligence.$inferInsert;
+
+// ─── Deal Recovery ────────────────────────────────────────────────────────────
+export const dealRecovery = mysqlTable("deal_recovery", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  productType: mysqlEnum("productType", [
+    "vehicle_service_contract",
+    "gap_insurance",
+    "prepaid_maintenance",
+    "interior_exterior_protection",
+    "road_hazard",
+    "paintless_dent_repair",
+    "key_replacement",
+    "windshield_protection",
+    "lease_wear_tear",
+    "tire_wheel",
+    "theft_protection",
+    "other",
+  ]).notNull(),
+  declineReason: text("declineReason"),
+  recoveryScript: text("recoveryScript"),
+  recoveryStatus: mysqlEnum("recoveryStatus", ["pending", "attempted", "recovered", "lost"]).notNull().default("pending"),
+  potentialRevenue: float("potentialRevenue"),
+  actualRevenue: float("actualRevenue"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DealRecoveryItem = typeof dealRecovery.$inferSelect;
+export type InsertDealRecoveryItem = typeof dealRecovery.$inferInsert;

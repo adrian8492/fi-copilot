@@ -23,6 +23,8 @@ import {
   users,
   customers,
   productMenu,
+  productIntelligence,
+  dealRecovery,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
@@ -1902,4 +1904,118 @@ export async function deleteProductMenuItem(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.delete(productMenu).where(eq(productMenu.id, id));
+}
+
+// ─── Product Intelligence ─────────────────────────────────────────────────────
+
+function parseJsonFields(row: any) {
+  if (!row) return row;
+  const jsonFields = ["commonObjections", "objectionResponses", "sellingPoints", "asuraCoachingTips"];
+  const result = { ...row };
+  for (const field of jsonFields) {
+    if (typeof result[field] === "string") {
+      try { result[field] = JSON.parse(result[field]); } catch { /* keep as string */ }
+    }
+  }
+  return result;
+}
+
+export async function getProductIntelligenceByType(productType: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(productIntelligence)
+    .where(eq(productIntelligence.productType, productType as any))
+    .limit(1);
+  return rows[0] ? parseJsonFields(rows[0]) : null;
+}
+
+export async function getAllProductIntelligence() {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(productIntelligence)
+    .where(eq(productIntelligence.isActive, true))
+    .orderBy(productIntelligence.productType);
+  return rows.map(parseJsonFields);
+}
+
+export async function upsertProductIntelligence(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const record = {
+    ...data,
+    commonObjections: typeof data.commonObjections === "string" ? data.commonObjections : JSON.stringify(data.commonObjections),
+    objectionResponses: typeof data.objectionResponses === "string" ? data.objectionResponses : JSON.stringify(data.objectionResponses),
+    sellingPoints: typeof data.sellingPoints === "string" ? data.sellingPoints : JSON.stringify(data.sellingPoints),
+    asuraCoachingTips: typeof data.asuraCoachingTips === "string" ? data.asuraCoachingTips : JSON.stringify(data.asuraCoachingTips),
+  };
+  if (data.id) {
+    const { id, ...updates } = record;
+    await db.update(productIntelligence).set(updates as any).where(eq(productIntelligence.id, id));
+  } else {
+    await db.insert(productIntelligence).values(record as any);
+  }
+  return { success: true };
+}
+
+// ─── Deal Recovery ────────────────────────────────────────────────────────────
+
+export async function getDealRecoveriesBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dealRecovery)
+    .where(eq(dealRecovery.sessionId, sessionId))
+    .orderBy(desc(dealRecovery.createdAt));
+}
+
+export async function getDealRecoveriesByUser(userId: number, limit = 20, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  const userSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId));
+  const sessionIds = userSessions.map(s => s.id);
+  if (sessionIds.length === 0) return [];
+  return db.select().from(dealRecovery)
+    .where(inArray(dealRecovery.sessionId, sessionIds))
+    .orderBy(desc(dealRecovery.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function createDealRecovery(data: {
+  sessionId: number;
+  productType: string;
+  declineReason: string;
+  recoveryScript: string;
+  potentialRevenue: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(dealRecovery).values({
+    ...data,
+    productType: data.productType as any,
+    recoveryStatus: "pending",
+  } as any);
+  return { success: true };
+}
+
+export async function updateDealRecoveryStatus(id: number, status: string, actualRevenue?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const updates: any = { recoveryStatus: status };
+  if (actualRevenue !== undefined) updates.actualRevenue = actualRevenue;
+  await db.update(dealRecovery).set(updates).where(eq(dealRecovery.id, id));
+  return { success: true };
+}
+
+export async function getDealRecoveryStats(userId: number) {
+  const recoveries = await getDealRecoveriesByUser(userId, 10000, 0);
+  const stats = { pendingCount: 0, attemptedCount: 0, recoveredCount: 0, lostCount: 0, totalPotentialRevenue: 0, totalActualRevenue: 0 };
+  for (const r of recoveries) {
+    if (r.recoveryStatus === "pending") stats.pendingCount++;
+    else if (r.recoveryStatus === "attempted") stats.attemptedCount++;
+    else if (r.recoveryStatus === "recovered") stats.recoveredCount++;
+    else if (r.recoveryStatus === "lost") stats.lostCount++;
+    stats.totalPotentialRevenue += r.potentialRevenue ?? 0;
+    stats.totalActualRevenue += r.actualRevenue ?? 0;
+  }
+  return stats;
 }

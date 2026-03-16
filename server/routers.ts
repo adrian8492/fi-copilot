@@ -1,4 +1,5 @@
 import { notifyOwner } from "./_core/notification";
+import { sendEmail, buildSessionSummaryEmail, buildWeeklyDigestEmail } from "./_core/email";
 import { COOKIE_NAME, NOT_GROUP_ADMIN_ERR_MSG } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -103,6 +104,14 @@ import {
   getProductMenuByDealership,
   upsertProductMenuItem,
   deleteProductMenuItem,
+  getProductIntelligenceByType,
+  getAllProductIntelligence,
+  upsertProductIntelligence,
+  getDealRecoveriesBySession,
+  getDealRecoveriesByUser,
+  createDealRecovery,
+  updateDealRecoveryStatus,
+  getDealRecoveryStats,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
@@ -1072,6 +1081,80 @@ export const appRouter = router({
         await upsertGrade({ sessionId: input.sessionId, userId: session.userId, ...gradeData });
         await updateSessionStatus(input.sessionId, "completed");
         await insertAuditLog({ userId: ctx.user.id, action: "grade.generate", resourceType: "session", resourceId: String(input.sessionId) });
+
+        // Auto-generate deal recovery scripts for declined products
+        try {
+          const transcripts = await getTranscriptsBySession(input.sessionId);
+          const fullTranscriptText = transcripts.map((t: any) => t.text ?? t.content ?? "").join("\n");
+          const recoveryPrompt = `You are an ASURA OPS deal recovery specialist. Analyze this F&I session transcript and identify products that were DECLINED by the customer.
+
+For each declined product, provide:
+1. The product type (use exact values: vehicle_service_contract, gap_insurance, prepaid_maintenance, interior_exterior_protection, road_hazard, paintless_dent_repair, key_replacement, windshield_protection, lease_wear_tear, tire_wheel, theft_protection)
+2. Why the customer declined (brief reason)
+3. A personalized re-engagement script using ASURA OPS methodology (opt-out framing, tie back to their survey answers, use specific numbers)
+4. Estimated potential revenue if recovered
+
+ASURA OPS Recovery Rules:
+- Never pressure. Guide.
+- Reference specific things the customer said during the session
+- Use the Ranking System: "If you had to rank what's most important..."
+- Tie back to their driving habits, family situation, or financial exposure
+- Lead with the math, not the emotion
+
+Transcript:
+${fullTranscriptText.substring(0, 8000)}
+
+Grade Data:
+${JSON.stringify({ overallScore: gradeData.overallScore, categoryScores: gradeData.categoryScores })}
+
+Return ONLY a valid JSON array. Each item: { "productType": string, "declineReason": string, "recoveryScript": string, "potentialRevenue": number }
+If no products were declined, return an empty array [].`;
+
+          const recoveryResult = await invokeLLM({ messages: [{ role: "user", content: recoveryPrompt }], maxTokens: 4000 });
+          const recoveryText = typeof recoveryResult.choices?.[0]?.message?.content === "string" ? recoveryResult.choices[0].message.content : "";
+          try {
+            const jsonMatch = recoveryText.match(/\[[\s\S]*\]/);
+            const recoveryItems = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+            for (const item of recoveryItems) {
+              if (item.productType && item.recoveryScript) {
+                await createDealRecovery({
+                  sessionId: input.sessionId,
+                  productType: item.productType,
+                  declineReason: item.declineReason ?? "Not specified",
+                  recoveryScript: item.recoveryScript,
+                  potentialRevenue: item.potentialRevenue ?? 0,
+                });
+              }
+            }
+          } catch (parseErr) {
+            console.error("[DealRecovery] Failed to parse LLM recovery response:", parseErr);
+          }
+        } catch (recoveryErr) {
+          console.error("[DealRecovery] Error generating recovery scripts:", recoveryErr);
+        }
+
+        // Auto-send session summary email on completion
+        try {
+          const user = await getUserById(session.userId);
+          if (user?.email) {
+            const durationMin = session.durationSeconds ? Math.round(session.durationSeconds / 60) : 0;
+            const emailOpts = buildSessionSummaryEmail({
+              managerEmail: user.email,
+              managerName: user.name ?? user.email,
+              sessionId: input.sessionId,
+              customerName: session.customerName ?? "Unknown Customer",
+              overallScore: gradeData.overallScore ?? 0,
+              categoryScores: gradeData.categoryScores ?? {},
+              criticalFlags: gradeData.criticalFlags ?? 0,
+              warnings: gradeData.warnings ?? 0,
+              sessionDurationMin: durationMin,
+            });
+            sendEmail(emailOpts).catch((err) => console.error("[Email] Failed to send session summary:", err));
+          }
+        } catch (emailErr) {
+          console.error("[Email] Error preparing session summary email:", emailErr);
+        }
+
         return gradeData;
       }),
 
@@ -2043,6 +2126,134 @@ export const appRouter = router({
         await insertAuditLog({ userId: ctx.user.id, action: "productMenu.delete", resourceType: "productMenu", resourceId: String(input.id), details: {} });
         return { success: true };
       }),
+  }),
+
+  // ─── Deal Recovery ─────────────────────────────────────────────────────────
+  dealRecovery: router({
+    bySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        await assertSessionAccess(ctx, session);
+        return getDealRecoveriesBySession(input.sessionId);
+      }),
+
+    myRecoveries: protectedProcedure
+      .input(z.object({ limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(async ({ ctx, input }) => {
+        return getDealRecoveriesByUser(ctx.user.id, input.limit, input.offset);
+      }),
+
+    updateStatus: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["pending", "attempted", "recovered", "lost"]),
+        actualRevenue: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await updateDealRecoveryStatus(input.id, input.status, input.actualRevenue);
+        await insertAuditLog({ userId: ctx.user.id, action: "dealRecovery.updateStatus", resourceType: "dealRecovery", resourceId: String(input.id), details: { status: input.status } });
+        return { success: true };
+      }),
+
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      return getDealRecoveryStats(ctx.user.id);
+    }),
+  }),
+
+  // ─── Product Intelligence ──────────────────────────────────────────────────
+  productIntelligence: router({
+    list: protectedProcedure.query(async () => {
+      return getAllProductIntelligence();
+    }),
+
+    get: protectedProcedure
+      .input(z.object({ productType: z.string() }))
+      .query(async ({ input }) => {
+        return getProductIntelligenceByType(input.productType);
+      }),
+
+    upsert: adminProcedure
+      .input(z.object({
+        id: z.number().optional(),
+        productType: z.string(),
+        coverageSummary: z.string().optional(),
+        commonObjections: z.any().optional(),
+        objectionResponses: z.any().optional(),
+        sellingPoints: z.any().optional(),
+        asuraCoachingTips: z.any().optional(),
+        targetCustomerProfile: z.string().optional(),
+        avgCloseRate: z.number().optional(),
+        avgProfit: z.number().optional(),
+        complianceNotes: z.string().optional(),
+        isActive: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await upsertProductIntelligence(input);
+        await insertAuditLog({ userId: ctx.user.id, action: "productIntelligence.upsert", resourceType: "productIntelligence", resourceId: input.productType, details: { productType: input.productType } });
+        return { success: true };
+      }),
+  }),
+
+  // ─── Weekly Digest ────────────────────────────────────────────────────────
+  weeklyDigest: router({
+    send: adminProcedure.mutation(async ({ ctx }) => {
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - 7);
+      const lastWeekStart = new Date(now);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 14);
+
+      const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
+      const users = await getAllUsersByDealershipIds(dealershipIds);
+      const managers = users.filter((u: any) => u.role === "manager" || u.role === "admin");
+
+      let sent = 0;
+      for (const mgr of managers) {
+        if (!mgr.email) continue;
+
+        // This week's sessions (returns plain array)
+        const allSessions = await getSessionsByUserId(mgr.id, 1000, 0);
+        const thisWeek = allSessions.filter(
+          (s) => new Date(s.startedAt) >= weekStart && new Date(s.startedAt) < now
+        );
+
+        // Last week's sessions for trend
+        const lastWeek = allSessions.filter(
+          (s) => new Date(s.startedAt) >= lastWeekStart && new Date(s.startedAt) < weekStart
+        );
+
+        const totalSessions = thisWeek.length;
+        const avgScore = totalSessions > 0
+          ? thisWeek.reduce((sum: number, s: any) => sum + (s.overallScore ?? 0), 0) / totalSessions
+          : 0;
+        const lastAvg = lastWeek.length > 0
+          ? lastWeek.reduce((sum: number, s: any) => sum + (s.overallScore ?? 0), 0) / lastWeek.length
+          : 0;
+        const scoreTrend = lastAvg > 0 ? ((avgScore - lastAvg) / lastAvg) * 100 : 0;
+
+        // Compliance flags this week
+        const flags = await getComplianceFlags(weekStart.toISOString(), now.toISOString());
+        const weekFlags = flags.filter(
+          (f) => (f as any).userId === mgr.id || (f as any).sessionId != null
+        );
+
+        const emailOpts = buildWeeklyDigestEmail({
+          managerName: mgr.name ?? mgr.email,
+          managerEmail: mgr.email,
+          totalSessions,
+          averageScore: Math.round(avgScore),
+          scoreTrend: Math.round(scoreTrend * 10) / 10,
+          topImprovements: ["Menu presentation sequence", "Objection prevention timing", "Upgrade architecture usage"],
+          complianceFlags: weekFlags.length,
+        });
+        await sendEmail(emailOpts);
+        sent++;
+      }
+
+      return { success: true, sent };
+    }),
   }),
 });
 export type AppRouter = typeof appRouter;
