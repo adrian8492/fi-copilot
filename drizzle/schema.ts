@@ -510,3 +510,33 @@ export const productIntelligence = mysqlTable("product_intelligence", {
 
 export type ProductIntelligenceItem = typeof productIntelligence.$inferSelect;
 export type InsertProductIntelligenceItem = typeof productIntelligence.$inferInsert;
+
+// ─── Deal Recovery ────────────────────────────────────────────────────────────
+export const dealRecovery = mysqlTable("deal_recovery", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  productType: mysqlEnum("productType", [
+    "vehicle_service_contract",
+    "gap_insurance",
+    "prepaid_maintenance",
+    "interior_exterior_protection",
+    "road_hazard",
+    "paintless_dent_repair",
+    "key_replacement",
+    "windshield_protection",
+    "lease_wear_tear",
+    "tire_wheel",
+    "theft_protection",
+    "other",
+  ]).notNull(),
+  declineReason: text("declineReason"),
+  recoveryScript: text("recoveryScript"),
+  recoveryStatus: mysqlEnum("recoveryStatus", ["pending", "attempted", "recovered", "lost"]).notNull().default("pending"),
+  potentialRevenue: float("potentialRevenue"),
+  actualRevenue: float("actualRevenue"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DealRecoveryItem = typeof dealRecovery.$inferSelect;
+export type InsertDealRecoveryItem = typeof dealRecovery.$inferInsert;

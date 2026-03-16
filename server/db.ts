@@ -24,6 +24,7 @@ import {
   customers,
   productMenu,
   productIntelligence,
+  dealRecovery,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
@@ -1954,4 +1955,67 @@ export async function upsertProductIntelligence(data: any) {
     await db.insert(productIntelligence).values(record as any);
   }
   return { success: true };
+}
+
+// ─── Deal Recovery ────────────────────────────────────────────────────────────
+
+export async function getDealRecoveriesBySession(sessionId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dealRecovery)
+    .where(eq(dealRecovery.sessionId, sessionId))
+    .orderBy(desc(dealRecovery.createdAt));
+}
+
+export async function getDealRecoveriesByUser(userId: number, limit = 20, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  const userSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId));
+  const sessionIds = userSessions.map(s => s.id);
+  if (sessionIds.length === 0) return [];
+  return db.select().from(dealRecovery)
+    .where(inArray(dealRecovery.sessionId, sessionIds))
+    .orderBy(desc(dealRecovery.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function createDealRecovery(data: {
+  sessionId: number;
+  productType: string;
+  declineReason: string;
+  recoveryScript: string;
+  potentialRevenue: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(dealRecovery).values({
+    ...data,
+    productType: data.productType as any,
+    recoveryStatus: "pending",
+  } as any);
+  return { success: true };
+}
+
+export async function updateDealRecoveryStatus(id: number, status: string, actualRevenue?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const updates: any = { recoveryStatus: status };
+  if (actualRevenue !== undefined) updates.actualRevenue = actualRevenue;
+  await db.update(dealRecovery).set(updates).where(eq(dealRecovery.id, id));
+  return { success: true };
+}
+
+export async function getDealRecoveryStats(userId: number) {
+  const recoveries = await getDealRecoveriesByUser(userId, 10000, 0);
+  const stats = { pendingCount: 0, attemptedCount: 0, recoveredCount: 0, lostCount: 0, totalPotentialRevenue: 0, totalActualRevenue: 0 };
+  for (const r of recoveries) {
+    if (r.recoveryStatus === "pending") stats.pendingCount++;
+    else if (r.recoveryStatus === "attempted") stats.attemptedCount++;
+    else if (r.recoveryStatus === "recovered") stats.recoveredCount++;
+    else if (r.recoveryStatus === "lost") stats.lostCount++;
+    stats.totalPotentialRevenue += r.potentialRevenue ?? 0;
+    stats.totalActualRevenue += r.actualRevenue ?? 0;
+  }
+  return stats;
 }

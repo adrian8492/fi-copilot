@@ -107,6 +107,11 @@ import {
   getProductIntelligenceByType,
   getAllProductIntelligence,
   upsertProductIntelligence,
+  getDealRecoveriesBySession,
+  getDealRecoveriesByUser,
+  createDealRecovery,
+  updateDealRecoveryStatus,
+  getDealRecoveryStats,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
@@ -1076,6 +1081,57 @@ export const appRouter = router({
         await upsertGrade({ sessionId: input.sessionId, userId: session.userId, ...gradeData });
         await updateSessionStatus(input.sessionId, "completed");
         await insertAuditLog({ userId: ctx.user.id, action: "grade.generate", resourceType: "session", resourceId: String(input.sessionId) });
+
+        // Auto-generate deal recovery scripts for declined products
+        try {
+          const transcripts = await getTranscriptsBySession(input.sessionId);
+          const fullTranscriptText = transcripts.map((t: any) => t.text ?? t.content ?? "").join("\n");
+          const recoveryPrompt = `You are an ASURA OPS deal recovery specialist. Analyze this F&I session transcript and identify products that were DECLINED by the customer.
+
+For each declined product, provide:
+1. The product type (use exact values: vehicle_service_contract, gap_insurance, prepaid_maintenance, interior_exterior_protection, road_hazard, paintless_dent_repair, key_replacement, windshield_protection, lease_wear_tear, tire_wheel, theft_protection)
+2. Why the customer declined (brief reason)
+3. A personalized re-engagement script using ASURA OPS methodology (opt-out framing, tie back to their survey answers, use specific numbers)
+4. Estimated potential revenue if recovered
+
+ASURA OPS Recovery Rules:
+- Never pressure. Guide.
+- Reference specific things the customer said during the session
+- Use the Ranking System: "If you had to rank what's most important..."
+- Tie back to their driving habits, family situation, or financial exposure
+- Lead with the math, not the emotion
+
+Transcript:
+${fullTranscriptText.substring(0, 8000)}
+
+Grade Data:
+${JSON.stringify({ overallScore: gradeData.overallScore, categoryScores: gradeData.categoryScores })}
+
+Return ONLY a valid JSON array. Each item: { "productType": string, "declineReason": string, "recoveryScript": string, "potentialRevenue": number }
+If no products were declined, return an empty array [].`;
+
+          const recoveryResult = await invokeLLM({ messages: [{ role: "user", content: recoveryPrompt }], maxTokens: 4000 });
+          const recoveryText = typeof recoveryResult.choices?.[0]?.message?.content === "string" ? recoveryResult.choices[0].message.content : "";
+          try {
+            const jsonMatch = recoveryText.match(/\[[\s\S]*\]/);
+            const recoveryItems = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+            for (const item of recoveryItems) {
+              if (item.productType && item.recoveryScript) {
+                await createDealRecovery({
+                  sessionId: input.sessionId,
+                  productType: item.productType,
+                  declineReason: item.declineReason ?? "Not specified",
+                  recoveryScript: item.recoveryScript,
+                  potentialRevenue: item.potentialRevenue ?? 0,
+                });
+              }
+            }
+          } catch (parseErr) {
+            console.error("[DealRecovery] Failed to parse LLM recovery response:", parseErr);
+          }
+        } catch (recoveryErr) {
+          console.error("[DealRecovery] Error generating recovery scripts:", recoveryErr);
+        }
 
         // Auto-send session summary email on completion
         try {
@@ -2070,6 +2126,40 @@ export const appRouter = router({
         await insertAuditLog({ userId: ctx.user.id, action: "productMenu.delete", resourceType: "productMenu", resourceId: String(input.id), details: {} });
         return { success: true };
       }),
+  }),
+
+  // ─── Deal Recovery ─────────────────────────────────────────────────────────
+  dealRecovery: router({
+    bySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        await assertSessionAccess(ctx, session);
+        return getDealRecoveriesBySession(input.sessionId);
+      }),
+
+    myRecoveries: protectedProcedure
+      .input(z.object({ limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(async ({ ctx, input }) => {
+        return getDealRecoveriesByUser(ctx.user.id, input.limit, input.offset);
+      }),
+
+    updateStatus: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["pending", "attempted", "recovered", "lost"]),
+        actualRevenue: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await updateDealRecoveryStatus(input.id, input.status, input.actualRevenue);
+        await insertAuditLog({ userId: ctx.user.id, action: "dealRecovery.updateStatus", resourceType: "dealRecovery", resourceId: String(input.id), details: { status: input.status } });
+        return { success: true };
+      }),
+
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      return getDealRecoveryStats(ctx.user.id);
+    }),
   }),
 
   // ─── Product Intelligence ──────────────────────────────────────────────────
