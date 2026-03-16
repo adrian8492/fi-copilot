@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE copilot_suggestions MODIFY COLUMN `type` ENUM(\n  'product_recommendation',\n  'objection_handling',\n  'compliance_reminder',\n  'rapport_building',\n  'closing_technique',\n  'general_tip',\n  'language_correction',\n  'process_alert',\n  'professional_hello',\n  'customer_connection',\n  'financial_snapshot',\n  'menu_transition',\n  'product_presentation',\n  'objection_prevention',\n  'objection_response',\n  'closing',\n  'compliance_disclosure',\n  'phone_script'\n) NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute ALTER TABLE copilot_suggestions MODIFY COLUMN `type` ENUM(\n  'product_recommendation',\n  'objection_handling',\n  'compliance_reminder',\n  'rapport_building',\n  'closing_technique',\n  'general_tip',\n  'language_correction',\n  'process_alert',\n  'professional_hello',\n  'customer_connection',\n  'financial_snapshot',\n  'menu_transition',\n  'product_presentation',\n  'objection_prevention',\n  'objection_response',\n  'closing',\n  'compliance_disclosure',\n  'phone_script'\n) NOT NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 163
+}

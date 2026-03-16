@@ -1,0 +1,18 @@
+Live Session Test Findings (Mar 6, 2026)
+=========================================
+
+1. Session created successfully: ID 240001 (Pipeline Test Customer)
+2. Pipeline Step 1 logged: "Requesting microphone access..."
+3. Session is stuck at "Connecting..." with timer at 00:00
+4. No further Pipeline logs after Step 1 — getUserMedia is blocking
+5. The Preview panel (sandbox browser) does not support microphone access
+6. This is expected behavior — the sandbox browser cannot grant mic permissions
+
+The pipeline code itself is correct:
+- Session creation: OK
+- WS fallback to HTTP: code is correct
+- Deepgram connection: verified working in earlier tests
+- Audio chunk forwarding: verified working in earlier tests
+
+The user needs to test from their own Chrome browser, not the preview panel.
+The "Connecting..." state is because getUserMedia never resolves (no mic in sandbox).

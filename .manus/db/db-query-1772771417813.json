@@ -1,0 +1,31 @@
+{
+  "query": "SHOW TABLES LIKE 'user_rooftop_assignments'; SHOW COLUMNS FROM users LIKE 'isGroupAdmin'; SHOW COLUMNS FROM dealerships LIKE 'groupId'; SHOW COLUMNS FROM invitations LIKE 'groupId';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute SHOW TABLES LIKE 'user_rooftop_assignments'; SHOW COLUMNS FROM users LIKE 'isGroupAdmin'; SHOW COLUMNS FROM dealerships LIKE 'groupId'; SHOW COLUMNS FROM invitations LIKE 'groupId';",
+  "rows": [
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)": "user_rooftop_assignments"
+    },
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)": "isGroupAdmin\ttinyint(1)\tNO\t\t0\t"
+    },
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)": "groupId\tint\tYES\t\tNULL\t"
+    },
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)": "groupId\tint\tYES\t\tNULL\t"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_MQskutAJ8qMCMFRFedd6Fn (user_rooftop_assignments)\nuser_rooftop_assignments\nField\tType\tNull\tKey\tDefault\tExtra\nisGroupAdmin\ttinyint(1)\tNO\t\t0\t\nField\tType\tNull\tKey\tDefault\tExtra\ngroupId\tint\tYES\t\tNULL\t\nField\tType\tNull\tKey\tDefault\tExtra\ngroupId\tint\tYES\t\tNULL\t\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}

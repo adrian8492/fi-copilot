@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE copilot_suggestions MODIFY COLUMN type ENUM('product_recommendation', 'objection_handling', 'compliance_reminder', 'rapport_building', 'closing_technique', 'general_tip', 'language_correction', 'process_alert', 'professional_hello', 'customer_connection', 'financial_snapshot', 'menu_transition', 'product_presentation', 'objection_prevention', 'objection_response', 'closing', 'compliance_disclosure', 'phone_script', 'admin_function', 'assuming_business', 'client_survey', 'needs_awareness', 'product_knowledge', 'ranking_process', 'transition');",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute ALTER TABLE copilot_suggestions MODIFY COLUMN type ENUM('product_recommendation', 'objection_handling', 'compliance_reminder', 'rapport_building', 'closing_technique', 'general_tip', 'language_correction', 'process_alert', 'professional_hello', 'customer_connection', 'financial_snapshot', 'menu_transition', 'product_presentation', 'objection_prevention', 'objection_response', 'closing', 'compliance_disclosure', 'phone_script', 'admin_function', 'assuming_business', 'client_survey', 'needs_awareness', 'product_knowledge', 'ranking_process', 'transition');",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 152
+}

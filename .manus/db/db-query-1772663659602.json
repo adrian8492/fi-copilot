@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, name, slug FROM dealerships;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute SELECT id, name, slug FROM dealerships;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "South Tacoma Auto",
+      "slug": "south-tacoma-auto"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tslug\n1\tSouth Tacoma Auto\tsouth-tacoma-auto\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

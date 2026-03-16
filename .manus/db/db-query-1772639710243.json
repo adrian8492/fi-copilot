@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `dealerships` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`name` varchar(255) NOT NULL,\n\t`slug` varchar(64) NOT NULL,\n\t`plan` enum('trial','beta','pro','enterprise') NOT NULL DEFAULT 'beta',\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `dealerships_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `dealerships_slug_unique` UNIQUE(`slug`)\n);\nALTER TABLE `sessions` ADD `dealershipId` int;\nALTER TABLE `users` ADD `dealershipId` int;\nALTER TABLE `users` ADD `isSuperAdmin` boolean DEFAULT false NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute CREATE TABLE `dealerships` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`name` varchar(255) NOT NULL,\n\t`slug` varchar(64) NOT NULL,\n\t`plan` enum('trial','beta','pro','enterprise') NOT NULL DEFAULT 'beta',\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `dealerships_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `dealerships_slug_unique` UNIQUE(`slug`)\n);\nALTER TABLE `sessions` ADD `dealershipId` int;\nALTER TABLE `users` ADD `dealershipId` int;\nALTER TABLE `users` ADD `isSuperAdmin` boolean DEFAULT false NOT NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1042
+}

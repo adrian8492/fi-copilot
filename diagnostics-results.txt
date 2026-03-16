@@ -1,0 +1,17 @@
+Pipeline Diagnostics Results (Mar 5, 2026)
+============================================
+Status: DEGRADED (6/7 checks passed)
+Server uptime: 157m 28s
+
+Component Health:
+- Deepgram API Key: PASS (Valid, ec950c..., 40 chars)
+- Deepgram Live Stream: PASS (connected)
+- Database: PASS (Connected and responsive)
+- LLM API (Forge): PASS (Configured)
+- Transport Mode: WARN (WebSocket blocked by hosting proxy — HTTP streaming fallback active. Expected behavior.)
+- Compliance Engine: PASS (31 federal rules + ASURA proprietary rules loaded)
+- ASURA Script Library: PASS (Verbatim scripts indexed and ready)
+
+Transport: HTTP Streaming (WebSocket blocked by proxy)
+Audio: WebM/Opus from MediaRecorder → binary POST
+Events: Server-Sent Events (SSE) for real-time updates

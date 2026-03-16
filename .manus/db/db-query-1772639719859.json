@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO dealerships (name, slug, plan, isActive) VALUES ('ASURA Group', 'asura-group', 'enterprise', true);\nUPDATE users SET dealershipId = 1, isSuperAdmin = (role = 'admin');\nUPDATE sessions SET dealershipId = (SELECT dealershipId FROM users WHERE users.id = sessions.userId LIMIT 1);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3bA4W9LsJnP6zN1.d96f6be79bf3 --database MQskutAJ8qMCMFRFedd6Fn --execute INSERT INTO dealerships (name, slug, plan, isActive) VALUES ('ASURA Group', 'asura-group', 'enterprise', true);\nUPDATE users SET dealershipId = 1, isSuperAdmin = (role = 'admin');\nUPDATE sessions SET dealershipId = (SELECT dealershipId FROM users WHERE users.id = sessions.userId LIMIT 1);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 131
+}
