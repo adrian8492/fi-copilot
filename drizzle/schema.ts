@@ -476,3 +476,37 @@ export const productMenu = mysqlTable("product_menu", {
 
 export type ProductMenuItem = typeof productMenu.$inferSelect;
 export type InsertProductMenuItem = typeof productMenu.$inferInsert;
+
+// ─── Product Intelligence (AI coaching layer) ─────────────────────────────────
+export const productIntelligence = mysqlTable("product_intelligence", {
+  id: int("id").autoincrement().primaryKey(),
+  productType: mysqlEnum("productType", [
+    "vehicle_service_contract",
+    "gap_insurance",
+    "prepaid_maintenance",
+    "interior_exterior_protection",
+    "road_hazard",
+    "paintless_dent_repair",
+    "key_replacement",
+    "windshield_protection",
+    "lease_wear_tear",
+    "tire_wheel",
+    "theft_protection",
+    "other",
+  ]).notNull(),
+  coverageSummary: text("coverageSummary"),
+  commonObjections: text("commonObjections"),
+  objectionResponses: text("objectionResponses"),
+  sellingPoints: text("sellingPoints"),
+  asuraCoachingTips: text("asuraCoachingTips"),
+  targetCustomerProfile: text("targetCustomerProfile"),
+  avgCloseRate: float("avgCloseRate"),
+  avgProfit: float("avgProfit"),
+  complianceNotes: text("complianceNotes"),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProductIntelligenceItem = typeof productIntelligence.$inferSelect;
+export type InsertProductIntelligenceItem = typeof productIntelligence.$inferInsert;

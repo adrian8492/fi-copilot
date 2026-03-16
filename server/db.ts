@@ -23,6 +23,7 @@ import {
   users,
   customers,
   productMenu,
+  productIntelligence,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
@@ -1902,4 +1903,55 @@ export async function deleteProductMenuItem(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.delete(productMenu).where(eq(productMenu.id, id));
+}
+
+// ─── Product Intelligence ─────────────────────────────────────────────────────
+
+function parseJsonFields(row: any) {
+  if (!row) return row;
+  const jsonFields = ["commonObjections", "objectionResponses", "sellingPoints", "asuraCoachingTips"];
+  const result = { ...row };
+  for (const field of jsonFields) {
+    if (typeof result[field] === "string") {
+      try { result[field] = JSON.parse(result[field]); } catch { /* keep as string */ }
+    }
+  }
+  return result;
+}
+
+export async function getProductIntelligenceByType(productType: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(productIntelligence)
+    .where(eq(productIntelligence.productType, productType as any))
+    .limit(1);
+  return rows[0] ? parseJsonFields(rows[0]) : null;
+}
+
+export async function getAllProductIntelligence() {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db.select().from(productIntelligence)
+    .where(eq(productIntelligence.isActive, true))
+    .orderBy(productIntelligence.productType);
+  return rows.map(parseJsonFields);
+}
+
+export async function upsertProductIntelligence(data: any) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const record = {
+    ...data,
+    commonObjections: typeof data.commonObjections === "string" ? data.commonObjections : JSON.stringify(data.commonObjections),
+    objectionResponses: typeof data.objectionResponses === "string" ? data.objectionResponses : JSON.stringify(data.objectionResponses),
+    sellingPoints: typeof data.sellingPoints === "string" ? data.sellingPoints : JSON.stringify(data.sellingPoints),
+    asuraCoachingTips: typeof data.asuraCoachingTips === "string" ? data.asuraCoachingTips : JSON.stringify(data.asuraCoachingTips),
+  };
+  if (data.id) {
+    const { id, ...updates } = record;
+    await db.update(productIntelligence).set(updates as any).where(eq(productIntelligence.id, id));
+  } else {
+    await db.insert(productIntelligence).values(record as any);
+  }
+  return { success: true };
 }

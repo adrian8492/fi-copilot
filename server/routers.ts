@@ -104,6 +104,9 @@ import {
   getProductMenuByDealership,
   upsertProductMenuItem,
   deleteProductMenuItem,
+  getProductIntelligenceByType,
+  getAllProductIntelligence,
+  upsertProductIntelligence,
 } from "./db";
 import { invokeLLM } from "./_core/llm";
 import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
@@ -2065,6 +2068,40 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await deleteProductMenuItem(input.id);
         await insertAuditLog({ userId: ctx.user.id, action: "productMenu.delete", resourceType: "productMenu", resourceId: String(input.id), details: {} });
+        return { success: true };
+      }),
+  }),
+
+  // ─── Product Intelligence ──────────────────────────────────────────────────
+  productIntelligence: router({
+    list: protectedProcedure.query(async () => {
+      return getAllProductIntelligence();
+    }),
+
+    get: protectedProcedure
+      .input(z.object({ productType: z.string() }))
+      .query(async ({ input }) => {
+        return getProductIntelligenceByType(input.productType);
+      }),
+
+    upsert: adminProcedure
+      .input(z.object({
+        id: z.number().optional(),
+        productType: z.string(),
+        coverageSummary: z.string().optional(),
+        commonObjections: z.any().optional(),
+        objectionResponses: z.any().optional(),
+        sellingPoints: z.any().optional(),
+        asuraCoachingTips: z.any().optional(),
+        targetCustomerProfile: z.string().optional(),
+        avgCloseRate: z.number().optional(),
+        avgProfit: z.number().optional(),
+        complianceNotes: z.string().optional(),
+        isActive: z.boolean().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await upsertProductIntelligence(input);
+        await insertAuditLog({ userId: ctx.user.id, action: "productIntelligence.upsert", resourceType: "productIntelligence", resourceId: input.productType, details: { productType: input.productType } });
         return { success: true };
       }),
   }),
