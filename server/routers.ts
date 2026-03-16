@@ -1,4 +1,5 @@
 import { notifyOwner } from "./_core/notification";
+import { sendEmail, buildSessionSummaryEmail, buildWeeklyDigestEmail } from "./_core/email";
 import { COOKIE_NAME, NOT_GROUP_ADMIN_ERR_MSG } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -1072,6 +1073,29 @@ export const appRouter = router({
         await upsertGrade({ sessionId: input.sessionId, userId: session.userId, ...gradeData });
         await updateSessionStatus(input.sessionId, "completed");
         await insertAuditLog({ userId: ctx.user.id, action: "grade.generate", resourceType: "session", resourceId: String(input.sessionId) });
+
+        // Auto-send session summary email on completion
+        try {
+          const user = await getUserById(session.userId);
+          if (user?.email) {
+            const durationMin = session.durationSeconds ? Math.round(session.durationSeconds / 60) : 0;
+            const emailOpts = buildSessionSummaryEmail({
+              managerEmail: user.email,
+              managerName: user.name ?? user.email,
+              sessionId: input.sessionId,
+              customerName: session.customerName ?? "Unknown Customer",
+              overallScore: gradeData.overallScore ?? 0,
+              categoryScores: gradeData.categoryScores ?? {},
+              criticalFlags: gradeData.criticalFlags ?? 0,
+              warnings: gradeData.warnings ?? 0,
+              sessionDurationMin: durationMin,
+            });
+            sendEmail(emailOpts).catch((err) => console.error("[Email] Failed to send session summary:", err));
+          }
+        } catch (emailErr) {
+          console.error("[Email] Error preparing session summary email:", emailErr);
+        }
+
         return gradeData;
       }),
 
@@ -2043,6 +2067,66 @@ export const appRouter = router({
         await insertAuditLog({ userId: ctx.user.id, action: "productMenu.delete", resourceType: "productMenu", resourceId: String(input.id), details: {} });
         return { success: true };
       }),
+  }),
+
+  // ─── Weekly Digest ────────────────────────────────────────────────────────
+  weeklyDigest: router({
+    send: adminProcedure.mutation(async ({ ctx }) => {
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - 7);
+      const lastWeekStart = new Date(now);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 14);
+
+      const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
+      const users = await getAllUsersByDealershipIds(dealershipIds);
+      const managers = users.filter((u: any) => u.role === "manager" || u.role === "admin");
+
+      let sent = 0;
+      for (const mgr of managers) {
+        if (!mgr.email) continue;
+
+        // This week's sessions (returns plain array)
+        const allSessions = await getSessionsByUserId(mgr.id, 1000, 0);
+        const thisWeek = allSessions.filter(
+          (s) => new Date(s.startedAt) >= weekStart && new Date(s.startedAt) < now
+        );
+
+        // Last week's sessions for trend
+        const lastWeek = allSessions.filter(
+          (s) => new Date(s.startedAt) >= lastWeekStart && new Date(s.startedAt) < weekStart
+        );
+
+        const totalSessions = thisWeek.length;
+        const avgScore = totalSessions > 0
+          ? thisWeek.reduce((sum: number, s: any) => sum + (s.overallScore ?? 0), 0) / totalSessions
+          : 0;
+        const lastAvg = lastWeek.length > 0
+          ? lastWeek.reduce((sum: number, s: any) => sum + (s.overallScore ?? 0), 0) / lastWeek.length
+          : 0;
+        const scoreTrend = lastAvg > 0 ? ((avgScore - lastAvg) / lastAvg) * 100 : 0;
+
+        // Compliance flags this week
+        const flags = await getComplianceFlags(weekStart.toISOString(), now.toISOString());
+        const weekFlags = flags.filter(
+          (f) => (f as any).userId === mgr.id || (f as any).sessionId != null
+        );
+
+        const emailOpts = buildWeeklyDigestEmail({
+          managerName: mgr.name ?? mgr.email,
+          managerEmail: mgr.email,
+          totalSessions,
+          averageScore: Math.round(avgScore),
+          scoreTrend: Math.round(scoreTrend * 10) / 10,
+          topImprovements: ["Menu presentation sequence", "Objection prevention timing", "Upgrade architecture usage"],
+          complianceFlags: weekFlags.length,
+        });
+        await sendEmail(emailOpts);
+        sent++;
+      }
+
+      return { success: true, sent };
+    }),
   }),
 });
 export type AppRouter = typeof appRouter;
