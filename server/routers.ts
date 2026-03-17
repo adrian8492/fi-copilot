@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { notifyOwner } from "./_core/notification";
 import { sendEmail, buildSessionSummaryEmail, buildWeeklyDigestEmail } from "./_core/email";
 import { COOKIE_NAME, NOT_GROUP_ADMIN_ERR_MSG } from "@shared/const";
@@ -121,7 +122,7 @@ import {
 import { runASURAScorecardEngine, type CoachingCadenceInput } from "./asura-scorecard";
 import { invokeLLM } from "./_core/llm";
 import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
-import { setUserMfaSecret, enableUserMfa, disableUserMfa, getUserMfaStatus, getUserByOpenId } from "./db";
+import { setUserMfaSecret, enableUserMfa, disableUserMfa, getUserMfaStatus, getUserByOpenId, getUserByEmail, setUserPasswordHash } from "./db";
 import { encrypt } from "./_core/encryption";
 import { sdk } from "./_core/sdk";
 import { transcribeAudio } from "./_core/voiceTranscription";
@@ -675,6 +676,35 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // ─── Local Password Login ─────────────────────────────────────────────────
+    localLogin: publicProcedure
+      .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await getUserByEmail(input.email);
+        if (!user || !(user as any).passwordHash) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        }
+        const valid = await bcrypt.compare(input.password, (user as any).passwordHash as string);
+        if (!valid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+        }
+        const sessionToken = await sdk.createSessionToken(user.openId, {
+          name: user.name || "",
+          expiresInMs: 365 * 24 * 60 * 60 * 1000,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+        await insertAuditLog({ userId: user.id, action: "auth.localLogin", resourceType: "user", resourceId: String(user.id), details: {} });
+        return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+      }),
+    setPassword: protectedProcedure
+      .input(z.object({ newPassword: z.string().min(8) }))
+      .mutation(async ({ ctx, input }) => {
+        const hash = await bcrypt.hash(input.newPassword, 12);
+        await setUserPasswordHash(ctx.user.id, hash);
+        await insertAuditLog({ userId: ctx.user.id, action: "auth.setPassword", resourceType: "user", resourceId: String(ctx.user.id), details: {} });
+        return { success: true };
+      }),
     // ─── MFA ────────────────────────────────────────────────────────────────────
     mfaSetup: protectedProcedure.mutation(async ({ ctx }) => {
       const secret = generateTotpSecret();

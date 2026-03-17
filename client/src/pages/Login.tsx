@@ -1,17 +1,38 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { Button } from "@/components/ui/button";
-import { Zap, Shield, Mic, BarChart3 } from "lucide-react";
-import { useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Zap, Shield, Mic, BarChart3, Loader2, AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 
 export default function Login() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, refresh } = useAuth();
   const [, navigate] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!loading && isAuthenticated) navigate("/");
   }, [isAuthenticated, loading, navigate]);
+
+  const loginMutation = trpc.auth.localLogin.useMutation({
+    onSuccess: async () => {
+      await refresh();
+      navigate("/");
+    },
+    onError: (err: { message?: string }) => {
+      setError(err.message || "Invalid email or password");
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    loginMutation.mutate({ email: email.trim(), password });
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -83,15 +104,51 @@ export default function Login() {
             </p>
           </div>
 
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@dealership.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loginMutation.isPending}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loginMutation.isPending}
+              />
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </div>
+            )}
             <Button
+              type="submit"
               className="w-full h-11 font-semibold"
-              onClick={() => { window.location.href = getLoginUrl(); }}
+              disabled={loginMutation.isPending}
             >
-              <Zap className="w-4 h-4 mr-2" />
-              Sign in with Manus
+              {loginMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Signing in…</>
+              ) : (
+                <><Zap className="w-4 h-4 mr-2" />Sign In</>
+              )}
             </Button>
-          </div>
+          </form>
 
           <div className="flex items-center gap-2 p-3 rounded-lg bg-card border border-border">
             <Shield className="w-4 h-4 text-primary shrink-0" />

@@ -2155,3 +2155,18 @@ export async function getRecentScorecardScores(userId: number, limit = 10): Prom
     .limit(limit);
   return rows.map(r => Number(r.tier1Score));
 }
+
+// ─── Local Auth Helpers ───────────────────────────────────────────────────────
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function setUserPasswordHash(userId: number, hash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(users).set({ passwordHash: hash } as any).where(eq(users.id, userId));
+  return { success: true };
+}

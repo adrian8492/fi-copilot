@@ -47,6 +47,7 @@ export const users = mysqlTable("users", {
   isGroupAdmin: boolean("isGroupAdmin").notNull().default(false),
   mfaEnabled: boolean("mfaEnabled").notNull().default(false),
   totpSecret: varchar("totpSecret", { length: 512 }),
+  passwordHash: varchar("passwordHash", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

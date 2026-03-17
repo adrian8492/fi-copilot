@@ -127,6 +127,13 @@
       "when": 1742195400000,
       "tag": "0017_asura_scorecards",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1773773002860,
+      "tag": "0018_steep_mach_iv",
+      "breakpoints": true
     }
   ]
 }
