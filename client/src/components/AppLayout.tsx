@@ -33,6 +33,7 @@ import {
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 import DealershipSwitcher from "@/components/DealershipSwitcher";
+import { DelphiEmbed } from "@/components/DelphiEmbed";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -329,6 +330,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           {children}
         </main>
       </div>
+
+      {/* Ask Adrian — Delphi AI floating button (authenticated users only) */}
+      <DelphiEmbed />
     </div>
   );
 }
