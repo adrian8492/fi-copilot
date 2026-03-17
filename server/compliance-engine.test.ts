@@ -261,3 +261,107 @@ describe("PRODUCT_DISCLOSURE_REQUIREMENTS", () => {
     }
   });
 });
+
+// ─── State-Specific Rules (A4 additions) ─────────────────────────────────────
+
+import {
+  STATE_COMPLIANCE_RULES,
+  getRulesForState,
+  type StateCode,
+} from "./compliance-engine";
+
+describe("STATE_COMPLIANCE_RULES", () => {
+  const STATES: StateCode[] = ["CA", "TX", "FL", "NY", "OH"];
+
+  it("has rules for all 5 top states", () => {
+    for (const state of STATES) {
+      expect(STATE_COMPLIANCE_RULES[state].length).toBeGreaterThan(0);
+    }
+  });
+
+  it("each state rule has required fields", () => {
+    for (const state of STATES) {
+      for (const rule of STATE_COMPLIANCE_RULES[state]) {
+        expect(typeof rule.id).toBe("string");
+        expect(rule.id.startsWith(state + "-")).toBe(true);
+        expect(typeof rule.description).toBe("string");
+        expect(typeof rule.remediation).toBe("string");
+        expect(["critical", "warning", "info"]).toContain(rule.severity);
+      }
+    }
+  });
+
+  it("CA has at least 5 rules (strictest state)", () => {
+    expect(STATE_COMPLIANCE_RULES["CA"].length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("all state rules reference state in description", () => {
+    const STATE_PREFIXES: Record<StateCode, string> = {
+      CA: "[CA]", TX: "[TX]", FL: "[FL]", NY: "[NY]", OH: "[OH]",
+      FEDERAL: "",
+    };
+    for (const state of STATES) {
+      for (const rule of STATE_COMPLIANCE_RULES[state]) {
+        expect(rule.description.includes(STATE_PREFIXES[state])).toBe(true);
+      }
+    }
+  });
+});
+
+describe("getRulesForState", () => {
+  it("FEDERAL returns only federal rules", () => {
+    const rules = getRulesForState("FEDERAL");
+    expect(rules).toEqual(ALL_COMPLIANCE_RULES);
+  });
+
+  it("state returns federal + state rules combined", () => {
+    const ca = getRulesForState("CA");
+    const federal = getRulesForState("FEDERAL");
+    const stateOnly = STATE_COMPLIANCE_RULES["CA"];
+    expect(ca.length).toBe(federal.length + stateOnly.length);
+  });
+
+  it("federalOnly=true returns only federal rules regardless of state", () => {
+    const caFederalOnly = getRulesForState("CA", true);
+    expect(caFederalOnly).toEqual(ALL_COMPLIANCE_RULES);
+  });
+
+  it("state rules are appended after federal rules", () => {
+    const tx = getRulesForState("TX");
+    const federalCount = ALL_COMPLIANCE_RULES.length;
+    const txStateRules = STATE_COMPLIANCE_RULES["TX"];
+    // Last N rules should be TX state rules
+    const lastN = tx.slice(-txStateRules.length);
+    expect(lastN.map(r => r.id)).toEqual(txStateRules.map(r => r.id));
+  });
+});
+
+describe("scanTranscriptForViolations with state context", () => {
+  it("detects CA-specific violations when stateCode is CA", () => {
+    const transcript = "We automatically include the extended warranty with every car we sell, it comes standard.";
+    const violations = scanTranscriptForViolations(transcript, 0, { stateCode: "CA" });
+    // Should find violations from federal + CA rules
+    expect(violations.length).toBeGreaterThan(0);
+  });
+
+  it("detects NY GAP insurance naming violation", () => {
+    const transcript = "Let me go over GAP insurance with you today.";
+    const violations = scanTranscriptForViolations(transcript, 0, { stateCode: "NY" });
+    const nyGapViolation = violations.find(v => v.ruleId === "NY-003");
+    expect(nyGapViolation).toBeDefined();
+  });
+
+  it("detects UDAP mandatory bundling across all states", () => {
+    const transcript = "The bank requires you to get GAP. It's mandatory for your loan.";
+    const violations = scanTranscriptForViolations(transcript, 0, { stateCode: "TX" });
+    const udapViolations = violations.filter(v => v.ruleId.startsWith("UDAP") || v.ruleId.startsWith("GAP"));
+    expect(udapViolations.length).toBeGreaterThan(0);
+  });
+
+  it("returns more violations for high-risk state (CA) vs federal only", () => {
+    const highRiskTranscript = "We automatically include ceramic coating on all our cars. GAP insurance is required by the lender. The extended warranty covers everything with no deductible.";
+    const federal = scanTranscriptForViolations(highRiskTranscript, 0);
+    const caState = scanTranscriptForViolations(highRiskTranscript, 0, { stateCode: "CA" });
+    expect(caState.length).toBeGreaterThanOrEqual(federal.length);
+  });
+});

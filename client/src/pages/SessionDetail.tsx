@@ -23,6 +23,7 @@ import AudioWaveform from "@/components/AudioWaveform";
 import { SessionNotes } from "@/components/SessionNotes";
 import { PrintReportButton } from "@/components/PrintReportButton";
 import { AsuraScorecard } from "@/components/AsuraScorecard";
+import { ComplianceReport } from "@/components/ComplianceReport";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +88,14 @@ export default function SessionDetail() {
     onSuccess: () => toast.success("Coaching report generated!"),
     onError: () => toast.error("Report generation failed."),
   });
+  const utils = trpc.useUtils();
+  const resolveFlag = trpc.compliance.resolveFlag.useMutation({
+    onSuccess: () => {
+      utils.compliance.getFlags.invalidate({ sessionId });
+      toast.success("Flag resolved.");
+    },
+    onError: (err) => toast.error(err.message || "Failed to resolve flag."),
+  });
 
   // Deal details state
   const [dealEdit, setDealEdit] = useState<{
@@ -132,7 +141,6 @@ export default function SessionDetail() {
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const utils = trpc.useUtils();
   const reTranscribe = trpc.recordings.reTranscribe.useMutation({
     onSuccess: (data) => {
       utils.transcripts.getBySession.invalidate({ sessionId });
@@ -738,49 +746,12 @@ export default function SessionDetail() {
 
           {/* Compliance Tab */}
           <TabsContent value="compliance" className="mt-4">
-            <div className="space-y-4">
-              {complianceFlags && complianceFlags.length > 0 ? complianceFlags.map((flag) => (
-                <Card key={flag.id} className={cn(
-                  "border",
-                  (flag.severity as string) === "critical" ? "bg-red-500/5 border-red-500/20" :
-                  (flag.severity as string) === "warning" ? "bg-yellow-500/5 border-yellow-500/20" :
-                  "bg-blue-500/5 border-blue-500/20"
-                )}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                        <AlertTriangle className={cn(
-                          "w-4 h-4 mt-0.5 shrink-0",
-                          (flag.severity as string) === "critical" ? "text-red-400" :
-                          (flag.severity as string) === "warning" ? "text-yellow-400" : "text-blue-400"
-                      )} />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-semibold text-foreground">{flag.rule}</p>
-                          <Badge variant="outline" className={cn(
-                            "text-[10px]",
-                            (flag.severity as string) === "critical" ? "border-red-500/30 text-red-400" :
-                            (flag.severity as string) === "warning" ? "border-yellow-500/30 text-yellow-400" : "border-blue-500/30 text-blue-400"
-                          )}>
-                            {flag.severity}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{flag.description}</p>
-                        {flag.excerpt && (
-                          <p className="text-xs text-muted-foreground/60 mt-2 italic">"{flag.excerpt}"</p>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )) : (
-                <Card className="bg-card border-border">
-                  <CardContent className="py-12 text-center">
-                    <CheckCircle2 className="w-10 h-10 text-green-400 mx-auto mb-3 opacity-60" />
-                    <p className="text-sm font-medium text-muted-foreground">No compliance issues detected</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <ComplianceReport
+              flags={complianceFlags ?? []}
+              sessionId={sessionId}
+              onResolve={(flagId) => resolveFlag.mutate({ flagId })}
+              isResolvePending={resolveFlag.isPending}
+            />
           </TabsContent>
 
           {/* Co-Pilot Suggestions Tab */}

@@ -30,7 +30,14 @@ export type ComplianceCategory =
   | "CONTRACT_ELEMENTS"
   | "GAP_PRODUCT"
   | "VSC_PRODUCT"
-  | "AFTERMARKET_PRODUCT";
+  | "AFTERMARKET_PRODUCT"
+  | "STATE_CA"
+  | "STATE_TX"
+  | "STATE_FL"
+  | "STATE_NY"
+  | "STATE_OH";
+
+export type StateCode = "CA" | "TX" | "FL" | "NY" | "OH" | "FEDERAL";
 
 export interface ComplianceRule {
   id: string;
@@ -459,6 +466,253 @@ const AFTERMARKET_RULES: ComplianceRule[] = [
   },
 ];
 
+// ─── State-Specific Rules ─────────────────────────────────────────────────────
+
+/**
+ * California (CA) — Rees-Levering Automobile Sales Finance Act + CLRA
+ * Strictest state in the US for F&I compliance.
+ */
+const STATE_CA_RULES: ComplianceRule[] = [
+  {
+    id: "CA-001",
+    category: "STATE_CA",
+    severity: "critical",
+    description: "[CA] Rees-Levering: GAP waiver contracts must state it does not cover mechanical breakdown or theft damage deductibles",
+    triggers: [/\bGAP\b/i, /\bguaranteed asset protection\b/i],
+    requiredPhrases: ["waiver agreement", "gap waiver"],
+    remediation:
+      "[California] Under Rees-Levering, GAP in CA is a 'GAP waiver' not insurance. Disclose: 'This is a GAP Waiver Agreement. It waives your remaining loan balance in a total loss — it does not cover deductibles, late charges, or mechanical breakdown.'",
+  },
+  {
+    id: "CA-002",
+    category: "STATE_CA",
+    severity: "critical",
+    description: "[CA] CLRA (Consumers Legal Remedies Act): prohibits any unfair or deceptive representation about F&I products",
+    triggers: [],
+    forbiddenPhrases: [
+      /\bevery car we sell has this\b/i,
+      /\bwe require all customers\b/i,
+      /\bthe dealership adds this automatically\b/i,
+    ],
+    remediation:
+      "[California CLRA] Deceptive practices carry triple damages. Never imply products are mandatory or standard. Use: 'These are optional products. You are not required to purchase any of them, and your financing approval is not contingent on these products.'",
+  },
+  {
+    id: "CA-003",
+    category: "STATE_CA",
+    severity: "critical",
+    description: "[CA] Vehicle Service Contracts must include a 60-day free cancellation period under California law",
+    triggers: [/\bservice contract\b/i, /\bVSC\b/i, /\bVSA\b/i],
+    requiredPhrases: ["60 days", "cancel", "full refund"],
+    remediation:
+      "[California] VSCs must offer a minimum 60-day free cancellation period. Disclose: 'You have 60 days from the effective date to cancel this service contract for a full refund with no penalty, even if you've had a repair.'",
+  },
+  {
+    id: "CA-004",
+    category: "STATE_CA",
+    severity: "warning",
+    description: "[CA] Rate markup caps: California limits dealer markup on indirect financing",
+    triggers: [/\binterest rate\b/i, /\bAPR\b/i, /\brate\b/i, /\bmonthly payment\b/i],
+    remediation:
+      "[California] Dealer reserve (rate markup) is capped. Ensure the markup does not exceed your lending agreement limits. Document all rate decisions in the deal jacket.",
+  },
+  {
+    id: "CA-005",
+    category: "STATE_CA",
+    severity: "warning",
+    description: "[CA] Yo-yo financing: Cannot re-contract customer after they've left dealership without specific disclosures",
+    triggers: [/\bspot delivery\b/i, /\bdriving it home\b/i, /\btake delivery today\b/i],
+    forbiddenPhrases: [/\bif the bank doesn't approve\b/i, /\byou may have to bring it back\b/i],
+    remediation:
+      "[California] Spot deliveries are heavily regulated. If financing is conditional, provide written disclosure. Do not allow customer to take delivery without a signed retail installment contract.",
+  },
+];
+
+/**
+ * Texas (TX) — Texas Finance Code + Insurance Code requirements
+ */
+const STATE_TX_RULES: ComplianceRule[] = [
+  {
+    id: "TX-001",
+    category: "STATE_TX",
+    severity: "critical",
+    description: "[TX] Credit Life and Disability Insurance must be presented with specific cost-benefit disclosures",
+    triggers: [/\bcredit life\b/i, /\bdisability insurance\b/i, /\bcredit insurance\b/i],
+    requiredPhrases: ["premium", "benefit", "optional"],
+    remediation:
+      "[Texas] Credit life and disability insurance must include the monthly premium, benefit amount, and a statement that it is optional: 'The premium for this coverage is $[X] per month. The benefit pays your loan balance in the event of [death/disability]. This coverage is optional.'",
+  },
+  {
+    id: "TX-002",
+    category: "STATE_TX",
+    severity: "critical",
+    description: "[TX] Texas Finance Code: Retail Installment Sales Contract must include all required disclosures in a RISA-compliant format",
+    triggers: [/\binstallment\b/i, /\bretail contract\b/i, /\bfinance contract\b/i],
+    requiredPhrases: ["retail installment sales contract", "annual percentage rate"],
+    remediation:
+      "[Texas] Ensure the Retail Installment Sales Contract (RISC) is Texas-compliant: APR, total amount financed, total of payments, and payment schedule must all be clearly disclosed.",
+  },
+  {
+    id: "TX-003",
+    category: "STATE_TX",
+    severity: "warning",
+    description: "[TX] GAP insurance sold in Texas must be licensed under the Texas Insurance Code — sold through approved carriers only",
+    triggers: [/\bGAP\b/i, /\bguaranteed asset protection\b/i],
+    remediation:
+      "[Texas] GAP in Texas is regulated as insurance. Verify your GAP provider is licensed by the Texas Department of Insurance. Selling unlicensed GAP products is a violation of the Texas Insurance Code.",
+  },
+  {
+    id: "TX-004",
+    category: "STATE_TX",
+    severity: "warning",
+    description: "[TX] VSC providers must be licensed or bonded in Texas",
+    triggers: [/\bservice contract\b/i, /\bVSC\b/i, /\bVSA\b/i],
+    remediation:
+      "[Texas] Vehicle service contract providers must be licensed under the Texas Service Contract Act. Verify your VSC administrator is licensed by the Texas Department of Licensing and Regulation (TDLR).",
+  },
+];
+
+/**
+ * Florida (FL) — Florida Motor Vehicle Retail Sales Finance Act (FMVRSFA)
+ */
+const STATE_FL_RULES: ComplianceRule[] = [
+  {
+    id: "FL-001",
+    category: "STATE_FL",
+    severity: "critical",
+    description: "[FL] Florida MVRSFA: All F&I products must be listed as itemized add-ons on the retail installment contract",
+    triggers: [/\bpayment\b/i, /\bcontract\b/i, /\bfinancing\b/i],
+    requiredPhrases: ["itemized", "separate charge", "optional products"],
+    remediation:
+      "[Florida] Under the Florida Motor Vehicle Retail Sales Finance Act, each F&I product must appear as a separate line item on the contract. Never bundle product costs into the vehicle price or base payment.",
+  },
+  {
+    id: "FL-002",
+    category: "STATE_FL",
+    severity: "critical",
+    description: "[FL] Motor Vehicle Warranty Enforcement Act: VSC must not use the word 'warranty' — it is a service contract",
+    triggers: [/\bservice contract\b/i, /\bVSC\b/i, /\bextended warranty\b/i],
+    forbiddenPhrases: [/\bextended warranty\b/i, /\bwarranty extension\b/i],
+    remediation:
+      "[Florida] The Florida Motor Vehicle Warranty Enforcement Act strictly prohibits calling VSCs 'warranties.' Use: 'This is a vehicle service contract — a separate contractual agreement that provides protection for covered components.'",
+  },
+  {
+    id: "FL-003",
+    category: "STATE_FL",
+    severity: "warning",
+    description: "[FL] Florida deceptive trade practices: Ceramic/paint products advertised as permanent or lifetime must include durability qualifications",
+    triggers: [/\bceramic\b/i, /\bpaint protection\b/i, /\bprotection film\b/i],
+    forbiddenPhrases: [/\bpermanent\b/i, /\blasts forever\b/i, /\blifetime protection\b/i],
+    remediation:
+      "[Florida FDUTPA] Avoid absolute durability claims. Use: 'This protection is designed to last [X] years under normal driving conditions, with proper maintenance as outlined in your contract.'",
+  },
+  {
+    id: "FL-004",
+    category: "STATE_FL",
+    severity: "warning",
+    description: "[FL] Finance charge rate disclosure: Must clearly separate product costs from vehicle financing rate",
+    triggers: [/\bpayment\b/i, /\brate\b/i, /\bAPR\b/i],
+    requiredPhrases: ["base payment", "product cost", "total payment"],
+    remediation:
+      "[Florida] Disclose finance charges separately from product costs: 'Your base vehicle payment is $[X]. Adding the optional products you selected adds $[Y], for a total payment of $[Z].'",
+  },
+];
+
+/**
+ * New York (NY) — NY Banking Law + NY Vehicle & Traffic Law
+ */
+const STATE_NY_RULES: ComplianceRule[] = [
+  {
+    id: "NY-001",
+    category: "STATE_NY",
+    severity: "critical",
+    description: "[NY] New York Banking Law: Retail installment contracts must be in plain language — no fine print ambiguity",
+    triggers: [/\bcontract\b/i, /\bsign\b/i, /\binstallment\b/i],
+    requiredPhrases: ["please read", "review this contract", "do you have questions"],
+    remediation:
+      "[New York] NY's Plain Language Law requires all consumer contracts be understandable. Before signing, state: 'I want to make sure you've had a chance to read through everything. Do you have any questions about any of the terms?'",
+  },
+  {
+    id: "NY-002",
+    category: "STATE_NY",
+    severity: "critical",
+    description: "[NY] NY Insurance Law: Credit insurance must be presented with a specific cost comparison and disclosure",
+    triggers: [/\bcredit life\b/i, /\bcredit insurance\b/i, /\bdisability coverage\b/i],
+    requiredPhrases: ["optional", "right to choose your own insurer", "shop elsewhere"],
+    remediation:
+      "[New York] Under NY Insurance Law, inform customers: 'This coverage is optional. You have the right to obtain similar coverage from any insurer of your choice. You are not required to purchase insurance from this dealership.'",
+  },
+  {
+    id: "NY-003",
+    category: "STATE_NY",
+    severity: "warning",
+    description: "[NY] GAP must not be presented as insurance — it is a contractual waiver in New York",
+    triggers: [/\bGAP insurance\b/i, /\bGAP coverage\b/i],
+    forbiddenPhrases: [/\bGAP insurance\b/i],
+    remediation:
+      "[New York] Do not call GAP 'insurance' in New York — it's regulated as a debt cancellation waiver. Use: 'This is a GAP Debt Cancellation Waiver. It waives the difference between your insurance settlement and your remaining loan balance in a total loss.'",
+  },
+  {
+    id: "NY-004",
+    category: "STATE_NY",
+    severity: "warning",
+    description: "[NY] NY Vehicle & Traffic Law: All dealer fees must be disclosed and itemized — dealer-added charges cannot be buried",
+    triggers: [/\bfee\b/i, /\bdoc fee\b/i, /\bprocessing fee\b/i, /\badmin fee\b/i],
+    requiredPhrases: ["documentation fee", "is negotiable", "not required by the state"],
+    remediation:
+      "[New York] NY law requires itemization of all dealer fees. Disclose: 'The documentation fee of $[X] is a dealer fee, not a state-required charge. This fee is [negotiable/not negotiable] at this dealership.'",
+  },
+];
+
+/**
+ * Ohio (OH) — Ohio Consumer Sales Practices Act (OCSPA) + Ohio Revised Code
+ */
+const STATE_OH_RULES: ComplianceRule[] = [
+  {
+    id: "OH-001",
+    category: "STATE_OH",
+    severity: "critical",
+    description: "[OH] OCSPA: Unfair or deceptive acts in consumer transactions carry triple damages — no misrepresentation of product benefits",
+    triggers: [],
+    forbiddenPhrases: [
+      /\bcovers everything\b/i,
+      /\bno out-of-pocket costs\b/i,
+      /\bwe guarantee you'll use it\b/i,
+    ],
+    remediation:
+      "[Ohio OCSPA] Deceptive product claims in Ohio carry triple damages for consumers. Always qualify coverage claims with specific terms: 'This covers [specific components] as listed in your contract, subject to a $[X] deductible and the exclusions listed on page [Y].'",
+  },
+  {
+    id: "OH-002",
+    category: "STATE_OH",
+    severity: "critical",
+    description: "[OH] Ohio Revised Code 4517: Dealer must disclose all applicable fees at time of sale — no fee surprises at signing",
+    triggers: [/\bfee\b/i, /\bdocumentation\b/i, /\bprocessing\b/i],
+    requiredPhrases: ["documentation fee", "disclosed", "included in the out-of-door price"],
+    remediation:
+      "[Ohio ORC 4517] All dealer fees must be disclosed at time of sale: 'The documentation fee is $[X]. This is a dealer-imposed fee to cover the cost of processing your paperwork. It is included in your out-of-door price of $[Y].'",
+  },
+  {
+    id: "OH-003",
+    category: "STATE_OH",
+    severity: "warning",
+    description: "[OH] Ohio VSC statute: Service contract providers must be registered with the Ohio Department of Insurance",
+    triggers: [/\bservice contract\b/i, /\bVSC\b/i, /\bVSA\b/i],
+    remediation:
+      "[Ohio] Vehicle service contracts in Ohio are regulated by the Ohio Department of Insurance. Ensure your VSC administrator holds a valid Ohio registration. Ask your F&I director to confirm current licensing.",
+  },
+  {
+    id: "OH-004",
+    category: "STATE_OH",
+    severity: "warning",
+    description: "[OH] OCSPA requires all optional products to be genuinely presented as optional, not implied as required",
+    triggers: [/\byou('ll)? (need|want)\b/i, /\bI recommend\b/i, /\bmost customers get\b/i],
+    forbiddenPhrases: [/\bthe bank prefers\b/i, /\bhelps your approval\b/i, /\bgets you approved faster\b/i],
+    remediation:
+      "[Ohio OCSPA] Implying products improve financing approval is deceptive under Ohio law. Use: 'This product has no bearing on your financing approval. I'm presenting it because it provides protection that many of our customers value.'",
+  },
+];
+
 // ─── Master Rule Set ──────────────────────────────────────────────────────────
 export const ALL_COMPLIANCE_RULES: ComplianceRule[] = [
   ...TILA_RULES,
@@ -470,6 +724,23 @@ export const ALL_COMPLIANCE_RULES: ComplianceRule[] = [
   ...VSC_RULES,
   ...AFTERMARKET_RULES,
 ];
+
+/** State-specific rule sets, keyed by state code */
+export const STATE_COMPLIANCE_RULES: Record<StateCode, ComplianceRule[]> = {
+  FEDERAL: ALL_COMPLIANCE_RULES,
+  CA: STATE_CA_RULES,
+  TX: STATE_TX_RULES,
+  FL: STATE_FL_RULES,
+  NY: STATE_NY_RULES,
+  OH: STATE_OH_RULES,
+};
+
+/** Get rules for a specific state (includes federal rules by default) */
+export function getRulesForState(stateCode: StateCode, federalOnly = false): ComplianceRule[] {
+  if (federalOnly || stateCode === "FEDERAL") return ALL_COMPLIANCE_RULES;
+  const stateRules = STATE_COMPLIANCE_RULES[stateCode] ?? [];
+  return [...ALL_COMPLIANCE_RULES, ...stateRules];
+}
 
 // ─── Compliance Grading Weights ───────────────────────────────────────────────
 export const COMPLIANCE_WEIGHTS = {
@@ -493,12 +764,17 @@ export function scanTranscriptForViolations(
     hasDisclosedAPR?: boolean;
     hasProvidedPrivacyNotice?: boolean;
     hasProvidedRiskBasedPricing?: boolean;
+    stateCode?: StateCode;
   }
 ): ComplianceViolation[] {
   const violations: ComplianceViolation[] = [];
   const lowerText = text.toLowerCase();
 
-  for (const rule of ALL_COMPLIANCE_RULES) {
+  const ruleset = sessionContext?.stateCode
+    ? getRulesForState(sessionContext.stateCode)
+    : ALL_COMPLIANCE_RULES;
+
+  for (const rule of ruleset) {
     // Check forbidden phrases first (highest priority)
     if (rule.forbiddenPhrases) {
       for (const forbidden of rule.forbiddenPhrases) {
@@ -571,6 +847,11 @@ export const COMPLIANCE_CATEGORY_LABELS: Record<ComplianceCategory, string> = {
   GAP_PRODUCT: "GAP Protection",
   VSC_PRODUCT: "Vehicle Service Contract",
   AFTERMARKET_PRODUCT: "Aftermarket Products",
+  STATE_CA: "California (CA)",
+  STATE_TX: "Texas (TX)",
+  STATE_FL: "Florida (FL)",
+  STATE_NY: "New York (NY)",
+  STATE_OH: "Ohio (OH)",
 };
 
 // ─── Checklist Compliance Requirements ───────────────────────────────────────
