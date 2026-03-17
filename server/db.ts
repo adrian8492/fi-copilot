@@ -611,6 +611,20 @@ export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date, dea
       ? relevantGrades.reduce((s, g) => s + (g.objectionResponseScore ?? 0), 0) / relevantGrades.length : 0;
     const avgTransitionAccuracy = relevantGrades.length > 0
       ? relevantGrades.reduce((s, g) => s + (g.transitionAccuracyScore ?? 0), 0) / relevantGrades.length : 0;
+
+    // ASURA OPS Tier-1 Score: pull from scorecard table
+    const scorecardRows = await db.select({
+      tier1Score: asuraScorecards.tier1Score,
+      tier: asuraScorecards.tier,
+    }).from(asuraScorecards)
+      .where(inArray(asuraScorecards.sessionId, sessionIds));
+    const avgTier1Score = scorecardRows.length > 0
+      ? Math.round(scorecardRows.reduce((s, sc) => s + Number(sc.tier1Score ?? 0), 0) / scorecardRows.length * 10) / 10
+      : null;
+    const tier1Tier = scorecardRows.length > 0
+      ? (avgTier1Score !== null && avgTier1Score >= 85 ? "Tier-1" : avgTier1Score !== null && avgTier1Score >= 70 ? "Tier-2" : avgTier1Score !== null && avgTier1Score >= 55 ? "Tier-3" : "Below-Tier")
+      : null;
+
     results.push({
       userId: user.id,
       name: user.name ?? "Unknown",
@@ -626,6 +640,8 @@ export async function getEagleEyeLeaderboard(fromDate?: Date, toDate?: Date, dea
       menuSequenceScore: Math.round(avgMenuSequence * 10) / 10,
       objectionResponseScore: Math.round(avgObjectionResponse * 10) / 10,
       transitionAccuracyScore: Math.round(avgTransitionAccuracy * 10) / 10,
+      tier1Score: avgTier1Score,
+      tier1Tier,
     });
   }
 

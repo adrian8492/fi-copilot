@@ -10,13 +10,14 @@ import {
 } from "recharts";
 import {
   Eye, TrendingUp, DollarSign, Clock, Hash, Percent,
-  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus, Calendar, BookOpen,
+  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus, Calendar, BookOpen, Target,
 } from "lucide-react";
 
-type MetricKey = "score" | "pvr" | "recordingLengthMinutes" | "dealCount" | "utilizationRate" | "ppd" | "scriptFidelityScore";
+type MetricKey = "score" | "pvr" | "recordingLengthMinutes" | "dealCount" | "utilizationRate" | "ppd" | "scriptFidelityScore" | "tier1Score";
 
 const METRIC_OPTIONS: { key: MetricKey; label: string; icon: React.ReactNode; format: (v: number) => string }[] = [
   { key: "score", label: "Score", icon: <Trophy className="w-4 h-4" />, format: (v) => `${v.toFixed(1)}%` },
+  { key: "tier1Score", label: "Tier-1 Score", icon: <Target className="w-4 h-4" />, format: (v) => v > 0 ? `${v.toFixed(1)}` : "—" },
   { key: "pvr", label: "PVR", icon: <DollarSign className="w-4 h-4" />, format: (v) => `$${v.toLocaleString()}` },
   { key: "ppd", label: "Products/Deal", icon: <Hash className="w-4 h-4" />, format: (v) => v.toFixed(1) },
   { key: "recordingLengthMinutes", label: "Recording Length", icon: <Clock className="w-4 h-4" />, format: (v) => `${v.toFixed(0)}m` },
@@ -242,7 +243,7 @@ export default function EagleEyeView() {
                         <th className="text-left py-3 px-3 text-slate-400 font-medium w-10">#</th>
                         <th className="text-left py-3 px-3 text-slate-400 font-medium">Manager</th>
                         <th className="text-left py-3 px-3 text-slate-400 font-medium">Dealership</th>
-                        {METRIC_OPTIONS.map((m) => (
+                        {METRIC_OPTIONS.filter(m => m.key !== "tier1Score").map((m) => (
                           <th
                             key={m.key}
                             className="text-right py-3 px-3 text-slate-400 font-medium cursor-pointer hover:text-white select-none"
@@ -253,6 +254,14 @@ export default function EagleEyeView() {
                             </span>
                           </th>
                         ))}
+                        <th
+                          className="text-right py-3 px-3 text-emerald-400/80 font-medium cursor-pointer hover:text-emerald-400 select-none"
+                          onClick={() => handleSort("tier1Score")}
+                        >
+                          <span className="flex items-center justify-end gap-1">
+                            <Target className="w-3.5 h-3.5" />Tier-1 <SortIcon field="tier1Score" />
+                          </span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -281,6 +290,23 @@ export default function EagleEyeView() {
                           <td className="py-4 px-3 text-right text-slate-300">{manager.recordingLengthMinutes.toFixed(0)}m</td>
                           <td className="py-4 px-3 text-right text-slate-300">{manager.dealCount}</td>
                           <td className="py-4 px-3 text-right text-slate-300">{manager.utilizationRate.toFixed(1)}%</td>
+                          <td className="py-4 px-3 text-right">
+                            {(manager as Record<string, unknown>).tier1Score != null ? (
+                              <div className="flex flex-col items-end">
+                                <span className={`text-sm font-bold ${
+                                  ((manager as Record<string, unknown>).tier1Score as number) >= 85 ? "text-emerald-400" :
+                                  ((manager as Record<string, unknown>).tier1Score as number) >= 70 ? "text-amber-400" :
+                                  ((manager as Record<string, unknown>).tier1Score as number) >= 55 ? "text-orange-400" :
+                                  "text-red-400"
+                                }`}>
+                                  {((manager as Record<string, unknown>).tier1Score as number).toFixed(1)}
+                                </span>
+                                <span className="text-[9px] text-slate-500">{(manager as Record<string, unknown>).tier1Tier as string}</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-600 text-xs">—</span>
+                            )}
+                          </td>
                           <td className="py-4 px-3 text-right">
                             {(manager as Record<string, unknown>).scriptFidelityScore as number > 0 ? (
                               <div className="group relative inline-block">

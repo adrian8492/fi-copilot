@@ -18,6 +18,7 @@ import {
   Package,
   BookOpen,
   ThumbsUp,
+  Target,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
@@ -56,6 +57,132 @@ function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
         style={{ transition: "stroke-dashoffset 1s ease-out" }}
       />
     </svg>
+  );
+}
+
+function TierPill({ tier }: { tier: string }) {
+  const cls =
+    tier === "Tier-1" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" :
+    tier === "Tier-2" ? "bg-amber-500/20 text-amber-400 border-amber-500/40" :
+    tier === "Tier-3" ? "bg-orange-500/20 text-orange-400 border-orange-500/40" :
+    "bg-red-500/20 text-red-400 border-red-500/40";
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${cls}`}>{tier}</span>;
+}
+
+function ASURAScorecardWidget() {
+  const [, navigate] = useLocation();
+  const { data: avg, isLoading } = trpc.scorecards.myAverage.useQuery();
+  const { data: recent } = trpc.scorecards.myScorecards.useQuery({ limit: 5, offset: 0 });
+
+  if (isLoading) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="p-4">
+          <div className="h-24 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!avg || avg.sessionCount === 0) {
+    return (
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">ASURA OPS Scorecard</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="py-6 text-center">
+          <p className="text-xs text-muted-foreground">
+            No scorecards yet. Open a completed session → ASURA Scorecard tab to generate your first score.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const tier =
+    avg.avgTier1Score >= 85 ? "Tier-1" :
+    avg.avgTier1Score >= 70 ? "Tier-2" :
+    avg.avgTier1Score >= 55 ? "Tier-3" :
+    "Below-Tier";
+
+  const pillars = [
+    { label: "Menu Order", score: avg.avgMenuOrder },
+    { label: "Upgrade Arch.", score: avg.avgUpgradeArchitecture },
+    { label: "Objection Prev.", score: avg.avgObjectionPrevention },
+    { label: "Coaching Cadence", score: avg.avgCoachingCadence },
+  ];
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">ASURA OPS Scorecard</CardTitle>
+          </div>
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground h-7" onClick={() => navigate("/history")}>
+            View sessions <ChevronRight className="w-3 h-3 ml-1" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Tier-1 Score + Tier */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <div className="flex items-baseline gap-2">
+              <span className={`text-3xl font-bold ${
+                avg.avgTier1Score >= 85 ? "text-emerald-400" :
+                avg.avgTier1Score >= 70 ? "text-amber-400" :
+                avg.avgTier1Score >= 55 ? "text-orange-400" : "text-red-400"
+              }`}>
+                {Math.round(avg.avgTier1Score)}
+              </span>
+              <span className="text-sm text-muted-foreground">/ 100 avg</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <TierPill tier={tier} />
+              <span className="text-xs text-muted-foreground">{avg.sessionCount} session{avg.sessionCount !== 1 ? "s" : ""} scored</span>
+            </div>
+          </div>
+          {/* Recent trend sparkline */}
+          {recent && recent.length >= 2 && (
+            <div className="flex items-end gap-0.5 h-10">
+              {recent.slice().reverse().map((sc: Record<string, unknown>, i: number) => {
+                const s = Number(sc.tier1Score ?? 0);
+                const h = Math.max(4, Math.round((s / 100) * 40));
+                const color = s >= 85 ? "bg-emerald-400" : s >= 70 ? "bg-amber-400" : s >= 55 ? "bg-orange-400" : "bg-red-400";
+                return <div key={i} className={`w-2 rounded-sm ${color}`} style={{ height: h }} title={`${s}`} />;
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Pillar mini-bars */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          {pillars.map(({ label, score }) => {
+            const pct = Math.round(score);
+            const color = pct >= 85 ? "bg-emerald-500" : pct >= 70 ? "bg-amber-500" : pct >= 55 ? "bg-orange-500" : "bg-red-500";
+            const textColor = pct >= 85 ? "text-emerald-400" : pct >= 70 ? "text-amber-400" : pct >= 55 ? "text-orange-400" : "text-red-400";
+            return (
+              <div key={label} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground truncate">{label}</span>
+                  <span className={`text-[10px] font-bold ${textColor}`}>{pct}</span>
+                </div>
+                <div className="h-1 rounded-full bg-border overflow-hidden">
+                  <div className={`h-full rounded-full ${color} transition-all duration-700`} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -276,6 +403,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+        {/* ASURA OPS Scorecard Widget */}
+        <ASURAScorecardWidget />
+
         {/* Session Search */}
         <Card className="bg-card border-border">
           <CardContent className="p-4">
