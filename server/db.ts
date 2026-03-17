@@ -25,6 +25,9 @@ import {
   productMenu,
   productIntelligence,
   dealRecovery,
+  asuraScorecards,
+  type InsertAsuraScorecard,
+  type AsuraScorecard,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
@@ -2018,4 +2021,121 @@ export async function getDealRecoveryStats(userId: number) {
     stats.totalActualRevenue += r.actualRevenue ?? 0;
   }
   return stats;
+}
+
+// ─── ASURA OPS Scorecards ──────────────────────────────────────────────────────
+
+export async function createScorecard(data: InsertAsuraScorecard): Promise<AsuraScorecard> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(asuraScorecards).values(data as any);
+  // Fetch and return the created row
+  const rows = await db.select().from(asuraScorecards)
+    .where(eq(asuraScorecards.sessionId, data.sessionId))
+    .limit(1);
+  return rows[0] as AsuraScorecard;
+}
+
+export async function upsertScorecard(data: InsertAsuraScorecard): Promise<AsuraScorecard> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const existing = await db.select({ id: asuraScorecards.id })
+    .from(asuraScorecards)
+    .where(eq(asuraScorecards.sessionId, data.sessionId))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const { sessionId, ...updates } = data as any;
+    await db.update(asuraScorecards).set({ ...updates, updatedAt: new Date() }).where(eq(asuraScorecards.sessionId, data.sessionId));
+  } else {
+    await db.insert(asuraScorecards).values(data as any);
+  }
+
+  const rows = await db.select().from(asuraScorecards)
+    .where(eq(asuraScorecards.sessionId, data.sessionId))
+    .limit(1);
+  return rows[0] as AsuraScorecard;
+}
+
+export async function getScorecardBySession(sessionId: number): Promise<AsuraScorecard | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(asuraScorecards)
+    .where(eq(asuraScorecards.sessionId, sessionId))
+    .limit(1);
+  return (rows[0] as AsuraScorecard) ?? null;
+}
+
+export async function getScorecardsByUser(userId: number, limit = 20, offset = 0): Promise<AsuraScorecard[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const userSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId));
+  const sessionIds = userSessions.map(s => s.id);
+  if (sessionIds.length === 0) return [];
+  return db.select().from(asuraScorecards)
+    .where(inArray(asuraScorecards.sessionId, sessionIds))
+    .orderBy(desc(asuraScorecards.gradedAt))
+    .limit(limit)
+    .offset(offset) as Promise<AsuraScorecard[]>;
+}
+
+export async function getScorecardsByDealership(dealershipId: number, limit = 100, offset = 0): Promise<AsuraScorecard[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const dealershipSessions = await db.select({ id: sessions.id }).from(sessions)
+    .where(eq(sessions.dealershipId, dealershipId));
+  const sessionIds = dealershipSessions.map(s => s.id);
+  if (sessionIds.length === 0) return [];
+  return db.select().from(asuraScorecards)
+    .where(inArray(asuraScorecards.sessionId, sessionIds))
+    .orderBy(desc(asuraScorecards.gradedAt))
+    .limit(limit)
+    .offset(offset) as Promise<AsuraScorecard[]>;
+}
+
+export async function getAverageScorecardByUser(userId: number): Promise<{
+  avgTier1Score: number;
+  avgMenuOrder: number;
+  avgUpgradeArchitecture: number;
+  avgObjectionPrevention: number;
+  avgCoachingCadence: number;
+  sessionCount: number;
+} | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const userSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId));
+  const sessionIds = userSessions.map(s => s.id);
+  if (sessionIds.length === 0) return null;
+  const result = await db.select({
+    avgTier1Score: avg(asuraScorecards.tier1Score),
+    avgMenuOrder: avg(asuraScorecards.menuOrderScore),
+    avgUpgradeArchitecture: avg(asuraScorecards.upgradeArchitectureScore),
+    avgObjectionPrevention: avg(asuraScorecards.objectionPreventionScore),
+    avgCoachingCadence: avg(asuraScorecards.coachingCadenceScore),
+    sessionCount: count(),
+  }).from(asuraScorecards)
+    .where(inArray(asuraScorecards.sessionId, sessionIds));
+  if (!result[0] || result[0].sessionCount === 0) return null;
+  return {
+    avgTier1Score: Number(result[0].avgTier1Score ?? 0),
+    avgMenuOrder: Number(result[0].avgMenuOrder ?? 0),
+    avgUpgradeArchitecture: Number(result[0].avgUpgradeArchitecture ?? 0),
+    avgObjectionPrevention: Number(result[0].avgObjectionPrevention ?? 0),
+    avgCoachingCadence: Number(result[0].avgCoachingCadence ?? 0),
+    sessionCount: Number(result[0].sessionCount),
+  };
+}
+
+export async function getRecentScorecardScores(userId: number, limit = 10): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const userSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId));
+  const sessionIds = userSessions.map(s => s.id);
+  if (sessionIds.length === 0) return [];
+  const rows = await db.select({ tier1Score: asuraScorecards.tier1Score })
+    .from(asuraScorecards)
+    .where(inArray(asuraScorecards.sessionId, sessionIds))
+    .orderBy(asuraScorecards.gradedAt)
+    .limit(limit);
+  return rows.map(r => Number(r.tier1Score));
 }

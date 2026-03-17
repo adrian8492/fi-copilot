@@ -540,3 +540,31 @@ export const dealRecovery = mysqlTable("deal_recovery", {
 
 export type DealRecoveryItem = typeof dealRecovery.$inferSelect;
 export type InsertDealRecoveryItem = typeof dealRecovery.$inferInsert;
+
+// ─── ASURA OPS Scorecards ─────────────────────────────────────────────────────
+export const asuraScorecards = mysqlTable("asura_scorecards", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull().unique(),
+  userId: int("userId").notNull(),
+  // Tier-1 Score (weighted overall)
+  tier1Score: float("tier1Score").notNull(),
+  tier: varchar("tier", { length: 32 }).notNull(), // "Tier-1" | "Tier-2" | "Tier-3" | "Below-Tier"
+  // Per-pillar scores (0-100)
+  menuOrderScore: float("menuOrderScore").notNull(),
+  upgradeArchitectureScore: float("upgradeArchitectureScore").notNull(),
+  objectionPreventionScore: float("objectionPreventionScore").notNull(),
+  coachingCadenceScore: float("coachingCadenceScore").notNull(),
+  // Full pillar detail (JSON)
+  menuOrderPillar: json("menuOrderPillar"),
+  upgradeArchitecturePillar: json("upgradeArchitecturePillar"),
+  objectionPreventionPillar: json("objectionPreventionPillar"),
+  coachingCadencePillar: json("coachingCadencePillar"),
+  // Top coaching priorities
+  coachingPriorities: json("coachingPriorities").$type<string[]>(),
+  gradedAt: timestamp("gradedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AsuraScorecard = typeof asuraScorecards.$inferSelect;
+export type InsertAsuraScorecard = typeof asuraScorecards.$inferInsert;

@@ -120,6 +120,13 @@
       "when": 1773623901115,
       "tag": "0016_brief_trauma",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1742195400000,
+      "tag": "0017_asura_scorecards",
+      "breakpoints": true
     }
   ]
 }

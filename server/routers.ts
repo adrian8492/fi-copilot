@@ -112,7 +112,13 @@ import {
   createDealRecovery,
   updateDealRecoveryStatus,
   getDealRecoveryStats,
+  upsertScorecard,
+  getScorecardBySession,
+  getScorecardsByUser,
+  getAverageScorecardByUser,
+  getRecentScorecardScores,
 } from "./db";
+import { runASURAScorecardEngine, type CoachingCadenceInput } from "./asura-scorecard";
 import { invokeLLM } from "./_core/llm";
 import { generateTotpSecret, generateQrCodeDataUri, verifyTotpCode } from "./_core/totp";
 import { setUserMfaSecret, enableUserMfa, disableUserMfa, getUserMfaStatus, getUserByOpenId } from "./db";
@@ -2194,6 +2200,97 @@ If no products were declined, return an empty array [].`;
         await insertAuditLog({ userId: ctx.user.id, action: "productIntelligence.upsert", resourceType: "productIntelligence", resourceId: input.productType, details: { productType: input.productType } });
         return { success: true };
       }),
+  }),
+
+  // ─── ASURA OPS Scorecards ──────────────────────────────────────────────────
+  scorecards: router({
+    /**
+     * Score a session transcript through the 4-pillar engine.
+     * Persists result to DB and returns the full scorecard.
+     */
+    score: protectedProcedure
+      .input(z.object({
+        sessionId: z.number(),
+        /** Include historical scores for Coaching Cadence pillar */
+        includeHistory: z.boolean().optional().default(true),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        await assertSessionAccess(ctx, session);
+
+        // Get full transcript text
+        const transcriptRows = await getTranscriptsBySession(input.sessionId);
+        const fullTranscript = transcriptRows.map((t: any) => t.content ?? t.text ?? "").join(" ");
+
+        if (!fullTranscript.trim()) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "No transcript available for this session. Record audio first." });
+        }
+
+        // Gather historical scores for Coaching Cadence pillar
+        let cadenceInput: CoachingCadenceInput = {};
+        if (input.includeHistory) {
+          const priorScores = await getRecentScorecardScores(session.userId, 10);
+          cadenceInput = { priorScores };
+
+          // Get word track utilization rate if available
+          const utilization = await getSuggestionUtilizationRate(input.sessionId);
+          if (typeof utilization === "number") {
+            cadenceInput.wordTrackUtilizationRate = utilization;
+          } else if (utilization && typeof (utilization as any).rate === "number") {
+            cadenceInput.wordTrackUtilizationRate = (utilization as any).rate;
+          }
+        }
+
+        const result = runASURAScorecardEngine(fullTranscript, cadenceInput);
+
+        // Persist to DB
+        const scorecard = await upsertScorecard({
+          sessionId: input.sessionId,
+          userId: session.userId,
+          tier1Score: result.tier1Score,
+          tier: result.tier,
+          menuOrderScore: result.menuOrderScore,
+          upgradeArchitectureScore: result.upgradeArchitectureScore,
+          objectionPreventionScore: result.objectionPreventionScore,
+          coachingCadenceScore: result.coachingCadenceScore,
+          menuOrderPillar: result.menuOrderPillar as any,
+          upgradeArchitecturePillar: result.upgradeArchitecturePillar as any,
+          objectionPreventionPillar: result.objectionPreventionPillar as any,
+          coachingCadencePillar: result.coachingCadencePillar as any,
+          coachingPriorities: result.coachingPriorities,
+          gradedAt: new Date(result.gradedAt),
+        });
+
+        await insertAuditLog({
+          userId: ctx.user.id,
+          action: "scorecard.generate",
+          resourceType: "session",
+          resourceId: String(input.sessionId),
+          details: { tier1Score: result.tier1Score, tier: result.tier },
+        });
+
+        return scorecard;
+      }),
+
+    getBySession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND" });
+        await assertSessionAccess(ctx, session);
+        return getScorecardBySession(input.sessionId);
+      }),
+
+    myScorecards: protectedProcedure
+      .input(z.object({ limit: z.number().default(20), offset: z.number().default(0) }))
+      .query(async ({ ctx, input }) => {
+        return getScorecardsByUser(ctx.user.id, input.limit, input.offset);
+      }),
+
+    myAverage: protectedProcedure.query(async ({ ctx }) => {
+      return getAverageScorecardByUser(ctx.user.id);
+    }),
   }),
 
   // ─── Weekly Digest ────────────────────────────────────────────────────────

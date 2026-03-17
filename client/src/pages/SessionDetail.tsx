@@ -11,7 +11,7 @@ import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
-  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2, DollarSign, Save,
+  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2, DollarSign, Save, Target,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import {
 import AudioWaveform from "@/components/AudioWaveform";
 import { SessionNotes } from "@/components/SessionNotes";
 import { PrintReportButton } from "@/components/PrintReportButton";
+import { AsuraScorecard } from "@/components/AsuraScorecard";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -445,6 +446,10 @@ export default function SessionDetail() {
             <TabsTrigger value="deal-details" className="gap-1.5">
               <DollarSign className="w-3.5 h-3.5" />
               Deal Details
+            </TabsTrigger>
+            <TabsTrigger value="asura-scorecard" className="gap-1.5">
+              <Target className="w-3.5 h-3.5" />
+              ASURA Scorecard
             </TabsTrigger>
           </TabsList>
 
@@ -1042,6 +1047,14 @@ export default function SessionDetail() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ASURA OPS Scorecard Tab */}
+          <TabsContent value="asura-scorecard" className="mt-4">
+            <AsuraScorecard
+              sessionId={sessionId}
+              hasTranscript={!!(transcripts && transcripts.length > 0)}
+            />
           </TabsContent>
         </Tabs>
 
