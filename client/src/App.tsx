@@ -25,8 +25,6 @@ const JoinPage = lazy(() => import("./pages/JoinPage"));
 const ManagerScorecard = lazy(() => import("./pages/ManagerScorecard"));
 const SessionComparison = lazy(() => import("./components/SessionComparison"));
 const PipelineDiagnostics = lazy(() => import("./pages/PipelineDiagnostics"));
-const MfaVerify = lazy(() => import("./pages/MfaVerify"));
-const MfaSetup = lazy(() => import("./pages/MfaSetup"));
 const DealershipSettings = lazy(() => import("./pages/DealershipSettings"));
 const Customers = lazy(() => import("./pages/Customers"));
 const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
@@ -65,8 +63,6 @@ function Router() {
         <Route path="/compare" component={SessionComparison} />
         <Route path="/join" component={JoinPage} />
         <Route path="/diagnostics" component={PipelineDiagnostics} />
-        <Route path="/mfa/verify" component={MfaVerify} />
-        <Route path="/mfa/setup" component={MfaSetup} />
         <Route path="/settings" component={DealershipSettings} />
         <Route path="/customers" component={Customers} />
         <Route path="/customers/:id" component={CustomerDetail} />

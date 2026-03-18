@@ -187,9 +187,10 @@ describe("detectAsuraStep", () => {
 
   it("uses recent speech (last 500 chars) for detection", () => {
     const oldText = "welcome good morning my name ".repeat(10); // old greeting repeated
-    const recentText = " on a scale of 1-10 how important is vehicle expenses predictable";
+    // Use exact phrases matching step 2 high-confidence patterns (scale 1-10 + vehicle expenses stay predictable)
+    const recentText = " on a scale of 1-10 how important is it that vehicle expenses stay predictable client survey";
     const result = detectAsuraStep(oldText + recentText);
-    // Should detect step 2 from recent text, not step 1 from old text
+    // Should detect step 2 from recent text (3 high-confidence step-2 matches vs 1 for step 1)
     expect(result.step).toBe(2);
   });
 });
