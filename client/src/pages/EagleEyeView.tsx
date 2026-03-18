@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import {
   Eye, TrendingUp, DollarSign, Clock, Hash, Percent,
-  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus, Calendar, BookOpen, Target,
+  Trophy, Medal, Award, ChevronUp, ChevronDown, Minus, Calendar, BookOpen, Target, Download,
 } from "lucide-react";
 
 type MetricKey = "score" | "pvr" | "recordingLengthMinutes" | "dealCount" | "utilizationRate" | "ppd" | "scriptFidelityScore" | "tier1Score";
@@ -163,6 +163,44 @@ export default function EagleEyeView() {
               <span className="w-2 h-2 rounded-full bg-amber-400 ml-1" /> 65–79%
               <span className="w-2 h-2 rounded-full bg-red-400 ml-1" /> &lt;65%
             </div>
+            <button
+              onClick={() => {
+                if (!sorted.length) return;
+                const headers = [
+                  "Rank", "Manager", "Dealership", "Score (%)", "Tier-1 Score",
+                  "PVR ($)", "Products/Deal", "Recording Length (min)", "Deal Count",
+                  "Utilization (%)", "Script Fidelity",
+                ];
+                const rows = sorted.map((m, idx) => [
+                  idx + 1,
+                  m.name,
+                  m.dealership,
+                  m.score.toFixed(1),
+                  (m as Record<string, unknown>).tier1Score != null ? ((m as Record<string, unknown>).tier1Score as number).toFixed(1) : "",
+                  m.pvr,
+                  m.ppd.toFixed(1),
+                  m.recordingLengthMinutes.toFixed(0),
+                  m.dealCount,
+                  m.utilizationRate.toFixed(1),
+                  (m as Record<string, unknown>).scriptFidelityScore as number > 0 ? ((m as Record<string, unknown>).scriptFidelityScore as number).toFixed(1) : "",
+                ]);
+                const csv = [headers, ...rows]
+                  .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+                  .join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `eagle-eye-leaderboard-${datePreset}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 border border-emerald-600/40 text-emerald-400 hover:bg-emerald-600/30 transition-all"
+            >
+              <Download className="w-3.5 h-3.5" /> Export CSV
+            </button>
           </div>
         </div>
 

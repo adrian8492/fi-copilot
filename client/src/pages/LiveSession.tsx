@@ -14,8 +14,9 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Square, Zap, AlertTriangle, CheckCircle2,
   Lightbulb, Shield, Clock, ChevronDown, User, Users,
-  ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen, ThumbsUp, Loader2, WifiOff,
+  ClipboardList, Circle, ShieldCheck, XCircle, Copy, BookOpen, ThumbsUp, Loader2, WifiOff, TrendingUp,
 } from "lucide-react";
+import AsurastepPanel, { detectStepFromTranscript, computeLiveScore } from "@/components/AsurastepPanel";
 import { cn } from "@/lib/utils";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
@@ -167,7 +168,7 @@ export default function LiveSession() {
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [complianceFlags, setComplianceFlags] = useState<ComplianceFlag[]>([]);
-  const [activeTab, setActiveTab] = useState<"copilot" | "compliance">("copilot");
+  const [activeTab, setActiveTab] = useState<"copilot" | "compliance" | "steps">("copilot");
 
   // Deal stage tracking
   const [currentDealStage, setCurrentDealStage] = useState<string>("introduction");
@@ -1483,6 +1484,7 @@ export default function LiveSession() {
               {[
                 { id: "copilot" as const, label: "Co-Pilot", icon: Zap, count: suggestions.length },
                 { id: "compliance" as const, label: "Compliance", icon: Shield, count: complianceFlags.filter(f => f.severity === "critical").length },
+                { id: "steps" as const, label: "ASURA", icon: TrendingUp, count: 0 },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -1676,6 +1678,44 @@ export default function LiveSession() {
                     </div>
                   ))
                 )
+              )}
+
+              {activeTab === "steps" && (
+                <AsurastepPanel
+                  transcript={transcripts.map((t) => `${t.speaker}: ${t.text}`).join(" ")}
+                  currentStep={(() => {
+                    const stageMap: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = {
+                      introduction: 1,
+                      customer_connection: 1,
+                      client_survey: 2,
+                      needs_awareness: 3,
+                      transition: 3,
+                      menu_presentation: 4,
+                      product_walkthrough: 4,
+                      ranking: 6,
+                      objection_handling: 5,
+                      closing: 6,
+                      post_close: 6,
+                      admin: 6,
+                    };
+                    return stageMap[currentDealStage] ?? detectStepFromTranscript(
+                      transcripts.map((t) => `${t.speaker}: ${t.text}`).join(" ")
+                    );
+                  })()}
+                  executionScore={(() => {
+                    const fullTx = transcripts.map((t) => `${t.speaker}: ${t.text}`).join(" ");
+                    const stageMap: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = {
+                      introduction: 1, customer_connection: 1, client_survey: 2,
+                      needs_awareness: 3, transition: 3, menu_presentation: 4,
+                      product_walkthrough: 4, ranking: 6, objection_handling: 5,
+                      closing: 6, post_close: 6, admin: 6,
+                    };
+                    const step = stageMap[currentDealStage] ?? 1;
+                    return computeLiveScore(fullTx, step);
+                  })()}
+                  isRecording={isRecording}
+                  lastAlertText={transcripts.slice(-3).map((t) => t.text).join(" ")}
+                />
               )}
             </div>
           </div>

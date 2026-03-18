@@ -216,7 +216,7 @@ export default function SessionDetail() {
           <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={() => navigate("/history")}>
             <ArrowLeft className="w-4 h-4" /> Back
           </Button>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -232,6 +232,23 @@ export default function SessionDetail() {
               }}
             >
               <Download className="w-4 h-4" /> Download Report
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-emerald-400 border-emerald-400/30 hover:bg-emerald-400/10"
+              onClick={() => {
+                const url = `/api/sessions/${session.id}/export/pdf`;
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `session-export-${(session.customerName ?? `session-${session.id}`).toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                toast.success("Session export downloading...");
+              }}
+            >
+              <Download className="w-4 h-4" /> Export PDF
             </Button>
             <Button
               size="sm"
