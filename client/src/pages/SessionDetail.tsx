@@ -11,7 +11,7 @@ import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
-  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2, DollarSign, Save, Target,
+  Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2, DollarSign, Save, Target, Package,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import { SessionNotes } from "@/components/SessionNotes";
 import { PrintReportButton } from "@/components/PrintReportButton";
 import { AsuraScorecard } from "@/components/AsuraScorecard";
 import { ComplianceReport } from "@/components/ComplianceReport";
+import { ProductIntelligenceTab } from "@/components/ProductIntelligenceTab";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -475,6 +476,10 @@ export default function SessionDetail() {
             <TabsTrigger value="asura-scorecard" className="gap-1.5">
               <Target className="w-3.5 h-3.5" />
               ASURA Scorecard
+            </TabsTrigger>
+            <TabsTrigger value="product-intelligence" className="gap-1.5">
+              <Package className="w-3.5 h-3.5" />
+              Product Intelligence
             </TabsTrigger>
           </TabsList>
 
@@ -1040,6 +1045,14 @@ export default function SessionDetail() {
           {/* ASURA OPS Scorecard Tab */}
           <TabsContent value="asura-scorecard" className="mt-4">
             <AsuraScorecard
+              sessionId={sessionId}
+              hasTranscript={!!(transcripts && transcripts.length > 0)}
+            />
+          </TabsContent>
+
+          {/* Product Intelligence Tab */}
+          <TabsContent value="product-intelligence" className="mt-4">
+            <ProductIntelligenceTab
               sessionId={sessionId}
               hasTranscript={!!(transcripts && transcripts.length > 0)}
             />

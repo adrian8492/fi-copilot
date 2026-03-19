@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import { notifyOwner } from "./_core/notification";
 import { sendEmail, buildSessionSummaryEmail, buildWeeklyDigestEmail } from "./_core/email";
+import { generateRecommendations, calculateMissedRevenue } from "./product-recommendation";
+import { PRODUCT_DATABASE } from "../shared/productIntelligence";
 import { COOKIE_NAME, NOT_GROUP_ADMIN_ERR_MSG } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -2147,6 +2149,25 @@ If no products were declined, return an empty array [].`;
         await upsertProductIntelligence(input);
         await insertAuditLog({ userId: ctx.user.id, action: "productIntelligence.upsert", resourceType: "productIntelligence", resourceId: input.productType, details: { productType: input.productType } });
         return { success: true };
+      }),
+
+    /** Return the static product intelligence database (all 9 products with full detail) */
+    catalog: protectedProcedure.query(async () => {
+      return PRODUCT_DATABASE;
+    }),
+
+    /** Analyze a session transcript and recommend missed / improvable products */
+    recommend: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => {
+        const transcripts = await getTranscriptsBySession(input.sessionId);
+        const lines = (transcripts ?? []).map((t: any) => ({
+          speaker: t.speaker ?? "unknown",
+          text: t.text ?? "",
+        }));
+        const recommendations = generateRecommendations(lines);
+        const missedRevenue = calculateMissedRevenue(recommendations);
+        return { recommendations, missedRevenue };
       }),
   }),
 
