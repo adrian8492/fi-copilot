@@ -1089,7 +1089,7 @@ export default function LiveSession() {
     >
       <div className="h-[calc(100vh-3.5rem)] flex flex-col">
         {/* Session Control Bar */}
-        <div className="px-4 py-3 border-b border-border flex items-center gap-4 bg-background/80 backdrop-blur-sm">
+        <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-border flex flex-wrap items-center gap-2 sm:gap-4 bg-background/80 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div className={cn("w-2.5 h-2.5 rounded-full", isRecording ? "bg-red-500 recording-dot" : "bg-muted-foreground")} />
             <span className="text-sm font-mono font-bold text-foreground">{formatTime(elapsed)}</span>
@@ -1171,7 +1171,7 @@ export default function LiveSession() {
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             {/* Process Score badge */}
             {sessionId && (
               <div className={cn(
@@ -1186,26 +1186,26 @@ export default function LiveSession() {
             <Button
               variant={showChecklist ? "default" : "outline"}
               size="sm"
-              className="gap-1.5 text-xs"
+              className="gap-1.5 text-xs hidden md:inline-flex"
               onClick={() => setShowChecklist((v) => !v)}
             >
               <ClipboardList className="w-3.5 h-3.5" />
-              Checklist
+              <span className="hidden sm:inline">Checklist</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 text-xs"
+              className="gap-1.5 text-xs min-h-[36px] min-w-[36px]"
               onClick={handleManualAnalysis}
               disabled={analyzeTranscript.isPending || transcripts.length === 0}
             >
               <Zap className="w-3.5 h-3.5" />
-              Analyze
+              <span className="hidden sm:inline">Analyze</span>
             </Button>
             <Button
               variant="destructive"
               size="sm"
-              className="gap-1.5 text-xs font-semibold"
+              className="gap-1.5 text-xs font-semibold min-h-[36px]"
               onClick={handleEndSession}
               disabled={endSessionMutation.isPending}
             >
@@ -1215,7 +1215,7 @@ export default function LiveSession() {
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1 text-xs text-muted-foreground"
+              className="gap-1 text-xs text-muted-foreground hidden sm:inline-flex"
               onClick={() => setShowShortcutsHelp(true)}
             >
               <Keyboard className="w-3.5 h-3.5" />

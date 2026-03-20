@@ -12,7 +12,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import {
   Users, Shield, Activity, Crown, UserCheck, RefreshCw, Building2, Settings2,
   CheckCircle2, XCircle, Mail, Link2, Trash2, Clock, AlertTriangle,
-  Layers, Plus, Minus, Store,
+  Layers, Plus, Minus, Store, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,12 +45,19 @@ export default function AdminPanel() {
   const [managingUserId, setManagingUserId] = useState<number | null>(null);
   const [assignDealershipId, setAssignDealershipId] = useState<number>(1);
 
+  // ─── Pagination state ───────────────────────────────────────────────────
+  const PAGE_SIZE = 25;
+  const [sessionsPage, setSessionsPage] = useState(0);
+  const [auditPage, setAuditPage] = useState(0);
+
   // ─── Queries ──────────────────────────────────────────────────────────────
   const { data: users, refetch: refetchUsers } = trpc.admin.listUsers.useQuery();
-  const { data: auditLogsData } = trpc.admin.auditLogs.useQuery({ limit: 100, offset: 0 });
-  const { data: allSessionsData } = trpc.admin.allSessions.useQuery({ limit: 100, offset: 0 });
+  const { data: auditLogsData } = trpc.admin.auditLogs.useQuery({ limit: PAGE_SIZE, offset: auditPage * PAGE_SIZE });
+  const { data: allSessionsData } = trpc.admin.allSessions.useQuery({ limit: PAGE_SIZE, offset: sessionsPage * PAGE_SIZE });
   const auditLogs = auditLogsData?.rows;
   const allSessions = allSessionsData?.rows;
+  const sessionsTotalPages = Math.max(1, Math.ceil((allSessionsData?.total ?? 0) / PAGE_SIZE));
+  const auditTotalPages = Math.max(1, Math.ceil((auditLogsData?.total ?? 0) / PAGE_SIZE));
   const { data: dealershipsList, refetch: refetchDealerships } = trpc.admin.listDealerships.useQuery();
   const { data: groupsList, refetch: refetchGroups } = trpc.admin.listGroups.useQuery();
 
@@ -596,6 +603,19 @@ export default function AdminPanel() {
                     </div>
                   ))}
                 </div>
+                {sessionsTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      disabled={sessionsPage === 0} onClick={() => setSessionsPage((p) => p - 1)}>
+                      <ChevronLeft className="w-3 h-3" /> Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Page {sessionsPage + 1} of {sessionsTotalPages}</span>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      disabled={sessionsPage >= sessionsTotalPages - 1} onClick={() => setSessionsPage((p) => p + 1)}>
+                      Next <ChevronRight className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -604,7 +624,7 @@ export default function AdminPanel() {
           <TabsContent value="audit" className="mt-4">
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Audit Log (Last 100 Events)</CardTitle>
+                <CardTitle className="text-sm">Audit Log ({auditLogsData?.total ?? 0} Events)</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -628,6 +648,19 @@ export default function AdminPanel() {
                     </div>
                   ))}
                 </div>
+                {auditTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      disabled={auditPage === 0} onClick={() => setAuditPage((p) => p - 1)}>
+                      <ChevronLeft className="w-3 h-3" /> Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">Page {auditPage + 1} of {auditTotalPages}</span>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                      disabled={auditPage >= auditTotalPages - 1} onClick={() => setAuditPage((p) => p + 1)}>
+                      Next <ChevronRight className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

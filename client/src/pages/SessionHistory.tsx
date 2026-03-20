@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   Search, Clock, Shield, ChevronRight, Mic, Plus,
   ChevronUp, ChevronDown, Minus, Car, Hash, User, Calendar,
+  ChevronLeft, Download, Loader2,
 } from "lucide-react";
 
 type SortField = "customerName" | "dealNumber" | "vehicleType" | "dealType" | "startedAt" | "durationSeconds" | "status";
@@ -45,10 +47,16 @@ export default function SessionHistory() {
   const [sortField, setSortField] = useState<SortField>("startedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [csvExporting, setCsvExporting] = useState(false);
 
-  const { data: sessionsData, isLoading } = trpc.sessions.list.useQuery({ limit: 200, offset: 0 });
+  // ─── Pagination ───────────────────────────────────────────────────────────
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(0);
+
+  const { data: sessionsData, isLoading } = trpc.sessions.list.useQuery({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const sessions = sessionsData?.rows;
   const totalSessions = sessionsData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalSessions / PAGE_SIZE));
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -103,6 +111,30 @@ export default function SessionHistory() {
     }, {} as Record<string, number>);
   }, [sessions]);
 
+  const utils = trpc.useUtils();
+
+  const handleExportCsv = async () => {
+    if (!sessions || sessions.length === 0) return;
+    setCsvExporting(true);
+    try {
+      const ids = sessions.map((s) => s.id);
+      const result = await utils.sessions.bulkExport.fetch({ sessionIds: ids, format: "csv" });
+      const blob = new Blob([result.data], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast("Failed to export CSV");
+    } finally {
+      setCsvExporting(false);
+    }
+  };
+
   const ThHeader = ({ field, label, className }: { field: SortField; label: string; className?: string }) => (
     <th
       className={cn("py-3 px-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white select-none whitespace-nowrap", className)}
@@ -148,7 +180,12 @@ export default function SessionHistory() {
             ))}
           </div>
 
-          <Button onClick={() => navigate("/session/new")} className="gap-2 shrink-0 ml-auto">
+          <Button variant="outline" onClick={handleExportCsv} disabled={csvExporting || !sessions?.length}
+            className="gap-2 shrink-0 ml-auto">
+            {csvExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Export CSV
+          </Button>
+          <Button onClick={() => navigate("/session/new")} className="gap-2 shrink-0">
             <Plus className="w-4 h-4" /> New Session
           </Button>
         </div>
@@ -292,11 +329,26 @@ export default function SessionHistory() {
           )}
         </Card>
 
-        {/* Row count */}
+        {/* Pagination */}
         {!isLoading && filtered.length > 0 && (
-          <p className="text-xs text-muted-foreground text-right">
-            Showing {filtered.length} of {totalSessions} sessions
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalSessions)} of {totalSessions} sessions
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                  disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  <ChevronLeft className="w-3 h-3" /> Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">Page {page + 1} of {totalPages}</span>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                  disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+                  Next <ChevronRight className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </AppLayout>

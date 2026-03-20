@@ -201,22 +201,22 @@ export default function Dashboard() {
     <AppLayout title="Dashboard" subtitle="Your F&I performance overview">
       <div className="p-6 space-y-6">
         {/* Quick Action Banner */}
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/20 via-primary/10 to-transparent border border-primary/20 p-6">
-          <div className="flex items-center justify-between">
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/20 via-primary/10 to-transparent border border-primary/20 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-foreground">Ready to start a session?</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-foreground">Ready to start a session?</h2>
               <p className="text-sm text-muted-foreground mt-1">Launch the live co-pilot to get real-time coaching on your next deal.</p>
             </div>
             <Button
               size="lg"
-              className="gap-2 font-semibold shrink-0"
+              className="gap-2 font-semibold shrink-0 w-full sm:w-auto"
               onClick={() => navigate("/session/new")}
             >
               <Mic className="w-4 h-4" />
               Start Live Session
             </Button>
           </div>
-          <div className="absolute right-32 top-0 bottom-0 flex items-center opacity-5">
+          <div className="absolute right-32 top-0 bottom-0 hidden sm:flex items-center opacity-5">
             <Zap className="w-40 h-40 text-primary" />
           </div>
         </div>
@@ -303,7 +303,7 @@ export default function Dashboard() {
           );
         })()}
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Sessions */}
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">

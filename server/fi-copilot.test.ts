@@ -1590,3 +1590,116 @@ describe("multi-tenant data scoping", () => {
     expect(getAllSessionsByDealershipIds).toHaveBeenCalledWith([1, 2], 50, 0);
   });
 });
+
+// ─── A4 Pagination Tests ──────────────────────────────────────────────────────
+describe("sessions.list pagination", () => {
+  it("passes limit and offset to DB and returns total", async () => {
+    const { getSessionsByUserId, getSessionCountByUser } = await import("./db");
+    vi.mocked(getSessionsByUserId).mockResolvedValueOnce([
+      { id: 10, status: "completed" },
+    ] as any);
+    vi.mocked(getSessionCountByUser).mockResolvedValueOnce(42);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.list({ limit: 10, offset: 20 });
+    expect(getSessionsByUserId).toHaveBeenCalledWith(1, 10, 20);
+    expect(result.total).toBe(42);
+    expect(result.limit).toBe(10);
+    expect(result.offset).toBe(20);
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it("uses default limit/offset when not specified", async () => {
+    const { getSessionsByUserId, getSessionCountByUser } = await import("./db");
+    vi.mocked(getSessionsByUserId).mockResolvedValueOnce([]);
+    vi.mocked(getSessionCountByUser).mockResolvedValueOnce(0);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.list({});
+    expect(getSessionsByUserId).toHaveBeenCalledWith(1, 50, 0);
+    expect(result.total).toBe(0);
+    expect(result.rows).toEqual([]);
+  });
+
+  it("returns empty rows when offset exceeds total", async () => {
+    const { getSessionsByUserId, getSessionCountByUser } = await import("./db");
+    vi.mocked(getSessionsByUserId).mockResolvedValueOnce([]);
+    vi.mocked(getSessionCountByUser).mockResolvedValueOnce(5);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.list({ limit: 10, offset: 100 });
+    expect(result.rows).toEqual([]);
+    expect(result.total).toBe(5);
+  });
+});
+
+describe("admin.allSessions pagination", () => {
+  it("returns paginated result with total count for super admin", async () => {
+    const { getAllSessions, getSessionCount } = await import("./db");
+    vi.mocked(getAllSessions).mockResolvedValueOnce([
+      { id: 1, status: "completed" },
+      { id: 2, status: "active" },
+    ] as any);
+    vi.mocked(getSessionCount).mockResolvedValueOnce(50);
+    const caller = appRouter.createCaller(makeCtx({ user: { ...makeCtx().user!, role: "admin", isSuperAdmin: true } as any }));
+    const result = await caller.admin.allSessions({ limit: 25, offset: 0 });
+    expect(result.rows).toHaveLength(2);
+    expect(result.total).toBe(50);
+    expect(result.limit).toBe(25);
+    expect(result.offset).toBe(0);
+  });
+
+  it("respects offset for paginated results", async () => {
+    const { getAllSessions, getSessionCount } = await import("./db");
+    vi.mocked(getAllSessions).mockResolvedValueOnce([{ id: 3, status: "completed" }] as any);
+    vi.mocked(getSessionCount).mockResolvedValueOnce(100);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.allSessions({ limit: 25, offset: 50 });
+    expect(result.total).toBe(100);
+    expect(result.offset).toBe(50);
+    expect(result.rows).toHaveLength(1);
+  });
+});
+
+describe("admin.auditLogs pagination", () => {
+  it("returns paginated result with total count", async () => {
+    const { getAuditLogs, getAuditLogCount } = await import("./db");
+    vi.mocked(getAuditLogs).mockResolvedValueOnce([
+      { id: 1, action: "login", userId: 1, createdAt: new Date() },
+    ] as any);
+    vi.mocked(getAuditLogCount).mockResolvedValueOnce(200);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.auditLogs({ limit: 25, offset: 25 });
+    expect(result.rows).toHaveLength(1);
+    expect(result.total).toBe(200);
+    expect(result.limit).toBe(25);
+    expect(result.offset).toBe(25);
+  });
+
+  it("returns empty rows with correct total at high offset", async () => {
+    const { getAuditLogs, getAuditLogCount } = await import("./db");
+    vi.mocked(getAuditLogs).mockResolvedValueOnce([]);
+    vi.mocked(getAuditLogCount).mockResolvedValueOnce(10);
+    const caller = appRouter.createCaller(makeAdminCtx());
+    const result = await caller.admin.auditLogs({ limit: 25, offset: 100 });
+    expect(result.rows).toEqual([]);
+    expect(result.total).toBe(10);
+  });
+});
+
+describe("sessions.bulkExport CSV download", () => {
+  it("generates CSV with correct headers and multiple rows", async () => {
+    const { getSessionsByIds } = await import("./db");
+    vi.mocked(getSessionsByIds).mockResolvedValueOnce([
+      { sessions: { id: 1, customerName: "Alice", dealType: "retail_finance", status: "completed", startedAt: new Date("2026-03-01"), dealNumber: "D100", durationSeconds: 900 }, performance_grades: { overallScore: 92 } },
+      { sessions: { id: 2, customerName: "Bob", dealType: "lease", status: "active", startedAt: new Date("2026-03-02"), dealNumber: "D101", durationSeconds: 450 }, performance_grades: null },
+    ] as any);
+    const caller = appRouter.createCaller(makeCtx());
+    const result = await caller.sessions.bulkExport({ sessionIds: [1, 2], format: "csv" });
+    expect(result.mimeType).toBe("text/csv");
+    const lines = result.data.split("\n");
+    expect(lines[0]).toContain("ID");
+    expect(lines[0]).toContain("Customer");
+    expect(lines[0]).toContain("Score");
+    expect(lines).toHaveLength(3); // header + 2 data rows
+    expect(lines[1]).toContain("Alice");
+    expect(lines[2]).toContain("Bob");
+  });
+});
