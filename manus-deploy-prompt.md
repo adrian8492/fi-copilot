@@ -1,8 +1,8 @@
 # Manus Deploy Prompt — F&I Co-Pilot
 
-**Last Updated:** March 19, 2026 — 10:12 PM PST  
-**Build:** A4 — Pagination + CSV Export + Mobile Responsive Polish  
-**Commit:** de54112  
+**Last Updated:** March 20, 2026 — 10:15 PM PST  
+**Build:** A5 — Mission Control V2 Live Data Wiring  
+**Commit:** e30ee41  
 **Tests:** 348/349 passing | TypeScript: 0 errors
 
 ---
@@ -42,18 +42,22 @@ On first deploy, run migrations:
 pnpm db:push
 ```
 
-### What's New in This Build (A4)
+### What's New in This Build (A5)
 
-1. **Pagination** — Session History, Admin Panel (Sessions tab + Audit Log tab) now paginate at 25 items/page with prev/next controls and "Showing X–Y of Z" indicators. No more loading 1000+ rows at once.
+This build focused on the Mission Control V2 dashboard (`/mission-control/index-v2.html`) — wiring static placeholder data to live filesystem reads via the API server (`api-server.js` on port 8743). No changes to the F&I Co-Pilot app itself.
 
-2. **CSV Export** — "Export CSV" button in Session History toolbar. Exports current view to a timestamped CSV file (`sessions-export-YYYY-MM-DD.csv`) with columns: ID, Customer, Deal Number, Vehicle, Type, Status, Score, PVR, Script Fidelity, Created At.
+1. **Agents Tab — Live Data**: Dynamic cards for Oliver, Henry, Thomas, Scout. Pulls last-run timestamps from memory files, output counts from content/scripts directories, and last git commit info. Shows task history, current status, and next scheduled run time per agent.
 
-3. **Mobile Responsive Polish**:
-   - Dashboard: KPI stats in 2×3 grid on mobile, quick action banner stacks vertically
-   - Live Session: control buttons wrap on small screens, 36px min touch targets
-   - AppLayout: hamburger overlay sidebar (was already working, verified)
+2. **Activity Feed**: Reverse-chronological log of the last 20 real events — git commits and file creation timestamps across `content/scripts/` and `memory/research/`. Agent attribution included.
 
-4. **Test Suite Jump**: bcryptjs dependency was missing from node_modules — installed it, unblocking 146 tests. Total now 348 passing (was 189).
+3. **Docs Tab — 164 Documents**: Expanded from hardcoded entries to dynamic filesystem scan across 11 categories. Added Reels (36), LinkedIn (14), Shorts (13), Twitter (13), Brand Materials. Includes H1 title parsing, DRAFT/REVIEW/APPROVED status detection, and file size/modified date display.
+
+4. **Calendar Tab**: Updated to real cron schedule — Oliver 7:00/7:15 AM, Scout 7:20–7:30 AM, Thomas every 4h content batches, Oliver 9 PM rollup, Henry 10 PM nightly build.
+
+5. **New API Endpoints**:
+   - `GET /api/agents/status` — Live agent status from filesystem
+   - `GET /api/activity` — Last 50 activity events
+   - `GET /api/schedule` — Real cron schedule
 
 ### Previous Builds
 
@@ -61,6 +65,7 @@ pnpm db:push
 |-------|---------|--------|
 | A3    | F&I Product Intelligence Database — 9-product catalog, recommendation engine, session tab | 1e954a9 |
 | A4    | Pagination + CSV Export + Mobile Responsive Polish | de54112 |
+| A5    | Mission Control V2 — Live Agent Data, Docs Scanner, Activity Feed, Calendar | e30ee41 |
 
 ### App URL
 
@@ -83,7 +88,7 @@ https://finico-pilot-mqskutaj.manus.space/
 
 ---
 
-## What's Next (A5 candidates)
+## What's Next (A6 candidates)
 
 Based on remaining todo.md items:
 
@@ -92,3 +97,4 @@ Based on remaining todo.md items:
 3. **Product Menu UI Polish** — Ensure ProductMenu.tsx admin page is fully wired with create/edit/delete
 4. **Real-Time Analytics Enhancements** — Deepen Eagle Eye View with drill-down per manager, trend sparklines on scorecard
 5. **Deepgram Integration Hardening** — Test reconnect logic, improve error recovery, add audio level monitoring
+6. **Mission Control V2 — Live Refresh** — Auto-poll endpoints every 60s so Agents tab updates without page reload
