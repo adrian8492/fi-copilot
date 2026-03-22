@@ -1234,7 +1234,7 @@ export default function LiveSession() {
         )}
 
         {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* 17-Point Checklist Panel (collapsible) */}
           {showChecklist && (
             <div className="hidden md:flex w-72 flex-col shrink-0 border-r border-border overflow-y-auto bg-background/50">
@@ -1478,7 +1478,7 @@ export default function LiveSession() {
           </div>
 
           {/* Co-Pilot Panel */}
-          <div className="hidden md:flex w-80 xl:w-96 flex-col shrink-0">
+          <div className="flex w-full md:w-80 xl:w-96 flex-col shrink-0 h-[50vh] md:h-auto border-t md:border-t-0">
             {/* Tab Bar */}
             <div className="flex border-b border-border">
               {[

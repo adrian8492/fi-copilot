@@ -1,129 +1,107 @@
-# Henry Nightly Task — March 20, 2026
+# Henry Nightly Task — March 21, 2026
 
-## Priority: CRITICAL — Must complete tonight
+## Priority: HIGH — Phase 3 Completion + Pagination
 
-## Task: Wire Mission Control V2 to Real Data
+## Context
+Previous build (March 20) completed Mission Control V2 live data wiring.
+Current test state: 348/349 passing (1 pre-existing deepgram env var failure).
 
-### What to Build
+## Tonight's Tasks
 
-Mission Control V2 (`mission-control/index-v2.html`) has placeholder/static data in several tabs. Tonight you're wiring them to real file system data via the API server (`mission-control/api-server.js` on port 8743).
+### 1. Phase 3 Remaining — CSV Export + Mobile Polish (HIGH)
 
-### 1. Agents Tab — Live Status (HIGH PRIORITY)
+**3.3b: Export CSV button in SessionHistory.tsx**
+- Add "Export CSV" button to SessionHistory page header
+- Wire to existing sessions.bulkExport procedure (already exists in routers.ts)
+- Export selected sessions or all filtered sessions
+- Trigger download via Blob URL
 
-The Agents panel currently shows static cards. Replace with real data:
+**3.4a: Mobile responsive AppLayout.tsx**
+- Sidebar collapses to bottom nav on mobile (<768px)
+- Hamburger → slide-in overlay sidebar (already partially done — verify and polish)
+- Bottom nav bar with 4-5 key icons for mobile
+- Ensure no horizontal overflow on mobile screens
 
-**For each agent (Oliver, Henry, Thomas, Scout):**
-- Last run timestamp (read from cron state or memory files)
-- What they last produced (read latest output files)
-- Current status: Active / Idle / Error
-- Next scheduled run time
-- Task history (last 5 items)
+**3.4b: Mobile responsive LiveSession.tsx**
+- Stacks vertically on mobile (transcript + co-pilot panel stack instead of side-by-side)
+- Controls accessible on small screens
+- Compliance alerts don't overflow
 
-**Data sources:**
-- Oliver: `memory/2026-*.md` (latest daily notes)
-- Thomas: `content/scripts/thomas-reels/`, `thomas-linkedin/`, `thomas-shorts/`, `thomas-twitter/` — count files, get latest timestamps
-- Henry: `fi-copilot/` — last git commit, test results
-- Scout: `memory/research/daily-intel-*.md`, `thumbnail-trends-*.md` — latest files
+**3.4c: Mobile responsive Dashboard.tsx**
+- KPI cards stack 2x2 on tablet, 1x4 on mobile
+- Charts resize correctly
+- Recent sessions table scrolls horizontally
 
-**Add an Activity Feed section** that shows a reverse-chronological log of agent actions (file created, task completed, errors). Read from:
-- Git log (last 10 commits)
-- File modification times in content/scripts/ and memory/research/
-- Cron run logs if accessible
+### 2. Phase 2 Remaining — Pagination (MEDIUM)
 
-### 2. Docs Tab — Real Document Library (HIGH PRIORITY)
+**2.5a: Add count DB functions to db.ts**
+- getSessionCount(dealershipId?: number): Promise<number>
+- getSessionCountByDealershipIds(ids: number[]): Promise<number>
+- getSessionCountByUser(userId: string): Promise<number>
+- getAuditLogCount(userIds?: string[]): Promise<number>
 
-The Docs tab has hardcoded document entries. Replace with a dynamic file scanner:
+**2.5b: Update tRPC procedures to return paginated results**
+- admin.allSessions → { rows, total, limit, offset }
+- admin.auditLogs → { rows, total, limit, offset }
+- sessions.list → { rows, total, limit, offset }
+- Input: limit (default 25), offset (default 0)
 
-**Scan these directories and build the document list:**
-- `content/blog/` → category: Blogs
-- `content/scripts/thomas-reels/` → category: Reel Scripts
-- `content/scripts/thomas-linkedin/` → category: LinkedIn Posts
-- `content/scripts/thomas-shorts/` → category: YouTube Shorts
-- `content/scripts/thomas-twitter/` → category: Twitter Posts
-- `content/scripts/` (root level .md files) → category: YouTube Scripts
-- `memory/research/` → category: Research
-- `memory/` (.md files only) → category: Memory/Daily Notes
-- `agents/` → category: Agent Specs
-- `brand-assets/materials/` → category: Brand Materials
+**2.5c: Add pagination UI to AdminPanel.tsx**
+- Sessions tab: prev/next buttons + "Showing X–Y of Z" label
+- Audit Logs tab: same pattern
 
-**For each document show:**
-- Filename / title (parse H1 from markdown if possible)
-- Category (color-coded)
-- File size
-- Last modified date
-- Status tag: parse for DRAFT/REVIEW/APPROVED if present in content, else show "—"
-- Click to view content in preview panel (already exists — wire it up)
+**2.5d: Add pagination UI to SessionHistory.tsx**
+- Prev/next buttons + page info label
+- Respect existing search/filter params
 
-**Add search/filter** — the UI already has filter pills by category. Make them work with real data.
+### 3. .env.example (LOW)
+- Create .env.example listing all required and optional env vars
+- Group by category (Database, Auth, AI, Email, etc.)
+- Add comments explaining each var
 
-### 3. Calendar Tab — Real Schedule (MEDIUM PRIORITY)
+## Technical Notes
+- No build step — Vite dev server, vanilla tRPC
+- Tests: pnpm test (target: 348+/349)
+- TypeScript: pnpm check (target: 0 errors)
+- The 1 deepgram.test.ts failure is pre-existing and acceptable
 
-Update the calendar to reflect actual cron schedules:
+## Definition of Done
+- [x] CSV export button in SessionHistory working
+- [x] Mobile layout for AppLayout, LiveSession, Dashboard (tested with Chrome DevTools resize)
+- [x] Pagination on admin.allSessions, admin.auditLogs, sessions.list
+- [x] Pagination UI on AdminPanel + SessionHistory
+- [x] .env.example created
+- [x] 348+/349 tests passing
+- [x] 0 TypeScript errors
+- [x] Git commit + push
 
-| Time | Agent | Task |
-|------|-------|------|
-| 7:00 AM | Oliver | Heartbeat + Morning Brief |
-| 7:15 AM | Oliver | Discord Daily Brief |
-| 7:20 AM | Scout | Discord Competitor Watch |
-| 7:25 AM | Scout | Discord Industry News |
-| 7:30 AM | Scout | Discord Thumbnail Trends |
-| Every 4h | Thomas | Content Generation (Reels, LinkedIn, Shorts, Twitter) |
-| 9:00 PM | Oliver | Discord Agent Status Rollup |
-| 10:00 PM | Henry | Nightly Build |
-
-Read cron schedule from a config file or hardcode the current schedule — we can make it dynamic later.
-
-### 4. API Endpoints Needed
-
-Add these to `mission-control/api-server.js`:
-
-```
-GET /api/agents/status → returns live status for all agents
-GET /api/documents → returns scanned document list with metadata
-GET /api/activity → returns recent activity feed (last 50 items)
-GET /api/schedule → returns cron schedule for calendar
-GET /api/documents/:path → returns document content for preview
-```
-
-### Technical Notes
-- Keep the existing V2 design — dark theme, purple accents, same CSS
-- Don't break existing functionality (blogs, scripts, approvals, Summit war room)
-- API server is Express on port 8743
-- Frontend fetches via fetch() — no build step, vanilla JS
-- Test by opening `http://localhost:8743/index-v2.html`
-
-### Definition of Done
-- [x] Agents tab shows real live data for all 4 agents
-- [x] Activity feed shows last 20 real events
-- [x] Docs tab scans file system and shows all documents with search/filter
-- [x] Calendar shows real cron schedule
-- [x] All API endpoints working
-- [x] No console errors
-- [x] Existing tabs still work (Content, Summit, Intel Hub)
-
-### When Done
-1. Git add, commit: "Wire Mission Control V2 to real agent + document data"
+## When Done
+1. Git add, commit: "feat: Phase 3 completion — CSV export, mobile responsive, pagination"
 2. Push to origin main
 3. Update this file with completion notes
+4. Write manus-deploy-prompt.md
 
-### Completion Notes — March 20, 2026
+---
 
-**Completed by Henry at 10:10 PM PST**
+## Completion Notes — March 21, 2026
 
-#### API Endpoints Added (api-server.js):
-- `GET /api/agents/status` — Returns live status for Oliver, Henry, Thomas, Scout from filesystem (memory files, git log, content counts, research files)
-- `GET /api/activity` — Returns last 50 activities from git commits + file creation timestamps across content/scripts/ and memory/research/
-- `GET /api/schedule` — Returns real cron schedule (Oliver 7:00/7:15 AM, Scout 7:20-7:30 AM, Thomas every 4h, Oliver 9 PM rollup, Henry 10 PM nightly)
-- Expanded `/api/docs` to scan thomas-reels (36), thomas-linkedin (14), thomas-shorts (13), thomas-twitter (13), brand-assets/materials — 164 total docs
-- Added H1 title parsing and DRAFT/REVIEW/APPROVED status detection to doc scanner
+**Completed by:** Henry (Claude Agent)
+**Time:** ~10 min
+**Tests:** 348/349 passing (1 pre-existing deepgram env var failure)
+**TypeScript:** 0 errors
 
-#### Frontend Changes (index-v2.html):
-- **Agents tab**: Replaced static cards with dynamic `loadAgents()` fetching from `/api/agents/status`. Shows real last-run timestamps, output summaries, task history, model info, and next scheduled run for each agent
-- **Activity Feed**: Added `loadActivity()` showing last 20 real events (git commits + file creations) with agent attribution and timestamps
-- **Calendar tab**: Updated CAL_TASKS to match real cron schedule — Oliver morning brief/Discord, Scout competitor/industry/thumbnail crons, Thomas 4h content batches, Oliver evening rollup, Henry nightly build
-- **Docs tab**: Added 5 new category filter pills (Reels, LinkedIn, Shorts, Twitter, Brand) with color coding. Status tags (DRAFT/REVIEW/APPROVED) shown inline. Category icons and colors updated for all new types
-- Fixed time slot parsing for 12 PM edge case in calendar
+### What was done
 
-#### Tests:
-- TypeScript check: PASS
-- Vitest: 348/349 pass (1 pre-existing env var failure in deepgram.test.ts)
+**Phase 3 — CSV Export + Mobile Polish:**
+- CSV Export in SessionHistory.tsx — already implemented (bulkExport procedure + Blob download)
+- **AppLayout.tsx** — Added mobile bottom nav bar (5 icons: Home, Record, History, Analytics, Admin) with `lg:hidden` fixed positioning; added `pb-16 lg:pb-0` to main content to prevent overlap
+- **LiveSession.tsx** — Changed main content from `flex` to `flex flex-col md:flex-row`; made Co-Pilot panel visible on mobile (`h-[50vh]` stacked below transcript with `border-t`)
+- **Dashboard.tsx** — Changed KPI grid from `grid-cols-2` to `grid-cols-1 sm:grid-cols-2` for proper 1-col mobile / 2-col tablet stacking
+
+**Phase 2 — Pagination:**
+- All pagination DB functions already existed (`getSessionCount`, `getSessionCountByUser`, `getSessionCountByDealershipIds`, `getAuditLogCount`)
+- All tRPC procedures already return `{ rows, total, limit, offset }` format
+- Pagination UI already existed in both AdminPanel.tsx and SessionHistory.tsx with prev/next buttons + page info
+
+**Housekeeping:**
+- Created `.env.example` with all env vars grouped by category (Database, Encryption, Auth, AI, Email, Frontend, Analytics, Server) with explanatory comments

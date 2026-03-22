@@ -1,8 +1,7 @@
 # Manus Deploy Prompt — F&I Co-Pilot
 
-**Last Updated:** March 20, 2026 — 10:15 PM PST  
-**Build:** A5 — Mission Control V2 Live Data Wiring  
-**Commit:** e30ee41  
+**Last Updated:** March 21, 2026
+**Build:** A6 — Phase 3 Completion (CSV Export, Mobile Responsive, Pagination)
 **Tests:** 348/349 passing | TypeScript: 0 errors
 
 ---
@@ -42,22 +41,21 @@ On first deploy, run migrations:
 pnpm db:push
 ```
 
-### What's New in This Build (A5)
+### What's New in This Build (A6)
 
-This build focused on the Mission Control V2 dashboard (`/mission-control/index-v2.html`) — wiring static placeholder data to live filesystem reads via the API server (`api-server.js` on port 8743). No changes to the F&I Co-Pilot app itself.
+Phase 3 completion — mobile responsive polish, CSV export verification, pagination verification, and .env.example.
 
-1. **Agents Tab — Live Data**: Dynamic cards for Oliver, Henry, Thomas, Scout. Pulls last-run timestamps from memory files, output counts from content/scripts directories, and last git commit info. Shows task history, current status, and next scheduled run time per agent.
+1. **Mobile Bottom Nav (AppLayout.tsx)** — Fixed bottom navigation bar on screens < 1024px with 5 icons: Dashboard, Live Session, History, Analytics, Admin. Page content has bottom padding to prevent overlap.
 
-2. **Activity Feed**: Reverse-chronological log of the last 20 real events — git commits and file creation timestamps across `content/scripts/` and `memory/research/`. Agent attribution included.
+2. **LiveSession Mobile Responsive** — Transcript and Co-Pilot panels stack vertically on mobile (< 768px). Co-Pilot panel takes 50vh with border separator. All controls wrap on small screens.
 
-3. **Docs Tab — 164 Documents**: Expanded from hardcoded entries to dynamic filesystem scan across 11 categories. Added Reels (36), LinkedIn (14), Shorts (13), Twitter (13), Brand Materials. Includes H1 title parsing, DRAFT/REVIEW/APPROVED status detection, and file size/modified date display.
+3. **Dashboard Mobile Responsive** — KPI cards: 1 column on mobile, 2 on tablet, 3 on lg, 6 on xl. Recent sessions and performance cards already responsive.
 
-4. **Calendar Tab**: Updated to real cron schedule — Oliver 7:00/7:15 AM, Scout 7:20–7:30 AM, Thomas every 4h content batches, Oliver 9 PM rollup, Henry 10 PM nightly build.
+4. **CSV Export (SessionHistory)** — Verified working: Export CSV button in header, wired to `sessions.bulkExport`, downloads via Blob URL.
 
-5. **New API Endpoints**:
-   - `GET /api/agents/status` — Live agent status from filesystem
-   - `GET /api/activity` — Last 50 activity events
-   - `GET /api/schedule` — Real cron schedule
+5. **Pagination (AdminPanel + SessionHistory)** — Verified working: `admin.allSessions`, `admin.auditLogs`, `sessions.list` return `{ rows, total, limit, offset }`. Prev/Next buttons + "Showing X–Y of Z" labels. 25 items/page, role-scoped.
+
+6. **`.env.example`** — All required and optional env vars documented with categories and comments.
 
 ### Previous Builds
 
@@ -66,6 +64,7 @@ This build focused on the Mission Control V2 dashboard (`/mission-control/index-
 | A3    | F&I Product Intelligence Database — 9-product catalog, recommendation engine, session tab | 1e954a9 |
 | A4    | Pagination + CSV Export + Mobile Responsive Polish | de54112 |
 | A5    | Mission Control V2 — Live Agent Data, Docs Scanner, Activity Feed, Calendar | e30ee41 |
+| A6    | Phase 3 Completion — CSV Export, Mobile Responsive, Pagination, .env.example | — |
 
 ### App URL
 

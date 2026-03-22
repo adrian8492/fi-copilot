@@ -326,9 +326,38 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto pb-16 lg:pb-0">
           {children}
         </main>
+
+        {/* Mobile Bottom Nav */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-sidebar border-t border-sidebar-border flex items-center justify-around h-14 px-1">
+          {[
+            { path: "/", label: "Home", icon: LayoutDashboard },
+            { path: "/session/new", label: "Record", icon: Mic },
+            { path: "/history", label: "History", icon: History },
+            { path: "/analytics", label: "Analytics", icon: BarChart3 },
+            ...(user?.role === "admin" || user?.isGroupAdmin
+              ? [{ path: "/admin", label: "Admin", icon: ShieldCheck }]
+              : []),
+          ].map((item) => {
+            const active = isItemActive(item.path);
+            return (
+              <Link key={item.path} href={item.path}>
+                <button
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg transition-colors min-w-[48px]",
+                    active ? "text-primary" : "text-muted-foreground"
+                  )}
+                  onClick={closeSidebar}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-[9px] font-medium leading-tight">{item.label}</span>
+                </button>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
 
       {/* Ask Adrian — Delphi AI floating button (authenticated users only) */}
