@@ -56,27 +56,42 @@ function RankIcon({ rank }: { rank: number }) {
   return <span className="w-5 h-5 flex items-center justify-center text-slate-500 font-bold text-sm">{rank}</span>;
 }
 
-type DatePreset = "7d" | "30d" | "90d" | "all";
+type DatePreset = "7d" | "30d" | "90d" | "all" | "custom";
 const DATE_PRESETS: { key: DatePreset; label: string }[] = [
   { key: "7d", label: "7 Days" },
   { key: "30d", label: "30 Days" },
   { key: "90d", label: "90 Days" },
   { key: "all", label: "All Time" },
+  { key: "custom", label: "Custom" },
 ];
 function getPresetDates(preset: DatePreset): { fromDate?: Date; toDate?: Date } {
-  if (preset === "all") return {};
+  if (preset === "all" || preset === "custom") return {};
   const now = new Date();
   const days = preset === "7d" ? 7 : preset === "30d" ? 30 : 90;
   const from = new Date(now);
   from.setDate(from.getDate() - days);
   return { fromDate: from, toDate: now };
 }
+function toDateInputValue(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 export default function EagleEyeView() {
   const [activeMetric, setActiveMetric] = useState<MetricKey>("score");
   const [sortField, setSortField] = useState<MetricKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [datePreset, setDatePreset] = useState<DatePreset>("30d");
-  const dateRange = useMemo(() => getPresetDates(datePreset), [datePreset]);
+  const defaultFrom = new Date(); defaultFrom.setDate(defaultFrom.getDate() - 30);
+  const [customFrom, setCustomFrom] = useState<string>(toDateInputValue(defaultFrom));
+  const [customTo, setCustomTo] = useState<string>(toDateInputValue(new Date()));
+  const dateRange = useMemo(() => {
+    if (datePreset === "custom") {
+      return {
+        fromDate: customFrom ? new Date(customFrom + "T00:00:00") : undefined,
+        toDate: customTo ? new Date(customTo + "T23:59:59") : undefined,
+      };
+    }
+    return getPresetDates(datePreset);
+  }, [datePreset, customFrom, customTo]);
 
   const { data: leaderboard = [], isLoading: loadingBoard } = trpc.eagleEye.leaderboard.useQuery(dateRange);
   const { data: trends, isLoading: loadingTrends } = trpc.eagleEye.trends.useQuery(dateRange);
@@ -158,6 +173,23 @@ export default function EagleEyeView() {
                 </button>
               ))}
             </div>
+            {datePreset === "custom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                />
+                <span className="text-slate-500 text-xs">to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            )}
             <div className="hidden sm:flex items-center gap-2 text-sm text-slate-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400" /> ≥80%
               <span className="w-2 h-2 rounded-full bg-amber-400 ml-1" /> 65–79%

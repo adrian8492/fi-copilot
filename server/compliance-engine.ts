@@ -821,6 +821,20 @@ export function scanTranscriptForViolations(
   return violations;
 }
 
+// ─── Public API Aliases ──────────────────────────────────────────────────────
+/** Alias for scanTranscriptForViolations — matches the task-spec interface */
+export const analyzeTranscript = scanTranscriptForViolations;
+
+/** Return all rules in the master set (federal only) */
+export function getAllRules(): ComplianceRule[] {
+  return ALL_COMPLIANCE_RULES;
+}
+
+/** Return rules filtered by category */
+export function getRulesByCategory(category: ComplianceCategory): ComplianceRule[] {
+  return ALL_COMPLIANCE_RULES.filter((r) => r.category === category);
+}
+
 // ─── Compliance Score Calculator ─────────────────────────────────────────────
 /**
  * Calculates a compliance score (0–100) based on violations found in a session.

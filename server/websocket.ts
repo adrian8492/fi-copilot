@@ -258,7 +258,7 @@ function createDeepgramConnection(
     }, 2000);
   });
 
-   connection.on(LiveTranscriptionEvents.Transcript, async (data) => {
+  connection.on(LiveTranscriptionEvents.Transcript, async (data) => {
     const alt = data?.channel?.alternatives?.[0];
     console.log(`[WS] Deepgram transcript event: is_final=${data?.is_final}, speech_final=${(data as any)?.speech_final}, text="${alt?.transcript?.substring(0, 50) ?? '(empty)'}"`);
     if (!alt || !alt.transcript?.trim()) return;
@@ -311,31 +311,31 @@ function createDeepgramConnection(
     }
 
     // Compliance check (manager speech only)
-          if (speaker === "manager") {
-            const flags = checkComplianceRules(text, state.elapsedSeconds);
-            for (const flag of flags) {
-              try {
-                await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
-              } catch (err) {
-                console.error(`[WS] insertComplianceFlag error:`, err);
-              }
-              send({ type: "compliance_flag", data: flag });
-              // Send email for critical compliance flags
-              if (flag.severity === "critical" && state.userEmail) {
-                const emailOpts = buildCriticalComplianceAlertEmail({
-                  managerEmail: state.userEmail,
-                  managerName: state.userName || "F&I Manager",
-                  sessionId: state.sessionId,
-                  customerName: state.customerName || "Unknown Customer",
-                  rule: flag.rule,
-                  description: flag.description,
-                  excerpt: flag.excerpt,
-                  remediation: (flag as { remediation?: string }).remediation,
-                });
-                sendEmail(emailOpts).catch(() => {});
-              }
-            }
-          }
+    if (speaker === "manager") {
+      const flags = checkComplianceRules(text, state.elapsedSeconds);
+      for (const flag of flags) {
+        try {
+          await insertComplianceFlag({ sessionId: state.sessionId, ...flag });
+        } catch (err) {
+          console.error(`[WS] insertComplianceFlag error:`, err);
+        }
+        send({ type: "compliance_flag", data: flag });
+        // Send email for critical compliance flags
+        if (flag.severity === "critical" && state.userEmail) {
+          const emailOpts = buildCriticalComplianceAlertEmail({
+            managerEmail: state.userEmail,
+            managerName: state.userName || "F&I Manager",
+            sessionId: state.sessionId,
+            customerName: state.customerName || "Unknown Customer",
+            rule: flag.rule,
+            description: flag.description,
+            excerpt: flag.excerpt,
+            remediation: (flag as { remediation?: string }).remediation,
+          });
+          sendEmail(emailOpts).catch(() => {});
+        }
+      }
+    }
 
     // Co-pilot analysis
     state.analysisBuffer += ` ${text}`;

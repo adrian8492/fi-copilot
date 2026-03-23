@@ -1,7 +1,7 @@
 # Manus Deploy Prompt — F&I Co-Pilot
 
-**Last Updated:** March 21, 2026
-**Build:** A6 — Phase 3 Completion (CSV Export, Mobile Responsive, Pagination)
+**Last Updated:** March 22, 2026
+**Build:** A7 — Federal Compliance Engine + WebSocket Fix + Eagle Eye Date Range
 **Tests:** 348/349 passing | TypeScript: 0 errors
 
 ---
@@ -41,21 +41,17 @@ On first deploy, run migrations:
 pnpm db:push
 ```
 
-### What's New in This Build (A6)
+### What's New in This Build (A7)
 
-Phase 3 completion — mobile responsive polish, CSV export verification, pagination verification, and .env.example.
+Federal Compliance Engine exports, WebSocket fix, Eagle Eye custom date range.
 
-1. **Mobile Bottom Nav (AppLayout.tsx)** — Fixed bottom navigation bar on screens < 1024px with 5 icons: Dashboard, Live Session, History, Analytics, Admin. Page content has bottom padding to prevent overlap.
+1. **WebSocket Fix (websocket.ts)** — Fixed indentation inconsistencies in Deepgram transcript handler and compliance check block. Both `pnpm check` and esbuild compile cleanly.
 
-2. **LiveSession Mobile Responsive** — Transcript and Co-Pilot panels stack vertically on mobile (< 768px). Co-Pilot panel takes 50vh with border separator. All controls wrap on small screens.
+2. **Federal Compliance Engine Exports (compliance-engine.ts)** — Added `analyzeTranscript()`, `getRulesByCategory()`, `getAllRules()` public API exports. Engine covers TILA/Reg Z, CLA/Reg M, ECOA/Reg B, UDAP/UDAAP, Contract Elements, GAP, VSC, Aftermarket, and 5 state-specific rule sets (CA, TX, FL, NY, OH).
 
-3. **Dashboard Mobile Responsive** — KPI cards: 1 column on mobile, 2 on tablet, 3 on lg, 6 on xl. Recent sessions and performance cards already responsive.
+3. **Eagle Eye Custom Date Range (EagleEyeView.tsx)** — Added "Custom" preset with native start/end date pickers. Users can now filter the leaderboard and trends by any arbitrary date range alongside the existing 7d/30d/90d/all presets.
 
-4. **CSV Export (SessionHistory)** — Verified working: Export CSV button in header, wired to `sessions.bulkExport`, downloads via Blob URL.
-
-5. **Pagination (AdminPanel + SessionHistory)** — Verified working: `admin.allSessions`, `admin.auditLogs`, `sessions.list` return `{ rows, total, limit, offset }`. Prev/Next buttons + "Showing X–Y of Z" labels. 25 items/page, role-scoped.
-
-6. **`.env.example`** — All required and optional env vars documented with categories and comments.
+4. **Compliance Wiring** — Already fully wired: `websocket.ts` runs `scanTranscriptForViolations()` on every final transcript, pushes flags via WebSocket, creates DB records, sends critical email alerts.
 
 ### Previous Builds
 
@@ -64,7 +60,8 @@ Phase 3 completion — mobile responsive polish, CSV export verification, pagina
 | A3    | F&I Product Intelligence Database — 9-product catalog, recommendation engine, session tab | 1e954a9 |
 | A4    | Pagination + CSV Export + Mobile Responsive Polish | de54112 |
 | A5    | Mission Control V2 — Live Agent Data, Docs Scanner, Activity Feed, Calendar | e30ee41 |
-| A6    | Phase 3 Completion — CSV Export, Mobile Responsive, Pagination, .env.example | — |
+| A6    | Phase 3 Completion — CSV Export, Mobile Responsive, Pagination, .env.example | 751ed72 |
+| A7    | Federal Compliance Engine + WebSocket Fix + Eagle Eye Date Range | — |
 
 ### App URL
 
