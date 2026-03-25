@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 };
 
 export default function DealRecovery() {
+  useEffect(() => { document.title = "Deal Recovery | F&I Co-Pilot by ASURA Group"; }, []);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 10;
   const [revenueInputs, setRevenueInputs] = useState<Record<number, string>>({});

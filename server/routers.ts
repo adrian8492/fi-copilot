@@ -120,6 +120,8 @@ import {
   getScorecardsByUser,
   getAverageScorecardByUser,
   getRecentScorecardScores,
+  getUnreadAlerts,
+  markAlertRead,
 } from "./db";
 import { runASURAScorecardEngine, type CoachingCadenceInput } from "./asura-scorecard";
 import { invokeLLM } from "./_core/llm";
@@ -2320,6 +2322,20 @@ If no products were declined, return an empty array [].`;
 
       return { success: true, sent };
     }),
+  }),
+
+  // ─── Alerts ───────────────────────────────────────────────────────────────────
+  alerts: router({
+    list: protectedProcedure
+      .input(z.object({ limit: z.number().default(20) }).optional())
+      .query(async ({ ctx, input }) => {
+        return getUnreadAlerts(ctx.user.id, input?.limit ?? 20);
+      }),
+    markRead: protectedProcedure
+      .input(z.object({ alertId: z.string() }))
+      .mutation(async ({ input }) => {
+        return markAlertRead(input.alertId);
+      }),
   }),
 });
 export type AppRouter = typeof appRouter;

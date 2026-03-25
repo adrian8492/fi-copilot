@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 export default function Customers() {
+  useEffect(() => { document.title = "Customers | F&I Co-Pilot by ASURA Group"; }, []);
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);

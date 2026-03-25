@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Settings, Save, Shield, Clock, FileText } from "lucide-react";
 
 export default function DealershipSettings() {
+  useEffect(() => { document.title = "Dealership Settings | F&I Co-Pilot by ASURA Group"; }, []);
   const { data: settings, isLoading, refetch } = trpc.settings.get.useQuery();
   const updateSettings = trpc.settings.update.useMutation({
     onSuccess: () => {

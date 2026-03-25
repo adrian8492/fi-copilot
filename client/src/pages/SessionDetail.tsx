@@ -47,6 +47,7 @@ function ScoreBar({ label, score, max = 100 }: { label: string; score: number | 
 }
 
 export default function SessionDetail() {
+  useEffect(() => { document.title = "Session Detail | F&I Co-Pilot by ASURA Group"; }, []);
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const sessionId = parseInt(id ?? "0");

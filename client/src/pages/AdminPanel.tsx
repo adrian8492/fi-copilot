@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 export default function AdminPanel() {
+  useEffect(() => { document.title = "Admin Panel | F&I Co-Pilot by ASURA Group"; }, []);
   const { user: authUser } = useAuth();
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [dealershipName, setDealershipName] = useState("ASURA Dealership Group");

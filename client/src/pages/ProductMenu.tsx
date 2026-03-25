@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,7 @@ const emptyForm = {
 };
 
 export default function ProductMenu() {
+  useEffect(() => { document.title = "Product Menu | F&I Co-Pilot by ASURA Group"; }, []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
 

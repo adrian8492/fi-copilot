@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ const DEFAULT_FORM: RuleFormData = {
 };
 
 export default function ComplianceRules() {
+  useEffect(() => { document.title = "Compliance Rules | F&I Co-Pilot by ASURA Group"; }, []);
   const [search, setSearch] = useState("");
   const [filterSeverity, setFilterSeverity] = useState<Severity | "all">("all");
   const [filterCategory, setFilterCategory] = useState<Category | "all">("all");

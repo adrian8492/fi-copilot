@@ -145,6 +145,7 @@ const SUGGESTION_TYPE_ICONS: Record<string, React.ElementType> = {
 };
 
 export default function LiveSession() {
+  useEffect(() => { document.title = "Live Session | F&I Co-Pilot by ASURA Group"; }, []);
   const [, navigate] = useLocation();
   const { user } = useAuth();
 

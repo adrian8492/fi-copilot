@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,6 +76,7 @@ function toDateInputValue(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 export default function EagleEyeView() {
+  useEffect(() => { document.title = "Eagle Eye View | F&I Co-Pilot by ASURA Group"; }, []);
   const [activeMetric, setActiveMetric] = useState<MetricKey>("score");
   const [sortField, setSortField] = useState<MetricKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ const checkIcons: Record<string, React.ReactNode> = {
 };
 
 export default function PipelineDiagnostics() {
+  useEffect(() => { document.title = "Pipeline Diagnostics | F&I Co-Pilot by ASURA Group"; }, []);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const { data, isLoading, refetch, isFetching } = trpc.diagnostics.pipelineHealth.useQuery(undefined, {
     refetchOnWindowFocus: false,

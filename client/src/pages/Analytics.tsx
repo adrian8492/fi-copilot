@@ -6,12 +6,14 @@ import {
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from "recharts";
 import { TrendingUp } from "lucide-react";
+import { useEffect } from "react";
 
 const PIE_COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16","#ec4899","#14b8a6"];
 
 
 
 export default function Analytics() {
+  useEffect(() => { document.title = "Analytics | F&I Co-Pilot by ASURA Group"; }, []);
   const { data: summary } = trpc.analytics.summary.useQuery();
   const { data: gradeTrend } = trpc.analytics.myGradeTrend.useQuery({ limit: 20 });
   const { data: pvrTrend } = trpc.analytics.pvrTrend.useQuery({ limit: 30 });

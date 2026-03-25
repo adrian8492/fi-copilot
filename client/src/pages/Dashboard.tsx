@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 
 function getScoreColor(score: number) {
@@ -187,6 +187,7 @@ function ASURAScorecardWidget() {
 }
 
 export default function Dashboard() {
+  useEffect(() => { document.title = "Dashboard | F&I Co-Pilot by ASURA Group"; }, []);
   const [, navigate] = useLocation();
   const { data: summary } = trpc.analytics.summary.useQuery();
   const { data: sessionsData } = trpc.sessions.list.useQuery({ limit: 5, offset: 0 });

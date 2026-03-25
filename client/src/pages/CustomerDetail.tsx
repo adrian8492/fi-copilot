@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 export default function CustomerDetail() {
+  useEffect(() => { document.title = "Customer Detail | F&I Co-Pilot by ASURA Group"; }, []);
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const customerId = parseInt(id ?? "0");

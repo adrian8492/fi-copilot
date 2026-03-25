@@ -2156,6 +2156,98 @@ export async function getRecentScorecardScores(userId: number, limit = 10): Prom
   return rows.map(r => Number(r.tier1Score));
 }
 
+// ─── Alerts ──────────────────────────────────────────────────────────────────
+export async function getUnreadAlerts(userId: number, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Get user's accessible sessions
+  const userSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, userId));
+  const sessionIds = userSessions.map(s => s.id);
+
+  const alerts: Array<{
+    id: string;
+    type: "compliance" | "performance";
+    severity: "critical" | "warning" | "info";
+    message: string;
+    detail: string;
+    sessionId: number | null;
+    createdAt: Date;
+  }> = [];
+
+  // Source 1: Unresolved critical/warning compliance flags from user's sessions
+  if (sessionIds.length > 0) {
+    const flags = await db.select().from(complianceFlags)
+      .where(and(
+        inArray(complianceFlags.sessionId, sessionIds),
+        eq(complianceFlags.resolved, false),
+        or(
+          eq(complianceFlags.severity, "critical"),
+          eq(complianceFlags.severity, "warning"),
+        ),
+      ))
+      .orderBy(desc(complianceFlags.createdAt))
+      .limit(limit);
+
+    for (const flag of flags) {
+      alerts.push({
+        id: `flag-${flag.id}`,
+        type: "compliance",
+        severity: flag.severity as "critical" | "warning",
+        message: `Compliance ${flag.severity}: ${flag.rule}`,
+        detail: flag.description ?? "",
+        sessionId: flag.sessionId,
+        createdAt: flag.createdAt,
+      });
+    }
+  }
+
+  // Source 2: Low performance grades from user's sessions (overall < 60)
+  const lowGrades = await db.select().from(performanceGrades)
+    .where(and(
+      eq(performanceGrades.userId, userId),
+      lte(performanceGrades.overallScore, 60),
+    ))
+    .orderBy(desc(performanceGrades.gradedAt))
+    .limit(10);
+
+  for (const grade of lowGrades) {
+    alerts.push({
+      id: `grade-${grade.id}`,
+      type: "performance",
+      severity: "warning",
+      message: `Low session score: ${grade.overallScore}%`,
+      detail: `Session ${grade.sessionId} scored below 60%. Review coaching report for improvement areas.`,
+      sessionId: grade.sessionId,
+      createdAt: grade.gradedAt,
+    });
+  }
+
+  // Sort by date and limit
+  return alerts
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
+}
+
+export async function markAlertRead(alertId: string) {
+  const db = await getDb();
+  if (!db) return { success: false };
+
+  // Parse alert ID to determine source
+  if (alertId.startsWith("flag-")) {
+    const flagId = parseInt(alertId.replace("flag-", ""), 10);
+    if (!isNaN(flagId)) {
+      await db.update(complianceFlags).set({ resolved: true, resolvedAt: new Date() }).where(eq(complianceFlags.id, flagId));
+      return { success: true };
+    }
+  }
+  // For grade alerts, we just acknowledge (no DB change needed)
+  if (alertId.startsWith("grade-")) {
+    return { success: true };
+  }
+  return { success: false };
+}
+
 // ─── Local Auth Helpers ───────────────────────────────────────────────────────
 export async function getUserByEmail(email: string) {
   const db = await getDb();

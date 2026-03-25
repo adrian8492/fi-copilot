@@ -361,6 +361,7 @@ const URGENCY_BADGE = {
 };
 
 export default function DemoMode() {
+  useEffect(() => { document.title = "Demo Mode | F&I Co-Pilot by ASURA Group"; }, []);
   const [, navigate] = useLocation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -451,7 +452,7 @@ export default function DemoMode() {
         setIsComplete(true);
         setScore(87);
         setScriptFidelity({ process: 94, menu: 91, objection: 88, transition: 93, overall: 92 });
-        toast.success("Demo session complete — Score: 87/100 (Elite)", { description: "3 products sold. PVR: $1,847. All 7 steps executed." });
+        toast.success("Demo session complete — Score: 87/100 (Elite)", { description: "3 products sold. PVR: $2,847. All 7 steps executed." });
       }, completionRemaining);
       timersRef.current.push(t);
     }
@@ -891,7 +892,7 @@ export default function DemoMode() {
                 {[
                   { label: "Overall Score", value: "87/100", sub: "Elite", color: "text-emerald-400" },
                   { label: "Products Sold", value: "3 of 4", sub: "GAP + VSA + T&W", color: "text-violet-400" },
-                  { label: "PVR", value: "$1,847", sub: "Above target", color: "text-amber-400" },
+                  { label: "PVR", value: "$2,847", sub: "Above target", color: "text-amber-400" },
                   { label: "Compliance", value: "100%", sub: "All disclosures made", color: "text-blue-400" },
                 ].map(stat => (
                   <div key={stat.label} className="text-center p-3 rounded-lg bg-background/40 border border-border/40">

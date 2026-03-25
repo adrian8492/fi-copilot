@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +42,7 @@ const DEAL_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function SessionHistory() {
+  useEffect(() => { document.title = "Session History | F&I Co-Pilot by ASURA Group"; }, []);
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("startedAt");

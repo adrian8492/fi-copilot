@@ -34,6 +34,7 @@ import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 import DealershipSwitcher from "@/components/DealershipSwitcher";
 import { DelphiEmbed } from "@/components/DelphiEmbed";
+import AlertBell from "@/components/AlertBell";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -318,6 +319,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             )}
           </div>
           <div className="flex items-center gap-2">
+            <AlertBell />
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
               <span className="text-[10px] font-medium text-green-400">System Online</span>

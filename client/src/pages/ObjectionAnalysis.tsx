@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,7 @@ const CONCERN_COLORS: Record<string, string> = {
 type ViewMode = "product" | "concern";
 
 export default function ObjectionAnalysis() {
+  useEffect(() => { document.title = "Objection Analysis | F&I Co-Pilot by ASURA Group"; }, []);
   const [viewMode, setViewMode] = useState<ViewMode>("product");
 
   const { data: byProduct, isLoading: loadingProduct } = trpc.objections.analysisByProduct.useQuery({});

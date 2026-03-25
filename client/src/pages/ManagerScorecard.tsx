@@ -2,6 +2,7 @@ import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
 import {
   TrendingUp,
   TrendingDown,
@@ -14,9 +15,12 @@ import {
   AlertTriangle,
   BarChart3,
   Calendar,
+  Printer,
+  ThumbsUp,
+  ArrowUpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 // ─── Sparkline Component ────────────────────────────────────────────────────
 function Sparkline({
@@ -220,6 +224,7 @@ function WeeklyBreakdown({ data }: { data: Array<{
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ManagerScorecard() {
+  useEffect(() => { document.title = "Manager Scorecard | F&I Co-Pilot by ASURA Group"; }, []);
   const [weeks] = useState(12);
   const { data, isLoading } = trpc.analytics.managerScorecard.useQuery({ weeks });
 
@@ -275,6 +280,9 @@ export default function ManagerScorecard() {
               </p>
             </div>
           </div>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => window.print()}>
+            <Printer className="w-4 h-4" /> Export Scorecard
+          </Button>
         </div>
 
         {/* Metric Cards Grid */}
@@ -352,6 +360,64 @@ export default function ManagerScorecard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Strengths & Improvements */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ThumbsUp className="w-4 h-4 text-green-400" />
+                Top Strengths
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {(() => {
+                const scores = [
+                  { label: "Compliance Score", value: summary?.overallAvgCompliance ?? 0 },
+                  { label: "Script Fidelity", value: summary?.overallAvgScriptFidelity ?? 0 },
+                  { label: "Overall Score", value: summary?.overallAvgScore ?? 0 },
+                  { label: "Word Track Usage", value: summary?.overallUtilization ?? 0 },
+                ];
+                return scores
+                  .sort((a, b) => b.value - a.value)
+                  .slice(0, 3)
+                  .map((s, i) => (
+                    <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-md bg-green-500/5 border border-green-500/10">
+                      <span className="text-sm text-foreground">{s.label}</span>
+                      <span className="text-sm font-bold text-green-400">{s.value}%</span>
+                    </div>
+                  ));
+              })()}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ArrowUpCircle className="w-4 h-4 text-amber-400" />
+                Areas for Improvement
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {(() => {
+                const scores = [
+                  { label: "Compliance Score", value: summary?.overallAvgCompliance ?? 0 },
+                  { label: "Script Fidelity", value: summary?.overallAvgScriptFidelity ?? 0 },
+                  { label: "Overall Score", value: summary?.overallAvgScore ?? 0 },
+                  { label: "Word Track Usage", value: summary?.overallUtilization ?? 0 },
+                ];
+                return scores
+                  .sort((a, b) => a.value - b.value)
+                  .slice(0, 3)
+                  .map((s, i) => (
+                    <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-md bg-amber-500/5 border border-amber-500/10">
+                      <span className="text-sm text-foreground">{s.label}</span>
+                      <span className={cn("text-sm font-bold", s.value >= 60 ? "text-amber-400" : "text-red-400")}>{s.value}%</span>
+                    </div>
+                  ));
+              })()}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Weekly Breakdown */}
         <Card>
