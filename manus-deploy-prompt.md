@@ -1,5 +1,5 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** March 23, 2026 — Build 340dc21
+**Updated:** March 25, 2026 — Build db54ace
 
 ## What to Deploy
 
@@ -10,18 +10,30 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 
 ## What's New in This Build
 
+### Build db54ace — March 25, 2026
+- **PDF/Print Reports:** `/session/:id/print` — full print-optimized session report with metadata, grade breakdown, compliance flags table, ASURA co-pilot suggestions, checklist results, coaching summary, and speaker-labeled transcript. "Download PDF Report" button wired in SessionDetail.
+- **Deal Recovery Analytics:** Stats bar (Total Attempted, Won Back, Revenue Recovered, Win Rate %), 8-week Recharts bar chart, status filter (All/Pending/Attempted/Recovered/Lost), sort by Date/Revenue/Status. `dealRecovery.stats` tRPC procedure wired.
+- **Pipeline Diagnostics Drill-Down:** Expandable row detail showing blocking factors, days-in-stage, health score (0–100), color-coded SLA indicators (green <3d, yellow 3–7d, red >7d), component-level health checks with re-check buttons.
+- **Customer Detail Session Timeline:** Visual timeline with colored status dots, product acceptance history per session, "Schedule Follow-up" modal with date picker, wired to `getSessionsByCustomerId`.
+- **Auto Coaching Report on Session End:** Template-based generation from grade scores — compliance/script fidelity/closing focus areas auto-selected, stored via `upsertCoachingReport`.
+- **Bundle Analysis:** 5 chunks >500KB documented. SessionDetail (~1MB) flagged for future code-splitting.
+- **TypeScript fixes:** Fixed 7 field name mismatches across schema/router layer (closingScore, productKnowledgeScore, createdAt, checklists path).
+- **Test Suite:** 411/412 passing (1 pre-existing deepgram env failure)
+
+### Build 6f72230 — March 24, 2026
+- **Demo Mode:** Full 6-minute scripted replay, transcript, suggestions, compliance flags, checklist, final score
+- **Manager Scorecard:** Export button, Top 3 Strengths / Top 3 Improvements cards
+- **Alert Bell:** Unread alerts from compliance flags + low grades, mark-read support
+- **Session Comparison:** Delta summary, color-coded score badges
+- **382/383 tests passing**
+
 ### Build 340dc21 — March 23, 2026
-- **Pagination:** All session list, audit log, and admin session views now paginated with prev/next UI and page indicators
-- **CSV Export:** "Export CSV" button in Session History exports all filtered sessions as a CSV file download
-- **Mobile Responsive:** Hamburger overlay sidebar on mobile, stacked panels in Live Session, 2-col dashboard grid on mobile
-- **Test Suite:** 367 passing tests (up from 348)
-- **19 new tests:** Pagination count functions, bulk export, mobile features
+- Cursor-based pagination, CSV export, mobile responsive layout
+- **367/368 tests passing**
 
 ### Build cd5fd53 — March 22, 2026
-- **Federal Compliance Engine:** Full rule set — TILA/Reg Z, CLA/Reg M, ECOA/Reg B, UDAP/UDAAP, F&I product disclosures
-- **WebSocket:** Syntax indentation fixed, compiles cleanly
-- **Eagle Eye Date Range:** Custom date range picker on Eagle Eye leaderboard view
-- **Test Suite:** 348 passing
+- Federal Compliance Engine (TILA/Reg Z, CLA/Reg M, ECOA, UDAP/UDAAP), Eagle Eye date range
+- **348/349 tests passing**
 
 ## Required Environment Variables
 
@@ -56,7 +68,7 @@ See `ENV_REFERENCE.md` in the repo root for full documentation of each variable.
 
 ## Deployment Steps
 
-1. Pull latest from `origin/main` (commit `340dc21`)
+1. Pull latest from `origin/main` (commit `db54ace`)
 2. Install dependencies: `pnpm install --frozen-lockfile`
 3. Build client: `pnpm build`
 4. Run database migrations: `pnpm db:push` (or apply migration SQL from `drizzle/` folder)
@@ -69,15 +81,19 @@ After deploy, verify:
 - Login flow works via Clerk OAuth
 - Dashboard loads with KPI cards
 - Live Session page loads and shows compliance checklist
+- SessionDetail shows "Download PDF Report" button → navigates to `/session/:id/print`
+- Deal Recovery page shows stats bar + weekly chart
+- Pipeline Diagnostics shows rows that expand on click
 
 ## Known Issues / Notes
 
-- **Deepgram real-time:** Requires `DEEPGRAM_API_KEY` to be set. If missing, the app falls back to browser SpeechRecognition automatically — no crash.
-- **90-day seed data:** If the database is empty, run `node scripts/seed-90-days.mjs` with `DATABASE_URL` set to populate realistic test data.
-- **WebSocket proxy:** If the hosting proxy blocks WebSocket upgrades (common on shared hosts), the client automatically falls back to HTTP streaming + SSE. No manual config needed.
-- **MFA:** TOTP-based MFA is implemented but optional. Users can enable it via Settings → Security.
+- **Deepgram real-time:** Requires `DEEPGRAM_API_KEY` to be set. If missing, app falls back to browser SpeechRecognition automatically — no crash.
+- **SessionDetail bundle size:** ~1MB chunk flagged for future code-splitting. Does not block deploy.
+- **90-day seed data:** If database is empty, run `node scripts/seed-90-days.mjs` with `DATABASE_URL` set.
+- **WebSocket proxy:** Auto-falls back to HTTP streaming + SSE if proxy blocks WS upgrades.
+- **MFA:** TOTP-based, optional. Users enable via Settings → Security.
 
 ## Rollback
 
-Previous stable commit: `cd5fd53` (March 22 — Federal compliance engine)
-To rollback: `git checkout cd5fd53 && pnpm install && pnpm build`
+Previous stable commit: `6f72230` (March 24 — Demo Mode, Alert Bell, Session Comparison)
+To rollback: `git checkout 6f72230 && pnpm install && pnpm build`
