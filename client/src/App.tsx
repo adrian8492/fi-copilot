@@ -1,3 +1,9 @@
+// Bundle analysis (2026-03-25): 5 chunks exceed 500KB (gzipped sizes in parens):
+//   SessionDetail: 1,001 kB (292 kB) — largest; candidate for splitting sub-tabs into lazy chunks
+//   emacs-lisp (shiki grammar): 780 kB (197 kB) — code highlighting grammar, unavoidable
+//   cpp (shiki grammar): 626 kB (45 kB) — code highlighting grammar
+//   wasm: 622 kB (231 kB) — shiki WASM runtime
+//   index (vendor): 555 kB (165 kB) — core vendor bundle (React, tRPC, UI libs)
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,6 +36,7 @@ const Customers = lazy(() => import("./pages/Customers"));
 const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const ProductMenu = lazy(() => import("./pages/ProductMenu"));
 const DealRecovery = lazy(() => import("./pages/DealRecovery"));
+const SessionPrintReport = lazy(() => import("./pages/SessionPrintReport"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -50,6 +57,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/login" component={Login} />
         <Route path="/session/new" component={LiveSession} />
+        <Route path="/session/:id/print" component={SessionPrintReport} />
         <Route path="/session/:id" component={SessionDetail} />
         <Route path="/history" component={SessionHistory} />
         <Route path="/analytics" component={Analytics} />

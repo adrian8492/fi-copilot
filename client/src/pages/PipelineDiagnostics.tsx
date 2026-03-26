@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Activity, Mic, Database, Brain, Shield, FileText, Wifi } from "lucide-react";
+import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, Activity, Mic, Database, Brain, Shield, FileText, Wifi, ChevronDown } from "lucide-react";
 
 const statusIcons: Record<string, React.ReactNode> = {
   pass: <CheckCircle2 className="h-5 w-5 text-emerald-400" />,
@@ -30,6 +30,7 @@ const checkIcons: Record<string, React.ReactNode> = {
 export default function PipelineDiagnostics() {
   useEffect(() => { document.title = "Pipeline Diagnostics | F&I Co-Pilot by ASURA Group"; }, []);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const { data, isLoading, refetch, isFetching } = trpc.diagnostics.pipelineHealth.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -107,6 +108,48 @@ export default function PipelineDiagnostics() {
           </Card>
         )}
 
+        {/* Pipeline Health Score */}
+        {data && (() => {
+          const total = data.checks.length;
+          const pointsPerCheck = total > 0 ? 100 / total : 0;
+          const score = Math.round(
+            data.checks.reduce((acc, c) => {
+              if (c.status === "pass") return acc + pointsPerCheck;
+              if (c.status === "warn") return acc + pointsPerCheck * 0.5;
+              return acc;
+            }, 0)
+          );
+          const scoreColor =
+            score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-red-400";
+          const scoreBorder =
+            score >= 80
+              ? "border-emerald-500/40"
+              : score >= 60
+              ? "border-amber-500/40"
+              : "border-red-500/40";
+          const scoreBg =
+            score >= 80
+              ? "bg-emerald-500/10"
+              : score >= 60
+              ? "bg-amber-500/10"
+              : "bg-red-500/10";
+          return (
+            <Card className={`border ${scoreBorder} ${scoreBg}`}>
+              <CardContent className="py-6 flex flex-col items-center gap-2">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Pipeline Health Score</p>
+                <div
+                  className={`relative flex items-center justify-center w-28 h-28 rounded-full border-4 ${scoreBorder}`}
+                >
+                  <span className={`text-4xl font-bold ${scoreColor}`}>{score}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {score >= 80 ? "All systems operational" : score >= 60 ? "Some components degraded" : "Critical issues detected"}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         {/* Individual Checks */}
         {data && (
           <Card>
@@ -114,27 +157,79 @@ export default function PipelineDiagnostics() {
               <CardTitle className="text-lg">Component Health</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {data.checks.map((check, i) => (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 p-3 rounded-lg border ${statusColors[check.status]}`}
-                >
-                  <div className="mt-0.5">{statusIcons[check.status]}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {checkIcons[check.name] || <Activity className="h-4 w-4" />}
-                      <span className="font-medium text-sm">{check.name}</span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1.5 py-0 ${statusColors[check.status]}`}
-                      >
-                        {check.status.toUpperCase()}
-                      </Badge>
+              {data.checks.map((check, i) => {
+                const isExpanded = expandedIndex === i;
+                const statusDurationColor =
+                  check.status === "pass"
+                    ? "text-emerald-400"
+                    : check.status === "warn"
+                    ? "text-amber-400"
+                    : "text-red-400";
+                const statusLabel =
+                  check.status === "pass" ? "Active" : check.status === "warn" ? "Degraded" : "Down";
+                return (
+                  <div key={i}>
+                    <div
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover:brightness-110 ${statusColors[check.status]}`}
+                      onClick={() => setExpandedIndex(isExpanded ? null : i)}
+                    >
+                      <div className="mt-0.5">{statusIcons[check.status]}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {checkIcons[check.name] || <Activity className="h-4 w-4" />}
+                          <span className="font-medium text-sm">{check.name}</span>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0 ${statusColors[check.status]}`}
+                          >
+                            {check.status.toUpperCase()}
+                          </Badge>
+                          <span className={`ml-auto text-[10px] font-medium ${statusDurationColor}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="text-xs mt-1 opacity-80 break-words">{check.detail}</p>
+                      </div>
+                      <ChevronDown
+                        className={`h-4 w-4 mt-1 shrink-0 transition-transform duration-200 ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      />
                     </div>
-                    <p className="text-xs mt-1 opacity-80 break-words">{check.detail}</p>
+                    {isExpanded && (
+                      <div className="ml-8 mt-1 mb-2 p-3 rounded-lg bg-black/20 border border-white/5 text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Detail</span>
+                          <span className="text-foreground">{check.detail || "No additional info"}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Checked at</span>
+                          <span className="text-foreground">{lastRefresh ? lastRefresh.toLocaleTimeString() : new Date().toLocaleTimeString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Status</span>
+                          <span className={statusDurationColor}>{statusLabel}</span>
+                        </div>
+                        {check.status !== "pass" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full mt-1 gap-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              refetch();
+                              setLastRefresh(new Date());
+                            }}
+                          >
+                            <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+                            Re-check
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         )}

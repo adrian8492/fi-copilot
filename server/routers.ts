@@ -773,6 +773,46 @@ export const appRouter = router({
         await assertSessionAccess(ctx, session);
         await endSession(input.id, input.durationSeconds);
         await insertAuditLog({ userId: ctx.user.id, action: "session.end", resourceType: "session", resourceId: String(input.id) });
+
+        // Auto-generate coaching report from grade scores (template-based, no LLM)
+        try {
+          const grade = await getGradeBySession(input.id);
+          const existingReport = await getReportBySession(input.id);
+          if (grade && !existingReport) {
+            const focusAreas: string[] = [];
+            const strengths: string[] = [];
+            const comp = grade.complianceScore ?? 0;
+            const script = grade.scriptFidelityScore ?? 0;
+            const closing = grade.closingTechniqueScore ?? 0;
+            const rapport = grade.rapportScore ?? 0;
+            const product = grade.productPresentationScore ?? 0;
+            const objection = grade.objectionHandlingScore ?? 0;
+            if (comp < 70) focusAreas.push("TILA/ECOA disclosures — review federal compliance requirements");
+            if (script < 70) focusAreas.push("ASURA OPS menu order script adherence — follow the structured presentation flow");
+            if (closing < 70) focusAreas.push("Assumptive closing and upgrade architecture — practice tier transitions");
+            if (rapport >= 80) strengths.push("Strong customer rapport and relationship building");
+            if (product >= 80) strengths.push("Excellent product knowledge and presentation");
+            if (objection >= 80) strengths.push("Effective objection handling techniques");
+            if (comp >= 80) strengths.push("Solid compliance adherence");
+            if (closing >= 80) strengths.push("Strong closing skills");
+            const allHigh = comp > 80 && script > 80 && closing > 80 && rapport > 80 && product > 80 && objection > 80;
+            const summary = allHigh
+              ? "Excellent session — maintain this performance level. All key metrics above target thresholds."
+              : `Session completed with areas for improvement. ${focusAreas.length > 0 ? "Focus areas: " + focusAreas.join("; ") + "." : ""} ${strengths.length > 0 ? "Strengths: " + strengths.join("; ") + "." : ""}`;
+            const recommendations = focusAreas.length > 0
+              ? "Next session focus:\n" + focusAreas.map((f, i) => `${i + 1}. ${f}`).join("\n")
+              : "Continue current approach — all metrics are meeting or exceeding targets.";
+            await upsertCoachingReport({
+              sessionId: input.id,
+              userId: session.userId,
+              executiveSummary: summary.trim(),
+              recommendations,
+            });
+          }
+        } catch (_) {
+          // Non-critical — don't fail session end if auto-report fails
+        }
+
         return { success: true };
       }),
 

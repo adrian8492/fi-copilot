@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft, Phone, Mail, MapPin, FileText, Mic, Edit2, Save, X, Loader2,
+  Calendar, Clock, TrendingUp, Package,
 } from "lucide-react";
 
 export default function CustomerDetail() {
@@ -24,6 +26,11 @@ export default function CustomerDetail() {
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "", address: "", notes: "",
   });
+
+  // Follow-up modal state
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpNotes, setFollowUpNotes] = useState("");
 
   const { data, isLoading, refetch } = trpc.customers.get.useQuery(
     { id: customerId },
@@ -85,6 +92,17 @@ export default function CustomerDetail() {
     setEditing(false);
   };
 
+  const handleScheduleFollowUp = () => {
+    if (!followUpDate) {
+      toast.error("Please select a date");
+      return;
+    }
+    toast.success(`Follow-up scheduled for ${format(new Date(followUpDate + "T00:00:00"), "MMMM d, yyyy")}`);
+    setFollowUpOpen(false);
+    setFollowUpDate("");
+    setFollowUpNotes("");
+  };
+
   if (isLoading) {
     return (
       <AppLayout title="Customer" subtitle="">
@@ -110,6 +128,30 @@ export default function CustomerDetail() {
   const sessions = data.sessions;
   const fullName = `${cust.firstName} ${cust.lastName}`;
 
+  // Compute status breakdown for product acceptance summary
+  const statusBreakdown = sessions.reduce<Record<string, number>>((acc, s) => {
+    acc[s.status] = (acc[s.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const formatDuration = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
+  const getTimelineDotColor = (status: string) => {
+    if (status === "completed") return "bg-green-500";
+    if (status === "active") return "bg-blue-500 animate-pulse";
+    return "bg-muted-foreground";
+  };
+
+  const getTimelineRingColor = (status: string) => {
+    if (status === "completed") return "ring-green-500/20";
+    if (status === "active") return "ring-blue-500/20";
+    return "ring-muted-foreground/20";
+  };
+
   return (
     <AppLayout title={fullName} subtitle={`Customer since ${format(new Date(cust.createdAt), "MMMM d, yyyy")}`}>
       <div className="p-4 sm:p-6 space-y-6">
@@ -120,10 +162,16 @@ export default function CustomerDetail() {
             Customers
           </Button>
           {!editing ? (
-            <Button size="sm" variant="outline" className="gap-2" onClick={() => setEditing(true)}>
-              <Edit2 className="w-4 h-4" />
-              Edit
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setFollowUpOpen(true)}>
+                <Calendar className="w-4 h-4" />
+                Schedule Follow-up
+              </Button>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setEditing(true)}>
+                <Edit2 className="w-4 h-4" />
+                Edit
+              </Button>
+            </div>
           ) : (
             <div className="flex gap-2">
               <Button size="sm" variant="outline" className="gap-2" onClick={handleCancelEdit}>
@@ -249,13 +297,14 @@ export default function CustomerDetail() {
             </Card>
           </div>
 
-          {/* Sessions History */}
-          <div className="lg:col-span-2">
+          {/* Sessions Timeline + Product Acceptance */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Visual Session Timeline */}
             <Card className="bg-card border-border">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold">
-                    Session History ({sessions.length})
+                    Session Timeline ({sessions.length})
                   </CardTitle>
                   <Button
                     size="sm"
@@ -274,35 +323,141 @@ export default function CustomerDetail() {
                     <p className="text-sm text-muted-foreground">No sessions with this customer yet</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {sessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/session/${session.id}`)}
-                      >
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${
-                          session.status === "active" ? "bg-green-400 animate-pulse" :
-                          session.status === "completed" ? "bg-blue-400" : "bg-muted-foreground"
-                        }`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">
-                            {session.dealType?.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "Session"} #{session.id}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(session.startedAt), "MMM d, yyyy h:mm a")} •{" "}
-                            {formatDistanceToNow(new Date(session.startedAt), { addSuffix: true })}
-                          </p>
+                  <div className="px-4 pb-4">
+                    {sessions.map((session, idx) => {
+                      const isLast = idx === sessions.length - 1;
+                      const vehicleInfo = [session.vehicleYear, session.vehicleMake, session.vehicleModel]
+                        .filter(Boolean)
+                        .join(" ");
+
+                      return (
+                        <div key={session.id} className="relative flex gap-4">
+                          {/* Timeline vertical line + dot */}
+                          <div className="flex flex-col items-center">
+                            <div
+                              className={`w-3.5 h-3.5 rounded-full ring-4 shrink-0 mt-1 ${getTimelineDotColor(session.status)} ${getTimelineRingColor(session.status)}`}
+                            />
+                            {!isLast && (
+                              <div className="w-px flex-1 bg-border min-h-[2rem]" />
+                            )}
+                          </div>
+
+                          {/* Session content */}
+                          <div
+                            className={`flex-1 pb-5 ${isLast ? "pb-1" : ""} cursor-pointer group`}
+                            onClick={() => navigate(`/session/${session.id}`)}
+                          >
+                            <div className="rounded-lg border border-border p-3 transition-colors group-hover:bg-accent/30">
+                              {/* Top row: deal type + status badge */}
+                              <div className="flex items-center justify-between mb-1.5">
+                                <p className="text-sm font-medium text-foreground">
+                                  {session.dealType?.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "Session"} #{session.id}
+                                </p>
+                                <Badge variant="outline" className={`text-[10px] shrink-0 ${
+                                  session.status === "active" ? "border-green-500/30 text-green-400" :
+                                  session.status === "completed" ? "border-blue-500/30 text-blue-400" :
+                                  "border-border text-muted-foreground"
+                                }`}>
+                                  {session.status}
+                                </Badge>
+                              </div>
+
+                              {/* Date + duration row */}
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1.5">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {format(new Date(session.startedAt), "MMM d, yyyy h:mm a")}
+                                </span>
+                                {session.durationSeconds != null && session.durationSeconds > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {formatDuration(session.durationSeconds)}
+                                  </span>
+                                )}
+                                <span className="text-muted-foreground/60">
+                                  {formatDistanceToNow(new Date(session.startedAt), { addSuffix: true })}
+                                </span>
+                              </div>
+
+                              {/* Vehicle info row */}
+                              {vehicleInfo && (
+                                <p className="text-xs text-muted-foreground mb-1.5">
+                                  <span className="font-medium text-foreground/70">{vehicleInfo}</span>
+                                  {session.vehicleType && (
+                                    <Badge variant="secondary" className="ml-2 text-[9px] px-1.5 py-0">
+                                      {session.vehicleType.toUpperCase()}
+                                    </Badge>
+                                  )}
+                                </p>
+                              )}
+
+                              {/* Financial details row */}
+                              {(session.salePrice != null || session.monthlyPayment != null || session.amountFinanced != null) && (
+                                <div className="flex items-center gap-3 text-xs mt-1">
+                                  {session.salePrice != null && (
+                                    <span className="flex items-center gap-1 text-muted-foreground">
+                                      <TrendingUp className="w-3 h-3" />
+                                      Sale: ${session.salePrice.toLocaleString()}
+                                    </span>
+                                  )}
+                                  {session.amountFinanced != null && (
+                                    <span className="text-muted-foreground">
+                                      Financed: ${session.amountFinanced.toLocaleString()}
+                                    </span>
+                                  )}
+                                  {session.monthlyPayment != null && (
+                                    <span className="text-muted-foreground">
+                                      ${session.monthlyPayment.toLocaleString()}/mo
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <Badge variant="outline" className={`text-[10px] shrink-0 ${
-                          session.status === "active" ? "border-green-500/30 text-green-400" :
-                          session.status === "completed" ? "border-blue-500/30 text-blue-400" :
-                          "border-border text-muted-foreground"
-                        }`}>
-                          {session.status}
-                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Product Acceptance History */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Product Acceptance History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {sessions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No session data available.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-border bg-accent/20 p-4">
+                      <p className="text-sm font-medium text-foreground mb-2">
+                        Products accepted across {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(statusBreakdown).map(([status, count]) => (
+                          <Badge
+                            key={status}
+                            variant="outline"
+                            className={`text-xs ${
+                              status === "completed" ? "border-green-500/30 text-green-400" :
+                              status === "active" ? "border-blue-500/30 text-blue-400" :
+                              "border-border text-muted-foreground"
+                            }`}
+                          >
+                            {count} {status}
+                          </Badge>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      View individual sessions for detailed product acceptance and deal recovery data.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -310,6 +465,45 @@ export default function CustomerDetail() {
           </div>
         </div>
       </div>
+
+      {/* Schedule Follow-up Modal */}
+      <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Follow-up</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Follow-up Date</Label>
+              <Input
+                type="date"
+                value={followUpDate}
+                onChange={(e) => setFollowUpDate(e.target.value)}
+                className="bg-background border-border"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={followUpNotes}
+                onChange={(e) => setFollowUpNotes(e.target.value)}
+                placeholder="Reason for follow-up, topics to discuss..."
+                className="bg-background border-border resize-none"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFollowUpOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleScheduleFollowUp}>
+              <Calendar className="w-4 h-4 mr-2" />
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

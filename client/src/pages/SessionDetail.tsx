@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 import {
   ArrowLeft, Star, Shield, FileText, Mic, Clock,
-  TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download,
+  TrendingUp, AlertTriangle, CheckCircle2, RefreshCw, Download, Printer,
   Lightbulb, Copy, CheckCheck, ThumbsUp, User, Car, Hash, Tag, Trash2, DollarSign, Save, Target, Package,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -251,6 +251,14 @@ export default function SessionDetail() {
               }}
             >
               <Download className="w-4 h-4" /> Export PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-cyan-400 border-cyan-400/30 hover:bg-cyan-400/10"
+              onClick={() => window.open(`/session/${session.id}/print`, "_blank")}
+            >
+              <Printer className="w-4 h-4" /> Print Report
             </Button>
             <Button
               size="sm"
