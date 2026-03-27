@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import AppLayout from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from "recharts";
-import { ShieldAlert, AlertTriangle, TrendingDown, CheckCircle2, XCircle } from "lucide-react";
+import { ShieldAlert, AlertTriangle, TrendingDown, CheckCircle2, XCircle, BookOpen, Search, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const PRODUCT_COLORS: Record<string, string> = {
   "Vehicle Service Contract": "#3b82f6",
@@ -34,6 +38,100 @@ const CONCERN_COLORS: Record<string, string> = {
   "Other": "#64748b",
 };
 
+const ASURA_PLAYBOOK = [
+  { id: 1, objection: "I don't want any add-ons", response: "I completely understand. The only reason I bring this up is..." },
+  { id: 2, objection: "I need to think about it", response: "Of course. What specifically were you still on the fence about?" },
+  { id: 3, objection: "It costs too much", response: "Compared to what? Let me show you what the actual monthly impact is..." },
+  { id: 4, objection: "I already have coverage", response: "That's great. What type of coverage do you have? Let me make sure there's no overlap..." },
+  { id: 5, objection: "My dealer back home does this cheaper", response: "I believe you. The difference is what's inside the contract..." },
+  { id: 6, objection: "I just want the car payment", response: "I hear you. Everything I'm going to show you fits into one monthly number..." },
+  { id: 7, objection: "I don't believe in extended warranties", response: "Most people feel that way until they see how manufacturers design vehicles today..." },
+  { id: 8, objection: "My mechanic handles everything", response: "Great. This actually works alongside that relationship, not instead of it..." },
+  { id: 9, objection: "I'll add it later", response: "I wish I could offer this later — these programs are only available at time of purchase..." },
+  { id: 10, objection: "I never use these things", response: "You're probably right. Most people don't. But the ones who need it once..." },
+];
+
+function ObjectionPlaybook() {
+  const [search, setSearch] = useState("");
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const filtered = useMemo(() => {
+    if (!search) return ASURA_PLAYBOOK;
+    const q = search.toLowerCase();
+    return ASURA_PLAYBOOK.filter(
+      (item) => item.objection.toLowerCase().includes(q) || item.response.toLowerCase().includes(q)
+    );
+  }, [search]);
+
+  const handleCopy = (item: typeof ASURA_PLAYBOOK[0]) => {
+    navigator.clipboard.writeText(`Customer: "${item.objection}"\n\nASURA Response: "${item.response}"`);
+    setCopiedId(item.id);
+    toast.success("Script copied to clipboard");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  return (
+    <Card className="bg-gradient-to-b from-blue-900/20 to-card border-blue-500/20">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-blue-400" />
+          <CardTitle className="text-white text-base">ASURA Objection Playbook</CardTitle>
+        </div>
+        <p className="text-xs text-slate-400 mt-1">Top 10 F&I objections with proven word tracks</p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search objections..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-8 text-xs bg-slate-800/50 border-slate-700"
+          />
+        </div>
+
+        {/* Playbook Items */}
+        <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+          {filtered.map((item) => (
+            <div key={item.id} className="rounded-lg bg-slate-800/60 border border-slate-700/50 p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 rounded px-1.5 py-0.5 shrink-0">
+                    #{item.id}
+                  </span>
+                  <p className="text-xs font-semibold text-red-300 leading-relaxed">
+                    "{item.objection}"
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn("w-7 h-7 shrink-0", copiedId === item.id ? "text-green-400" : "text-muted-foreground hover:text-blue-400")}
+                  onClick={() => handleCopy(item)}
+                  title="Copy Script"
+                >
+                  {copiedId === item.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+              <div className="pl-6">
+                <p className="text-xs text-emerald-300/90 leading-relaxed italic">
+                  → "{item.response}"
+                </p>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="py-6 text-center text-xs text-muted-foreground">
+              No objections match your search.
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 type ViewMode = "product" | "concern";
 
 export default function ObjectionAnalysis() {
@@ -55,7 +153,10 @@ export default function ObjectionAnalysis() {
 
   return (
     <AppLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Left Column — Analysis */}
+        <div className="xl:col-span-2 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -259,6 +360,13 @@ export default function ObjectionAnalysis() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Right Column — ASURA Objection Playbook */}
+      <div className="xl:col-span-1">
+        <ObjectionPlaybook />
+      </div>
+      </div>
       </div>
     </AppLayout>
   );

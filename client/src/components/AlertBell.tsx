@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { Bell, ShieldAlert, TrendingDown, X, Check } from "lucide-react";
+import { Link } from "wouter";
+import { Bell, ShieldAlert, TrendingDown, X, Check, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -100,6 +101,14 @@ export default function AlertBell() {
               ))
             )}
           </div>
+          <Link href="/notifications">
+            <div
+              className="flex items-center justify-center gap-1 px-3 py-2 border-t border-border text-xs text-primary hover:bg-accent/30 cursor-pointer transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              View All Notifications <ChevronRight className="w-3 h-3" />
+            </div>
+          </Link>
         </div>
       )}
     </div>

@@ -12,8 +12,9 @@ import { cn } from "@/lib/utils";
 import {
   Search, Clock, Shield, ChevronRight, Mic, Plus,
   ChevronUp, ChevronDown, Minus, Car, Hash, User, Calendar,
-  ChevronLeft, Download, Loader2,
+  ChevronLeft, Download, Loader2, BarChart3, Star, DollarSign, TrendingUp,
 } from "lucide-react";
+import { ResponsiveContainer, AreaChart, Area } from "recharts";
 
 type SortField = "customerName" | "dealNumber" | "vehicleType" | "dealType" | "startedAt" | "durationSeconds" | "status";
 
@@ -57,6 +58,7 @@ export default function SessionHistory() {
   const { data: sessionsData, isLoading } = trpc.sessions.list.useQuery({ limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const sessions = sessionsData?.rows;
   const totalSessions = sessionsData?.total ?? 0;
+  const { data: recentGrades } = trpc.grades.myHistory.useQuery({ limit: 10 });
   const totalPages = Math.max(1, Math.ceil(totalSessions / PAGE_SIZE));
 
   const handleSort = (field: SortField) => {
@@ -111,6 +113,18 @@ export default function SessionHistory() {
       return acc;
     }, {} as Record<string, number>);
   }, [sessions]);
+
+  // Quick Stats
+  const quickStats = useMemo(() => {
+    if (!sessions || sessions.length === 0) return null;
+    const durations = sessions.filter((s) => s.durationSeconds).map((s) => s.durationSeconds!);
+    const avgDuration = durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+    const grades = recentGrades ?? [];
+    const avgGrade = grades.length > 0 ? Math.round(grades.reduce((a, g) => a + (g.overallScore ?? 0), 0) / grades.length) : null;
+    const bestPvr = grades.length > 0 ? Math.max(...grades.map((g) => Number((g as Record<string, unknown>).pvr ?? 0))) : null;
+    const sparkData = grades.slice().reverse().map((g, i) => ({ i, score: g.overallScore ?? 0 }));
+    return { total: totalSessions, avgGrade, bestPvr, avgDuration, sparkData };
+  }, [sessions, recentGrades, totalSessions]);
 
   const utils = trpc.useUtils();
 
@@ -190,6 +204,76 @@ export default function SessionHistory() {
             <Plus className="w-4 h-4" /> New Session
           </Button>
         </div>
+
+        {/* Quick Stats Bar */}
+        {quickStats && (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Card className="bg-card border-border">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <BarChart3 className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Sessions</p>
+                  <p className="text-lg font-bold text-foreground">{quickStats.total}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <Star className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg Grade</p>
+                  <p className={cn("text-lg font-bold", quickStats.avgGrade && quickStats.avgGrade >= 80 ? "text-emerald-400" : quickStats.avgGrade && quickStats.avgGrade >= 65 ? "text-yellow-400" : "text-foreground")}>
+                    {quickStats.avgGrade != null ? `${quickStats.avgGrade}%` : "—"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                  <DollarSign className="w-4 h-4 text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Best PVR</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {quickStats.bestPvr && quickStats.bestPvr > 0 ? `$${Math.round(quickStats.bestPvr).toLocaleString()}` : "—"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg Duration</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {quickStats.avgDuration > 0 ? `${Math.floor(quickStats.avgDuration / 60)}m` : "—"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            {quickStats.sparkData.length >= 2 && (
+              <Card className="bg-card border-border">
+                <CardContent className="p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Grade Trend</p>
+                  <div className="h-10">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={quickStats.sparkData}>
+                        <Area type="monotone" dataKey="score" stroke="#3b82f6" fill="#3b82f620" strokeWidth={2} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Table */}
         <Card className="bg-card border-border overflow-hidden">

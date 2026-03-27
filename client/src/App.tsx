@@ -37,6 +37,8 @@ const CustomerDetail = lazy(() => import("./pages/CustomerDetail"));
 const ProductMenu = lazy(() => import("./pages/ProductMenu"));
 const DealRecovery = lazy(() => import("./pages/DealRecovery"));
 const SessionPrintReport = lazy(() => import("./pages/SessionPrintReport"));
+const NotificationCenter = lazy(() => import("./pages/NotificationCenter"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -76,6 +78,8 @@ function Router() {
         <Route path="/customers/:id" component={CustomerDetail} />
         <Route path="/product-menu" component={ProductMenu} />
         <Route path="/deal-recovery" component={DealRecovery} />
+        <Route path="/notifications" component={NotificationCenter} />
+        <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

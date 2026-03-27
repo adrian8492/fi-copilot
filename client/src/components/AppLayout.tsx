@@ -29,12 +29,15 @@ import {
   Users,
   Package,
   DollarSign,
+  Trophy,
+  Bell,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
 import DealershipSwitcher from "@/components/DealershipSwitcher";
 import { DelphiEmbed } from "@/components/DelphiEmbed";
 import AlertBell from "@/components/AlertBell";
+import { useRole } from "@/hooks/useRole";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -44,6 +47,7 @@ const NAV_ITEMS = [
   { path: "/customers", label: "Customers", icon: Users },
   { path: "/product-menu", label: "Product Menu", icon: Package },
   { path: "/upload", label: "Batch Upload", icon: Upload },
+  { path: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 const PERFORMANCE_ITEMS = [
@@ -53,6 +57,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/demo", label: "Demo Mode", icon: Play },
   { path: "/deal-recovery", label: "Deal Recovery", icon: DollarSign },
   { path: "/compare", label: "Compare Sessions", icon: GitCompareArrows },
+  { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
 ];
 
 const ADMIN_ITEMS = [
@@ -104,6 +109,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   const { user, loading, isAuthenticated, logout } = useAuth();
+  const { role, canAccess } = useRole();
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -157,18 +163,18 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
-            {NAV_ITEMS.map((item) => (
+            {NAV_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
               <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
             ))}
 
             <div className="pt-4">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Performance</p>
-              {PERFORMANCE_ITEMS.map((item) => (
+              {PERFORMANCE_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                 <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
               ))}
             </div>
 
-            {(user?.role === "admin" || user?.isGroupAdmin) && (
+            {role === "admin" && (
               <>
                 <div className="pt-4">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Admin</p>
@@ -191,8 +197,11 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground truncate">{user?.name ?? "User"}</p>
                 <div className="flex items-center gap-1">
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-primary/30 text-primary/80">
-                    {user?.isSuperAdmin ? "Super Admin" : user?.isGroupAdmin ? "Group Admin" : user?.role === "admin" ? "Admin" : "F&I Manager"}
+                  <Badge variant="outline" className={cn(
+                    "text-[9px] px-1 py-0 h-3.5",
+                    role === "admin" ? "border-red-500/30 text-red-400" : role === "manager" ? "border-primary/30 text-primary/80" : "border-border text-muted-foreground"
+                  )}>
+                    {role === "admin" ? (user?.isSuperAdmin ? "Super Admin" : user?.isGroupAdmin ? "Group Admin" : "Admin") : role === "manager" ? "F&I Manager" : "Viewer"}
                   </Badge>
                 </div>
               </div>
@@ -239,18 +248,18 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
               {/* Navigation */}
               <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
-                {NAV_ITEMS.map((item) => (
+                {NAV_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                   <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
                 ))}
 
                 <div className="pt-4">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Performance</p>
-                  {PERFORMANCE_ITEMS.map((item) => (
+                  {PERFORMANCE_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                     <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
                   ))}
                 </div>
 
-                {(user?.role === "admin" || user?.isGroupAdmin) && (
+                {role === "admin" && (
                   <>
                     <div className="pt-4">
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Admin</p>
@@ -273,8 +282,11 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-foreground truncate">{user?.name ?? "User"}</p>
                     <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-primary/30 text-primary/80">
-                        {user?.isSuperAdmin ? "Super Admin" : user?.isGroupAdmin ? "Group Admin" : user?.role === "admin" ? "Admin" : "F&I Manager"}
+                      <Badge variant="outline" className={cn(
+                        "text-[9px] px-1 py-0 h-3.5",
+                        role === "admin" ? "border-red-500/30 text-red-400" : role === "manager" ? "border-primary/30 text-primary/80" : "border-border text-muted-foreground"
+                      )}>
+                        {role === "admin" ? (user?.isSuperAdmin ? "Super Admin" : user?.isGroupAdmin ? "Group Admin" : "Admin") : role === "manager" ? "F&I Manager" : "Viewer"}
                       </Badge>
                     </div>
                   </div>
@@ -339,7 +351,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             { path: "/session/new", label: "Record", icon: Mic },
             { path: "/history", label: "History", icon: History },
             { path: "/analytics", label: "Analytics", icon: BarChart3 },
-            ...(user?.role === "admin" || user?.isGroupAdmin
+            ...(role === "admin"
               ? [{ path: "/admin", label: "Admin", icon: ShieldCheck }]
               : []),
           ].map((item) => {

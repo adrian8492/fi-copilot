@@ -1,97 +1,116 @@
-# Henry Nightly Task — March 25, 2026
+# Henry Nightly Task — March 26, 2026
 
-## Priority: HIGH — PDF Report Polish, Deal Recovery Analytics, Pipeline Enhancements, Test Expansion
+## Priority: HIGH — Notification Center, Leaderboard, Objection Analysis Polish, Role-Based Access, Test Expansion
 
 ## Context
-Previous build (March 24) completed: Demo Mode replay, Manager Scorecard wiring, Alert Bell, Session Comparison.
-Current test state: 382/383 passing (1 pre-existing deepgram env var failure).
-Git: 6f72230 — feat: demo mode replay, manager scorecard, alert bell, session comparison
+Previous build (March 25) completed: PDF/Print reports, Deal Recovery analytics dashboard, Pipeline Diagnostics drill-down, Customer Detail session timeline, auto coaching report on session end.
+Current test state: 411/412 passing (1 pre-existing deepgram env var failure).
+Git: b5aa2cc — docs: update manus deploy prompt for March 25 build
 TypeScript: 0 errors — clean baseline.
 
 All pages exist: Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
 AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
-DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison.
+DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison,
+SessionPrintReport.
 
 ## Tonight's Tasks
 
-### 1. PDF Session Report — Full Export Polish (HIGH)
-The `pdf-report.ts` and `pdf-routes.ts` exist. Make the PDF export production-ready:
-- `GET /api/sessions/:id/report.pdf` — ensure this route is registered and returns a proper PDF
-- Include in PDF: session metadata, full transcript (speaker-labeled), compliance flags table, grade breakdown, ASURA co-pilot suggestions used, checklist results
-- Use a proper HTML-to-PDF approach (if puppeteer/playwright not available, use a well-structured HTML template with `print.css` styles for window.print() path)
-- Add a "Download PDF Report" button to `SessionDetail.tsx` that calls this endpoint
-- If PDF generation requires a headless browser not available in the environment, implement a clean print-friendly HTML report page at `/sessions/:id/print` that looks professional when printed
-- Test: verify the button renders and the endpoint returns 200
+### 1. Notification Center — Full Inbox (HIGH)
+The `AlertBell` component exists. Build a full Notification Center:
+- New page `NotificationCenter.tsx` at `/notifications`
+- Pull all alerts via `alerts.list` tRPC procedure (already exists)
+- Show: icon (🔴 critical, 🟡 warning, 🔵 info), title, message, timestamp, session link
+- Mark all as read button (bulk `alerts.markRead` mutation)
+- Filter tabs: All / Unread / Critical / Warnings
+- Empty state: "All clear — no alerts" with checkmark icon
+- Add "View All Notifications" link from AlertBell dropdown to `/notifications`
+- Add route in App.tsx (lazy loaded)
 
-### 2. Deal Recovery Analytics Dashboard (HIGH)
-`DealRecovery.tsx` exists. Enhance with analytics:
-- Add a summary stats bar: Total Attempted, Won Back, Revenue Recovered, Win Rate %
-- Use `getDealRecoveryStats(userId)` from db.ts — wire via tRPC `dealRecovery.stats` procedure
-- Add a simple bar chart (recharts) showing recovery attempts by week (last 8 weeks)
-- Status filter: All / Attempted / Won / Lost / Pending
-- Sort by: Date, Revenue at Risk, Status
-- Add `dealRecovery.stats` tRPC procedure to `routers.ts` if not already present
-- Check `server/routers.ts` for existing dealRecovery procedures first
+### 2. Performance Leaderboard (HIGH)
+New page `Leaderboard.tsx` at `/leaderboard`:
+- Pull from `analytics.managerScorecard` tRPC procedure
+- Rank managers by: Overall Score, PVR, Product Penetration, Compliance Score
+- Show rank badge (#1 gold, #2 silver, #3 bronze), name, dealership, score
+- Toggle: Last 30 days / Last 90 days / All Time
+- Highlight current user's row
+- Trophy icon in header, clean table layout
+- Add to AppLayout nav sidebar
+- Add route in App.tsx (lazy loaded)
 
-### 3. Pipeline Diagnostics — Drill-Down View (MEDIUM)
-`PipelineDiagnostics.tsx` exists. Enhance:
-- Add expandable row detail: click a pipeline item to expand and see what's blocking it
-- Show "Days in stage" for each deal in pipeline
-- Add a "Push to Next Stage" action button (calls tRPC, just updates status with audit log)
-- Color-code rows: green (<3 days), yellow (3-7 days), red (>7 days)
-- Add a pipeline health score (0-100) based on how many deals are past SLA
+### 3. Objection Analysis — AI Playbook Panel (HIGH)
+`ObjectionAnalysis.tsx` exists. Enhance:
+- Add right-side panel: "ASURA Objection Playbook"
+- Hard-code the top 10 F&I objections with ASURA word tracks:
+  1. "I don't want any add-ons" → "I completely understand. The only reason I bring this up is..."
+  2. "I need to think about it" → "Of course. What specifically were you still on the fence about?"
+  3. "It costs too much" → "Compared to what? Let me show you what the actual monthly impact is..."
+  4. "I already have coverage" → "That's great. What type of coverage do you have? Let me make sure there's no overlap..."
+  5. "My dealer back home does this cheaper" → "I believe you. The difference is what's inside the contract..."
+  6. "I just want the car payment" → "I hear you. Everything I'm going to show you fits into one monthly number..."
+  7. "I don't believe in extended warranties" → "Most people feel that way until they see how manufacturers design vehicles today..."
+  8. "My mechanic handles everything" → "Great. This actually works alongside that relationship, not instead of it..."
+  9. "I'll add it later" → "I wish I could offer this later — these programs are only available at time of purchase..."
+  10. "I never use these things" → "You're probably right. Most people don't. But the ones who need it once..."
+- Add search/filter by keyword
+- Add a "Copy Script" button per objection
+- Show usage count from actual objection data if available
 
-### 4. Customer Detail — Session Timeline (MEDIUM)
-`CustomerDetail.tsx` exists. Enhance:
-- Add a visual session timeline showing all sessions for this customer (date, duration, grade, PVR)
-- Show product acceptance history: which products were accepted in each session
-- Add "Schedule Follow-up" button (just opens a date picker modal + saves a note)
-- Wire to `getSessionsByCustomerId(customerId)` from db.ts via tRPC
+### 4. Role-Based Access Control — UI Guards (MEDIUM)
+Currently all pages are accessible to any authenticated user. Add UI-level guards:
+- Create `useRole()` hook that reads `ctx.user.role` from tRPC `auth.me` (already exists)
+- Roles: `admin`, `manager`, `viewer`
+- Admin-only pages: AdminPanel, DealershipSettings, ComplianceRules
+- Manager+ pages: BatchUpload, EagleEyeView, ManagerScorecard
+- All authenticated: everything else
+- Show "Access Denied" card with role info if unauthorized (not a redirect — just block render)
+- Add role badge to user avatar in AppLayout header
+- Wire `useRole()` in AppLayout so nav links hide inaccessible pages
 
-### 5. Expand Test Suite to 395+ (MEDIUM)
+### 5. Session History — Quick Stats Bar (MEDIUM)
+`SessionHistory.tsx` exists. Add:
+- Stats bar above the table: Total Sessions, Avg Grade, Best PVR, Avg Duration
+- Calculate from the currently loaded sessions (client-side, no new API needed)
+- Show trend arrow if current page avg grade > previous page avg grade
+- Mini sparkline (recharts) for grade trend across visible sessions
+
+### 6. Dashboard — Recent Activity Feed (MEDIUM)
+`Dashboard.tsx` exists. Add:
+- "Recent Activity" panel (right side on desktop, bottom on mobile)
+- Pull last 5 sessions + last 3 compliance flags + last 2 deal recoveries
+- Each item: icon, description, time ago ("2 hours ago"), click to navigate
+- Use existing tRPC procedures — no new procedures needed
+
+### 7. Expand Test Suite to 425+ (MEDIUM)
 Add tests for:
-- `dealRecovery.stats` tRPC procedure
-- PDF report endpoint (mock test — check route exists + returns correct content-type)
-- Pipeline stage update procedure (if added)
-- CustomerDetail session timeline data fetch
-- Deal Recovery analytics filter/sort logic (unit tests)
-Target: 395+ tests passing (up from 382)
-
-### 6. Coaching Report — Auto-Generate on Session End (MEDIUM)
-In `server/routers.ts`, when a session is ended (`sessions.end` procedure):
-- Auto-trigger `upsertCoachingReport` with AI-generated summary if grade exists
-- The report should include: what went well, what to improve, next session focus
-- Use a template-based approach (no LLM call needed — derive from grade scores):
-  - If complianceScore < 70: "Focus: TILA/ECOA disclosures"
-  - If scriptFidelityScore < 70: "Focus: ASURA OPS menu order script adherence"  
-  - If closingScore < 70: "Focus: Assumptive closing and upgrade architecture"
-  - If all scores > 80: "Excellent session — maintain this performance"
-- Store via `upsertCoachingReport` if one doesn't already exist for the session
-
-### 7. Performance: Bundle Analysis (LOW)
-- Run `pnpm build 2>&1 | head -50` and capture chunk sizes
-- If any chunk > 500KB, identify it and add a code comment in App.tsx noting the issue
-- Document findings in a code comment at top of App.tsx
+- NotificationCenter route existence and filter logic
+- Leaderboard tRPC data fetch (analytics.managerScorecard)
+- Role-based access hook logic (unit test)
+- Objection playbook search filter (unit test)
+- Session history stats bar calculation (unit test)
+- Dashboard activity feed data aggregation
+Target: 425+ tests passing (up from 411)
 
 ## Technical Notes
 - No build step for dev — Vite dev server, vanilla tRPC
-- Tests: pnpm test (target: 395+/396)
+- Tests: pnpm test (target: 425+/426)
 - TypeScript: pnpm check (target: 0 errors)
 - The 1 deepgram.test.ts failure is pre-existing and acceptable
-- Do NOT use puppeteer/playwright for PDF — use HTML print approach
+- Use recharts for sparklines (already installed)
+- New pages must be lazy-loaded in App.tsx with React.Suspense
 
 ## Definition of Done
-- [x] PDF/Print report for sessions — Download button in SessionDetail, clean print layout
-- [x] Deal Recovery analytics — stats bar + weekly chart + filters
-- [x] Pipeline Diagnostics drill-down — expandable rows, days in stage, health score
-- [x] Customer Detail session timeline — visual history + product acceptance
-- [x] 395+ tests passing
-- [x] 0 TypeScript errors
-- [x] Auto coaching report on session end
-- [x] Git commit + push
+- [ ] Notification Center page at /notifications
+- [ ] Leaderboard page at /leaderboard with ranking
+- [ ] Objection Analysis playbook panel with ASURA word tracks
+- [ ] Role-based UI guards + useRole() hook
+- [ ] Session History quick stats bar
+- [ ] Dashboard recent activity feed
+- [ ] 425+ tests passing
+- [ ] 0 TypeScript errors
+- [ ] Git commit + push
 
 ## When Done
-1. Git add, commit: "feat: PDF reports, deal recovery analytics, pipeline drill-down, customer timeline"
+1. Git add, commit: "feat: notification center, leaderboard, objection playbook, RBAC guards, activity feed"
 2. Push to origin main
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md

@@ -22,8 +22,8 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
-import { useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Search, Shield, RefreshCw, Activity } from "lucide-react";
 
 function getScoreColor(score: number) {
   if (score >= 85) return "text-green-400";
@@ -404,8 +404,13 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-        {/* ASURA OPS Scorecard Widget */}
-        <ASURAScorecardWidget />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ASURA OPS Scorecard Widget */}
+          <ASURAScorecardWidget />
+
+          {/* Recent Activity Feed */}
+          <RecentActivityFeed />
+        </div>
 
         {/* Session Search */}
         <Card className="bg-card border-border">
@@ -416,6 +421,92 @@ export default function Dashboard() {
       </div>
       <WelcomeScreen />
     </AppLayout>
+  );
+}
+
+function RecentActivityFeed() {
+  const [, navigate] = useLocation();
+  const { data: sessionsData } = trpc.sessions.list.useQuery({ limit: 5, offset: 0 });
+  const { data: alerts = [] } = trpc.alerts.list.useQuery({ limit: 3 });
+  const { data: recoveries } = trpc.dealRecovery.myRecoveries.useQuery({ limit: 2, offset: 0 });
+
+  const items = useMemo(() => {
+    const feed: { id: string; icon: React.ReactNode; label: string; detail: string; time: Date; href?: string }[] = [];
+
+    // Last 5 sessions
+    for (const s of (sessionsData?.rows ?? []).slice(0, 5)) {
+      feed.push({
+        id: `s-${s.id}`,
+        icon: <Mic className="w-3.5 h-3.5 text-blue-400" />,
+        label: s.customerName ?? `Session #${s.id}`,
+        detail: `${s.status === "active" ? "In progress" : "Completed"} — ${s.dealType?.replace("_", " ") ?? "session"}`,
+        time: new Date(s.startedAt),
+        href: `/session/${s.id}`,
+      });
+    }
+
+    // Last 3 compliance alerts
+    for (const a of alerts.slice(0, 3)) {
+      feed.push({
+        id: `a-${a.id}`,
+        icon: <Shield className="w-3.5 h-3.5 text-red-400" />,
+        label: a.message,
+        detail: a.severity === "critical" ? "Critical compliance flag" : "Warning flag",
+        time: new Date(a.createdAt),
+        href: a.sessionId ? `/session/${a.sessionId}` : undefined,
+      });
+    }
+
+    // Last 2 deal recoveries
+    for (const r of ((recoveries as Record<string, unknown>[] | undefined) ?? []).slice(0, 2)) {
+      feed.push({
+        id: `r-${r.id}`,
+        icon: <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />,
+        label: `Deal Recovery — ${(r.recoveryStatus as string)?.replace("_", " ") ?? "pending"}`,
+        detail: r.potentialRevenue ? `$${Number(r.potentialRevenue).toLocaleString()} potential` : "Recovery tracked",
+        time: new Date((r.createdAt as string) ?? Date.now()),
+      });
+    }
+
+    return feed.sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 10);
+  }, [sessionsData, alerts, recoveries]);
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">Recent Activity</CardTitle>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {items.length > 0 ? items.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/30 cursor-pointer transition-colors"
+            onClick={() => item.href && navigate(item.href)}
+          >
+            <div className="w-7 h-7 rounded-full bg-accent/50 flex items-center justify-center shrink-0">
+              {item.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">{item.label}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{item.detail}</p>
+            </div>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+              {formatDistanceToNow(item.time, { addSuffix: true })}
+            </span>
+          </div>
+        )) : (
+          <div className="text-center py-6">
+            <Activity className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
+            <p className="text-xs text-muted-foreground">No recent activity</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
