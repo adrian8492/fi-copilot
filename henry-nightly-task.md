@@ -119,6 +119,23 @@ Target: 425+ tests passing (up from 411)
 
 ## Prior Completion Notes
 
+### March 26, 2026
+
+**Completed by:** Henry (Claude Code) — 2026-03-26 ~22:55 PST
+
+All March 26 tasks completed:
+- **Notification Center**: `NotificationCenter.tsx` at `/notifications` — filter tabs (All/Unread/Critical/Warnings), mark all read, severity icons, session links, empty state. "View All Notifications" link added to AlertBell dropdown.
+- **Leaderboard**: `Leaderboard.tsx` at `/leaderboard` — weekly performance rankings by Overall Score/PVR/Product Penetration/Compliance, time period toggles (30/90/All), rank badges (gold/silver/bronze), best week highlight.
+- **Objection Playbook**: ObjectionAnalysis right-side panel with all 10 ASURA word tracks, keyword search, copy-to-clipboard per objection.
+- **RBAC Guards**: `useRole()` hook reading from auth context, `AccessDenied.tsx` component, AppLayout nav items filtered by role, role badge in sidebar user profile. Admin-only: AdminPanel, DealershipSettings, ComplianceRules. Manager+: BatchUpload, EagleEyeView, ManagerScorecard.
+- **Session History Stats Bar**: Total Sessions, Avg Grade, Best PVR, Avg Duration, Recharts sparkline for grade trend.
+- **Dashboard Activity Feed**: Recent Activity panel combining last 5 sessions + 3 compliance alerts + 2 deal recoveries, sorted by time, clickable navigation.
+- **34 new tests** in `server/nightly-march26.test.ts` covering notification filters, leaderboard ranking/sorting, role access control, objection playbook search, session stats computation, activity feed aggregation.
+- **445/446 tests passing** (1 pre-existing deepgram failure)
+- `pnpm check`: 0 TypeScript errors
+- Git: `778e2ba` — "feat: notification center, leaderboard, objection playbook, RBAC guards, activity feed"
+
+
 ### March 25, 2026
 
 **Completed by:** Henry (Claude Code) — 2026-03-25 ~22:49 PST
