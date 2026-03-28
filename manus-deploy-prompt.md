@@ -1,5 +1,5 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** March 26, 2026 — Build aae5e02
+**Updated:** March 27, 2026 — Build 8260c05
 
 ## What to Deploy
 
@@ -10,22 +10,30 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 
 ## What's New in This Build
 
-### Build aae5e02 / 778e2ba — March 26, 2026
-- **Notification Center:** Full inbox at `/notifications` — filter tabs (All/Unread/Critical/Warnings), icons by severity, mark all as read, session deep-links. "View All Notifications" link from AlertBell dropdown.
-- **Performance Leaderboard:** `/leaderboard` — ranks managers by Overall Score, PVR, Product Penetration, Compliance Score. Rank badges (#1 gold, #2 silver, #3 bronze), time toggles (30d/90d/All Time), current user row highlight. Trophy icon header. Wired to `analytics.managerScorecard`.
-- **Objection Analysis — ASURA Playbook Panel:** Right-side panel in ObjectionAnalysis with all 10 top F&I objections + ASURA word tracks. Keyword search, "Copy Script" button per objection, usage count from real data when available.
-- **Role-Based Access Control (UI Guards):** `useRole()` hook reads `ctx.user.role`. Admin-only: AdminPanel, DealershipSettings, ComplianceRules. Manager+: BatchUpload, EagleEyeView, ManagerScorecard. AccessDenied card (no redirect). Role badge on avatar in header. Nav links filtered by role.
-- **Session History Quick Stats Bar:** Above-table stats — Total Sessions, Avg Grade, Best PVR, Avg Duration. Trend arrow when current page avg > previous page avg. Recharts sparkline for grade trend.
-- **Dashboard Recent Activity Feed:** Right-side panel (desktop) / bottom (mobile) — last 5 sessions + last 3 compliance flags + last 2 deal recoveries. Icon, description, time-ago, clickable navigation.
-- **Test Suite:** 445/446 passing (1 pre-existing deepgram env failure — acceptable)
+### Build 2823d1f / 8260c05 — March 27, 2026
+- **Goal Tracker:** `/goals` — Monthly PVR, Penetration, Compliance, and Score goal cards with progress bars (color-coded red/yellow/green), gap text ("$247 behind" / "On Track!"), default demo goals pre-populated, pulls current metrics from `analytics.summary`. Added to sidebar nav.
+- **Weekly Coaching Insights:** `WeeklyCoachingInsights.tsx` — client-side weekly summary card: best/weakest performance area (from 5 subscores), grade trend (up/down/flat vs prior 7 days), consecutive session streak (>=80). Displayed on Dashboard (full-width below activity feed) and Analytics (bottom section).
+- **Session Export Modal:** Enhanced SessionHistory export — full modal with CSV/JSON format toggle, scope selector (Current Page / All Sessions / Date Range with date pickers), field checkboxes (Transcript / Grade / Compliance / Deal Details), progress indicator for large exports (>50 sessions).
+- **Global Search (Cmd+K):** Command palette modal — search sessions (customer name, deal number), customers (by name), objections (by keyword). Results grouped by type with icons. Recent searches persisted in localStorage (last 5). Cmd+K / Ctrl+K to open, Escape to close. Wired to `sessions.search` tRPC procedure.
+- **Analytics Drill-Down:** Dealership selector dropdown at top filters all charts. Comparison Mode toggle shows two dealerships on grade trend chart. Net Revenue Estimate KPI card (sessions × avg PVR). Month-over-month delta indicators on all KPI cards.
+- **Test Suite:** 479/480 passing (1 pre-existing deepgram env failure — acceptable). +34 new tests.
 - **TypeScript:** 0 errors
 
+### Build aae5e02 / 778e2ba — March 26, 2026
+- **Notification Center:** Full inbox at `/notifications` — filter tabs (All/Unread/Critical/Warnings), icons by severity, mark all as read, session deep-links.
+- **Performance Leaderboard:** `/leaderboard` — ranks managers by Overall Score, PVR, Product Penetration, Compliance Score. Rank badges (#1 gold, #2 silver, #3 bronze), time toggles (30d/90d/All Time).
+- **Objection Analysis — ASURA Playbook Panel:** Right-side panel with all 10 top F&I objections + ASURA word tracks. Keyword search, "Copy Script" button.
+- **Role-Based Access Control (UI Guards):** `useRole()` hook. Admin-only: AdminPanel, DealershipSettings, ComplianceRules. Manager+: BatchUpload, EagleEyeView, ManagerScorecard. AccessDenied card. Nav links filtered.
+- **Session History Quick Stats Bar:** Total Sessions, Avg Grade, Best PVR, Avg Duration, grade sparkline.
+- **Dashboard Recent Activity Feed:** Last 5 sessions + 3 compliance flags + 2 deal recoveries with time-ago.
+- **445/446 tests passing**
+
 ### Build db54ace — March 25, 2026
-- **PDF/Print Reports:** `/session/:id/print` — full print-optimized session report with metadata, grade breakdown, compliance flags table, ASURA co-pilot suggestions, checklist results, coaching summary, and speaker-labeled transcript. "Download PDF Report" button wired in SessionDetail.
-- **Deal Recovery Analytics:** Stats bar (Total Attempted, Won Back, Revenue Recovered, Win Rate %), 8-week Recharts bar chart, status filter (All/Pending/Attempted/Recovered/Lost), sort by Date/Revenue/Status. `dealRecovery.stats` tRPC procedure wired.
-- **Pipeline Diagnostics Drill-Down:** Expandable row detail showing blocking factors, days-in-stage, health score (0–100), color-coded SLA indicators (green <3d, yellow 3–7d, red >7d), component-level health checks with re-check buttons.
-- **Customer Detail Session Timeline:** Visual timeline with colored status dots, product acceptance history per session, "Schedule Follow-up" modal with date picker, wired to `getSessionsByCustomerId`.
-- **Auto Coaching Report on Session End:** Template-based generation from grade scores, stored via `upsertCoachingReport`.
+- **PDF/Print Reports:** `/session/:id/print` — full print-optimized session report.
+- **Deal Recovery Analytics:** Stats bar, 8-week bar chart, status filter, sort.
+- **Pipeline Diagnostics Drill-Down:** Health score, color-coded SLA, re-check buttons.
+- **Customer Detail Session Timeline:** Visual timeline, follow-up modal, product history.
+- **Auto Coaching Report on Session End**
 - **411/412 tests passing**
 
 ### Build 6f72230 — March 24, 2026
@@ -73,7 +81,7 @@ See `ENV_REFERENCE.md` in the repo root for full documentation of each variable.
 
 ## Deployment Steps
 
-1. Pull latest from `origin/main` (commit `aae5e02`)
+1. Pull latest from `origin/main` (commit `8260c05`)
 2. Install dependencies: `pnpm install --frozen-lockfile`
 3. Build client: `pnpm build`
 4. Run database migrations: `pnpm db:push` (or apply migration SQL from `drizzle/` folder)
@@ -84,22 +92,26 @@ See `ENV_REFERENCE.md` in the repo root for full documentation of each variable.
 After deploy, verify:
 - `GET /api/health` returns `{"status":"ok","db":"connected",...}`
 - Login flow works via Clerk OAuth
-- Dashboard loads with KPI cards + Recent Activity Feed panel
+- Dashboard loads with KPI cards + Recent Activity Feed + Weekly Coaching Insights card
+- `/goals` — Goal Tracker shows 4 goal cards with progress bars
+- Cmd+K opens Global Search command palette; typing filters results
+- SessionHistory export button opens modal with CSV/JSON/scope options
+- Analytics page shows dealership selector dropdown and MoM deltas on KPI cards
 - `/notifications` — Notification Center loads with filter tabs
 - `/leaderboard` — Leaderboard shows manager rankings with badges
 - ObjectionAnalysis page shows ASURA Playbook panel on right side
 - Admin-only pages (AdminPanel, DealershipSettings, ComplianceRules) show AccessDenied for non-admin users
-- SessionHistory shows stats bar (Total, Avg Grade, Best PVR, Avg Duration) above table
 
 ## Known Issues / Notes
 
-- **Deepgram real-time:** Requires `DEEPGRAM_API_KEY` to be set. If missing, app falls back to browser SpeechRecognition automatically — no crash.
+- **Deepgram real-time:** Requires `DEEPGRAM_API_KEY` to be set. If missing, app falls back to browser SpeechRecognition — no crash.
 - **SessionDetail bundle size:** ~1MB chunk flagged for future code-splitting. Does not block deploy.
-- **RBAC is UI-only:** Role guards are client-side UI only. Server-side tRPC procedures do not yet enforce role restrictions — full server-side RBAC is a future task.
+- **RBAC is UI-only:** Role guards are client-side only. Server-side tRPC role enforcement is a future task.
+- **Global Search localStorage:** Recent searches stored per-browser. Clears on localStorage wipe.
 - **90-day seed data:** If database is empty, run `node scripts/seed-90-days.mjs` with `DATABASE_URL` set.
 - **WebSocket proxy:** Auto-falls back to HTTP streaming + SSE if proxy blocks WS upgrades.
 
 ## Rollback
 
-Previous stable commit: `b5aa2cc` (March 25 — PDF reports, Deal Recovery, Pipeline Diagnostics)
-To rollback: `git checkout b5aa2cc && pnpm install && pnpm build`
+Previous stable commit: `aae5e02` (March 26 — Notification Center, Leaderboard, Objection Playbook, RBAC)
+To rollback: `git checkout aae5e02 && pnpm install && pnpm build`
