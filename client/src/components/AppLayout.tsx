@@ -31,6 +31,7 @@ import {
   DollarSign,
   Trophy,
   Bell,
+  Target,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ import DealershipSwitcher from "@/components/DealershipSwitcher";
 import { DelphiEmbed } from "@/components/DelphiEmbed";
 import AlertBell from "@/components/AlertBell";
 import { useRole } from "@/hooks/useRole";
+import GlobalSearch, { useGlobalSearchShortcut } from "@/components/GlobalSearch";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -58,6 +60,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/deal-recovery", label: "Deal Recovery", icon: DollarSign },
   { path: "/compare", label: "Compare Sessions", icon: GitCompareArrows },
   { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { path: "/goals", label: "Goal Tracker", icon: Target },
 ];
 
 const ADMIN_ITEMS = [
@@ -112,6 +115,7 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
   const { role, canAccess } = useRole();
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { open: searchOpen, setOpen: setSearchOpen, onClose: closeSearch } = useGlobalSearchShortcut();
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
@@ -373,6 +377,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           })}
         </nav>
       </div>
+
+      {/* Global Search (Cmd+K) */}
+      <GlobalSearch open={searchOpen} onClose={closeSearch} />
 
       {/* Ask Adrian — Delphi AI floating button (authenticated users only) */}
       <DelphiEmbed />

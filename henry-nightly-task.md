@@ -1,116 +1,111 @@
-# Henry Nightly Task — March 26, 2026
+# Henry Nightly Task — March 27, 2026
 
-## Priority: HIGH — Notification Center, Leaderboard, Objection Analysis Polish, Role-Based Access, Test Expansion
+## Priority: HIGH — Goal Tracker, AI Coaching Insights, Session Export (CSV/JSON), Search Enhancements, Analytics Deep Dive
 
 ## Context
-Previous build (March 25) completed: PDF/Print reports, Deal Recovery analytics dashboard, Pipeline Diagnostics drill-down, Customer Detail session timeline, auto coaching report on session end.
-Current test state: 411/412 passing (1 pre-existing deepgram env var failure).
-Git: b5aa2cc — docs: update manus deploy prompt for March 25 build
+Previous build (March 26) completed: Notification Center, Leaderboard, Objection Playbook panel, Role-Based Access UI guards, Session History stats bar, Dashboard activity feed.
+Current test state: 445/446 passing (1 pre-existing deepgram env var failure).
+Git: 29eaa78 — docs: update manus deploy prompt for March 26 build
 TypeScript: 0 errors — clean baseline.
 
 All pages exist: Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
 AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
 DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison,
-SessionPrintReport.
+SessionPrintReport, NotificationCenter, Leaderboard.
 
 ## Tonight's Tasks
 
-### 1. Notification Center — Full Inbox (HIGH)
-The `AlertBell` component exists. Build a full Notification Center:
-- New page `NotificationCenter.tsx` at `/notifications`
-- Pull all alerts via `alerts.list` tRPC procedure (already exists)
-- Show: icon (🔴 critical, 🟡 warning, 🔵 info), title, message, timestamp, session link
-- Mark all as read button (bulk `alerts.markRead` mutation)
-- Filter tabs: All / Unread / Critical / Warnings
-- Empty state: "All clear — no alerts" with checkmark icon
-- Add "View All Notifications" link from AlertBell dropdown to `/notifications`
-- Add route in App.tsx (lazy loaded)
+### 1. Monthly Goal Tracker (HIGH)
+New page `GoalTracker.tsx` at `/goals`:
+- F&I managers set monthly PVR and product penetration goals
+- UI: "Set Goal" form — metric selector (PVR / Product Penetration / Compliance Score / Overall Score), target value, time period (month)
+- Progress bar per goal showing current vs target with % complete
+- Pull current performance from `analytics.summary` tRPC procedure
+- Hard-coded default goals for demo: PVR $3,200, Penetration 68%, Compliance 95%, Score 82/100
+- Goal cards: metric name, target, current, gap ("$247 behind"), color-coded (red/yellow/green)
+- Add to AppLayout sidebar nav
+- Add lazy-loaded route in App.tsx at `/goals`
 
-### 2. Performance Leaderboard (HIGH)
-New page `Leaderboard.tsx` at `/leaderboard`:
-- Pull from `analytics.managerScorecard` tRPC procedure
-- Rank managers by: Overall Score, PVR, Product Penetration, Compliance Score
-- Show rank badge (#1 gold, #2 silver, #3 bronze), name, dealership, score
-- Toggle: Last 30 days / Last 90 days / All Time
-- Highlight current user's row
-- Trophy icon in header, clean table layout
-- Add to AppLayout nav sidebar
-- Add route in App.tsx (lazy loaded)
+### 2. AI Coaching Insights — Weekly Summary Card (HIGH)
+New component `WeeklyCoachingInsights.tsx`:
+- Pull last 7 days of sessions + grades via existing tRPC procedures
+- Generate client-side summary:
+  - Best performing area (highest avg subscore)
+  - Weakest area (lowest avg subscore) — "Focus Here This Week"
+  - Grade trend: up/down/flat vs prior 7 days
+  - Most common objection type from `objections.byProduct` (if data available)
+  - Streak: consecutive sessions above 80
+- Surface as a card on Dashboard (replace or augment the ASURA OPS scorecard widget position)
+- Also accessible as a standalone panel on the Analytics page (bottom section)
+- No new tRPC procedures — compute client-side from existing data
 
-### 3. Objection Analysis — AI Playbook Panel (HIGH)
-`ObjectionAnalysis.tsx` exists. Enhance:
-- Add right-side panel: "ASURA Objection Playbook"
-- Hard-code the top 10 F&I objections with ASURA word tracks:
-  1. "I don't want any add-ons" → "I completely understand. The only reason I bring this up is..."
-  2. "I need to think about it" → "Of course. What specifically were you still on the fence about?"
-  3. "It costs too much" → "Compared to what? Let me show you what the actual monthly impact is..."
-  4. "I already have coverage" → "That's great. What type of coverage do you have? Let me make sure there's no overlap..."
-  5. "My dealer back home does this cheaper" → "I believe you. The difference is what's inside the contract..."
-  6. "I just want the car payment" → "I hear you. Everything I'm going to show you fits into one monthly number..."
-  7. "I don't believe in extended warranties" → "Most people feel that way until they see how manufacturers design vehicles today..."
-  8. "My mechanic handles everything" → "Great. This actually works alongside that relationship, not instead of it..."
-  9. "I'll add it later" → "I wish I could offer this later — these programs are only available at time of purchase..."
-  10. "I never use these things" → "You're probably right. Most people don't. But the ones who need it once..."
-- Add search/filter by keyword
-- Add a "Copy Script" button per objection
-- Show usage count from actual objection data if available
+### 3. Session Export — CSV and JSON (HIGH)
+Enhance `SessionHistory.tsx`:
+- Existing CSV export button already exports basic session data
+- Replace/enhance with Export Modal:
+  - Format: CSV or JSON
+  - Scope: Current page / All sessions / Date range (start/end date pickers)
+  - Fields to include: checkboxes for Transcript, Grade, Compliance Flags, Deal Details
+  - "Export" button triggers download
+  - CSV: flat structure (one row per session, grade columns appended)
+  - JSON: full nested object per session
+- Wire to existing `sessions.exportCsv` tRPC procedure for CSV
+- For JSON: client-side construction from already-loaded data + `sessions.list` full fetch
+- Show export progress indicator for large exports (>50 sessions)
 
-### 4. Role-Based Access Control — UI Guards (MEDIUM)
-Currently all pages are accessible to any authenticated user. Add UI-level guards:
-- Create `useRole()` hook that reads `ctx.user.role` from tRPC `auth.me` (already exists)
-- Roles: `admin`, `manager`, `viewer`
-- Admin-only pages: AdminPanel, DealershipSettings, ComplianceRules
-- Manager+ pages: BatchUpload, EagleEyeView, ManagerScorecard
-- All authenticated: everything else
-- Show "Access Denied" card with role info if unauthorized (not a redirect — just block render)
-- Add role badge to user avatar in AppLayout header
-- Wire `useRole()` in AppLayout so nav links hide inaccessible pages
+### 4. Global Search (MEDIUM)
+New component `GlobalSearch.tsx`:
+- Keyboard shortcut: Cmd+K (or Ctrl+K) opens a command palette modal
+- Search across: sessions (by customer name, deal number), objections (by keyword), customers (by name)
+- Results grouped by type with icons
+- Click to navigate
+- Wire to existing `sessions.search` tRPC proc + client-side filter of loaded customers
+- Add Cmd+K listener in AppLayout
+- Escape to close
+- Show recent searches (localStorage, last 5)
 
-### 5. Session History — Quick Stats Bar (MEDIUM)
-`SessionHistory.tsx` exists. Add:
-- Stats bar above the table: Total Sessions, Avg Grade, Best PVR, Avg Duration
-- Calculate from the currently loaded sessions (client-side, no new API needed)
-- Show trend arrow if current page avg grade > previous page avg grade
-- Mini sparkline (recharts) for grade trend across visible sessions
+### 5. Analytics — Drill-Down by Dealership (MEDIUM)
+Enhance `Analytics.tsx`:
+- Add dealership selector dropdown at the top (pull from `dealerships.list` tRPC)
+- Filter all charts to selected dealership (pass dealershipId to existing queries where supported)
+- Add "Comparison Mode" toggle: show two dealerships side-by-side on grade trend chart
+- Add Net Revenue Estimate panel: sessions × avg PVR estimate, styled as a KPI card
+- Show month-over-month delta for each KPI card (vs prior 30 days)
 
-### 6. Dashboard — Recent Activity Feed (MEDIUM)
-`Dashboard.tsx` exists. Add:
-- "Recent Activity" panel (right side on desktop, bottom on mobile)
-- Pull last 5 sessions + last 3 compliance flags + last 2 deal recoveries
-- Each item: icon, description, time ago ("2 hours ago"), click to navigate
-- Use existing tRPC procedures — no new procedures needed
-
-### 7. Expand Test Suite to 425+ (MEDIUM)
-Add tests for:
-- NotificationCenter route existence and filter logic
-- Leaderboard tRPC data fetch (analytics.managerScorecard)
-- Role-based access hook logic (unit test)
-- Objection playbook search filter (unit test)
-- Session history stats bar calculation (unit test)
-- Dashboard activity feed data aggregation
-Target: 425+ tests passing (up from 411)
+### 6. Expand Test Suite to 470+ (MEDIUM)
+Add `server/nightly-march27.test.ts` with tests for:
+- Goal tracker default goals structure (unit: correct metric names, targets)
+- Goal progress calculation (current vs target, % complete, gap, color logic)
+- Weekly coaching insights: best/worst area calculation from grade array
+- Weekly coaching insights: streak calculation (consecutive sessions >80)
+- Session export scope filter logic (current page vs all vs date range)
+- Global search result grouping (sessions vs objections vs customers)
+- Analytics dealership filter (query param passes through correctly)
+- Net revenue estimate calculation (sessions × PVR)
+- MoM delta calculation (current 30d vs prior 30d)
+Target: 470+ tests passing (up from 445)
 
 ## Technical Notes
 - No build step for dev — Vite dev server, vanilla tRPC
-- Tests: pnpm test (target: 425+/426)
+- Tests: pnpm test (target: 470+/471)
 - TypeScript: pnpm check (target: 0 errors)
 - The 1 deepgram.test.ts failure is pre-existing and acceptable
-- Use recharts for sparklines (already installed)
+- Use recharts for progress/sparkline visuals (already installed)
 - New pages must be lazy-loaded in App.tsx with React.Suspense
+- GlobalSearch modal: use cmdk or build with existing shadcn Dialog + Command component
 
 ## Definition of Done
-- [ ] Notification Center page at /notifications
-- [ ] Leaderboard page at /leaderboard with ranking
-- [ ] Objection Analysis playbook panel with ASURA word tracks
-- [ ] Role-based UI guards + useRole() hook
-- [ ] Session History quick stats bar
-- [ ] Dashboard recent activity feed
-- [ ] 425+ tests passing
+- [ ] Goal Tracker page at /goals with progress cards
+- [ ] Weekly Coaching Insights card on Dashboard + Analytics
+- [ ] Session Export modal with CSV/JSON/scope options
+- [ ] Global Search (Cmd+K) command palette
+- [ ] Analytics dealership drill-down + MoM deltas
+- [ ] 470+ tests passing
 - [ ] 0 TypeScript errors
 - [ ] Git commit + push
 
 ## When Done
-1. Git add, commit: "feat: notification center, leaderboard, objection playbook, RBAC guards, activity feed"
+1. Git add, commit: "feat: goal tracker, coaching insights, session export modal, global search, analytics drill-down"
 2. Push to origin main
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md

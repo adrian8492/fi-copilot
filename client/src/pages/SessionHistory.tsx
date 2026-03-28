@@ -15,6 +15,7 @@ import {
   ChevronLeft, Download, Loader2, BarChart3, Star, DollarSign, TrendingUp,
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area } from "recharts";
+import SessionExportModal from "@/components/SessionExportModal";
 
 type SortField = "customerName" | "dealNumber" | "vehicleType" | "dealType" | "startedAt" | "durationSeconds" | "status";
 
@@ -50,6 +51,7 @@ export default function SessionHistory() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [csvExporting, setCsvExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   // ─── Pagination ───────────────────────────────────────────────────────────
   const PAGE_SIZE = 25;
@@ -195,10 +197,10 @@ export default function SessionHistory() {
             ))}
           </div>
 
-          <Button variant="outline" onClick={handleExportCsv} disabled={csvExporting || !sessions?.length}
+          <Button variant="outline" onClick={() => setExportModalOpen(true)} disabled={!sessions?.length}
             className="gap-2 shrink-0 ml-auto">
-            {csvExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Export CSV
+            <Download className="w-4 h-4" />
+            Export
           </Button>
           <Button onClick={() => navigate("/session/new")} className="gap-2 shrink-0">
             <Plus className="w-4 h-4" /> New Session
@@ -435,6 +437,22 @@ export default function SessionHistory() {
             )}
           </div>
         )}
+        {/* Export Modal */}
+        <SessionExportModal
+          open={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          currentPageSessions={(filtered ?? []).map((s) => ({
+            id: s.id,
+            customerName: s.customerName,
+            dealNumber: s.dealNumber,
+            startedAt: s.startedAt,
+            status: s.status,
+            vehicleType: s.vehicleType,
+            dealType: s.dealType,
+            durationSeconds: s.durationSeconds,
+          }))}
+          totalSessions={totalSessions}
+        />
       </div>
     </AppLayout>
   );

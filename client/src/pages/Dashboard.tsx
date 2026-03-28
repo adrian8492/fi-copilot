@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
+import WeeklyCoachingInsights from "@/components/WeeklyCoachingInsights";
 import { useState, useEffect, useMemo } from "react";
 import { Search, Shield, RefreshCw, Activity } from "lucide-react";
 
@@ -404,6 +405,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+        {/* Weekly Coaching Insights — full width */}
+        <WeeklyCoachingInsights />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* ASURA OPS Scorecard Widget */}
           <ASURAScorecardWidget />

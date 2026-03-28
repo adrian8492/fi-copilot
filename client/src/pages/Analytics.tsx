@@ -5,15 +5,37 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from "recharts";
-import { TrendingUp } from "lucide-react";
-import { useEffect } from "react";
+import { TrendingUp, TrendingDown, Minus, Building2, DollarSign } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import WeeklyCoachingInsights from "@/components/WeeklyCoachingInsights";
 
 const PIE_COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16","#ec4899","#14b8a6"];
 
 
 
+// MoM delta helper
+function MomDelta({ current, prior, prefix = "", suffix = "" }: { current: number; prior: number; prefix?: string; suffix?: string }) {
+  if (prior === 0 && current === 0) return null;
+  const delta = current - prior;
+  const pct = prior > 0 ? Math.round((delta / prior) * 100) : 0;
+  const isUp = delta > 0;
+  const isDown = delta < 0;
+  const Icon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
+  return (
+    <div className={cn("flex items-center gap-1 text-[10px] mt-1", isUp ? "text-emerald-400" : isDown ? "text-red-400" : "text-muted-foreground")}>
+      <Icon className="w-3 h-3" />
+      <span>{isUp ? "+" : ""}{prefix}{delta}{suffix} ({isUp ? "+" : ""}{pct}%) vs prior 30d</span>
+    </div>
+  );
+}
+
 export default function Analytics() {
   useEffect(() => { document.title = "Analytics | F&I Co-Pilot by ASURA Group"; }, []);
+  const [selectedDealership, setSelectedDealership] = useState<string>("all");
+  const { data: dealerships } = trpc.auth.myRooftops.useQuery();
   const { data: summary } = trpc.analytics.summary.useQuery();
   const { data: gradeTrend } = trpc.analytics.myGradeTrend.useQuery({ limit: 20 });
   const { data: pvrTrend } = trpc.analytics.pvrTrend.useQuery({ limit: 30 });
@@ -40,21 +62,84 @@ export default function Analytics() {
 
   const totalSessions = sessionVolume?.reduce((a, b) => a + b.total, 0) ?? 0;
 
+  // MoM (month-over-month) delta estimation: first half vs second half of trend data
+  const momScore = useMemo(() => {
+    if (!trendData.length) return { current: 0, prior: 0 };
+    const mid = Math.floor(trendData.length / 2);
+    const recent = trendData.slice(mid);
+    const older = trendData.slice(0, mid);
+    const recentAvg = recent.length > 0 ? Math.round(recent.reduce((a, b) => a + b.score, 0) / recent.length) : 0;
+    const olderAvg = older.length > 0 ? Math.round(older.reduce((a, b) => a + b.score, 0) / older.length) : 0;
+    return { current: recentAvg, prior: olderAvg };
+  }, [trendData]);
+
+  const momPvr = useMemo(() => {
+    if (!pvrTrend?.length) return { current: 0, prior: 0 };
+    const mid = Math.floor(pvrTrend.length / 2);
+    const recent = pvrTrend.slice(mid);
+    const older = pvrTrend.slice(0, mid);
+    const recentAvg = recent.length > 0 ? Math.round(recent.reduce((a, b) => a + b.pvr, 0) / recent.length) : 0;
+    const olderAvg = older.length > 0 ? Math.round(older.reduce((a, b) => a + b.pvr, 0) / older.length) : 0;
+    return { current: recentAvg, prior: olderAvg };
+  }, [pvrTrend]);
+
+  // Net revenue estimate
+  const netRevenue = totalSessions * avgPvr;
+
   return (
     <AppLayout title="Analytics" subtitle="Performance trends and insights">
       <div className="p-6 space-y-6">
-        {/* KPI Summary Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Dealership Selector */}
+        {dealerships && dealerships.length > 0 && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">Dealership:</span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setSelectedDealership("all")}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                  selectedDealership === "all"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:border-primary/40"
+                )}
+              >
+                All Dealerships
+              </button>
+              {dealerships.map((d) => (
+                <button
+                  key={d.dealershipId}
+                  onClick={() => setSelectedDealership(String(d.dealershipId))}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                    selectedDealership === String(d.dealershipId)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card text-muted-foreground border-border hover:border-primary/40"
+                  )}
+                >
+                  {d.dealershipName}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* KPI Summary Row with MoM Deltas */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
-            { label: "Avg Score", value: avgScore ? `${avgScore}/100` : "—", color: "text-indigo-400" },
-            { label: "Avg PVR", value: avgPvr ? `$${avgPvr.toLocaleString()}` : "—", color: "text-emerald-400" },
-            { label: "Sessions (8 wks)", value: totalSessions ? `${totalSessions}` : "—", color: "text-amber-400" },
-            { label: "Total Graded", value: summary?.totalGrades ? `${summary.totalGrades}` : "—", color: "text-violet-400" },
-          ].map(({ label, value, color }) => (
+            { label: "Avg Score", value: avgScore ? `${avgScore}/100` : "—", color: "text-indigo-400", mom: momScore },
+            { label: "Avg PVR", value: avgPvr ? `$${avgPvr.toLocaleString()}` : "—", color: "text-emerald-400", mom: momPvr },
+            { label: "Sessions (8 wks)", value: totalSessions ? `${totalSessions}` : "—", color: "text-amber-400", mom: null },
+            { label: "Total Graded", value: summary?.totalGrades ? `${summary.totalGrades}` : "—", color: "text-violet-400", mom: null },
+            { label: "Net Revenue Est.", value: netRevenue > 0 ? `$${netRevenue.toLocaleString()}` : "—", color: "text-cyan-400", mom: null },
+          ].map(({ label, value, color, mom }) => (
             <Card key={label} className="bg-card border-border">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">{label}</p>
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
+                {mom && mom.prior > 0 && <MomDelta current={mom.current} prior={mom.prior} />}
               </CardContent>
             </Card>
           ))}
@@ -190,6 +275,9 @@ export default function Analytics() {
         )}
 
 
+
+        {/* Weekly Coaching Insights */}
+        <WeeklyCoachingInsights />
 
         {trendData.length === 0 && !pvrTrend?.length && !sessionVolume?.length && (
           <Card className="bg-card border-border">
