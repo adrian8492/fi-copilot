@@ -95,14 +95,14 @@ Target: 470+ tests passing (up from 445)
 - GlobalSearch modal: use cmdk or build with existing shadcn Dialog + Command component
 
 ## Definition of Done
-- [ ] Goal Tracker page at /goals with progress cards
-- [ ] Weekly Coaching Insights card on Dashboard + Analytics
-- [ ] Session Export modal with CSV/JSON/scope options
-- [ ] Global Search (Cmd+K) command palette
-- [ ] Analytics dealership drill-down + MoM deltas
-- [ ] 470+ tests passing
-- [ ] 0 TypeScript errors
-- [ ] Git commit + push
+- [x] Goal Tracker page at /goals with progress cards
+- [x] Weekly Coaching Insights card on Dashboard + Analytics
+- [x] Session Export modal with CSV/JSON/scope options
+- [x] Global Search (Cmd+K) command palette
+- [x] Analytics dealership drill-down + MoM deltas
+- [x] 470+ tests passing
+- [x] 0 TypeScript errors
+- [x] Git commit + push
 
 ## When Done
 1. Git add, commit: "feat: goal tracker, coaching insights, session export modal, global search, analytics drill-down"
@@ -113,6 +113,21 @@ Target: 470+ tests passing (up from 445)
 ---
 
 ## Prior Completion Notes
+
+### March 27, 2026
+
+**Completed by:** Henry (Claude Code) — 2026-03-27 ~22:10 PST
+
+All March 27 tasks completed:
+- **Goal Tracker**: `GoalTracker.tsx` at `/goals` — set monthly PVR/Penetration/Compliance/Score goals with form, progress bars (color-coded red/yellow/green), gap text ("$247 behind" / "On Track!"), default demo goals pre-populated, pulls current metrics from `analytics.summary`.
+- **Weekly Coaching Insights**: `WeeklyCoachingInsights.tsx` — client-side computed card showing best/weakest performance area (from 5 subscores), grade trend (up/down/flat vs prior 7 days), consecutive session streak (>=80), displayed on Dashboard (full-width) and Analytics (bottom section).
+- **Session Export Modal**: `SessionExportModal.tsx` — replaces simple CSV button in SessionHistory with full modal: CSV/JSON format toggle, scope selector (Current Page/All/Date Range with date pickers), field checkboxes (Transcript/Grade/Compliance/Deal Details), progress indicator for large exports.
+- **Global Search (Cmd+K)**: `GlobalSearch.tsx` — command palette modal with `useGlobalSearchShortcut` hook in AppLayout, searches sessions via `sessions.search` tRPC, grouped results with icons, keyboard navigation (arrows/enter/escape), recent searches in localStorage (last 5).
+- **Analytics Drill-Down**: Dealership selector using `auth.myRooftops`, MoM delta indicators on KPI cards (score, PVR), Net Revenue Estimate panel (sessions × avg PVR), 5-column KPI grid.
+- **34 new tests** in `server/nightly-march27.test.ts` covering goal defaults/progress/color logic, coaching insights best/worst area + streak, export scope filtering, search grouping, dealership filter params, net revenue calculation, MoM delta calculation.
+- **479/480 tests passing** (1 pre-existing deepgram failure)
+- `pnpm check`: 0 TypeScript errors
+- Git: `2823d1f` — "feat: goal tracker, coaching insights, session export modal, global search, analytics drill-down"
 
 ### March 26, 2026
 
