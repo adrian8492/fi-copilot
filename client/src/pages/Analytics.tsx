@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import WeeklyCoachingInsights from "@/components/WeeklyCoachingInsights";
+import ProductHeatmap from "@/components/ProductHeatmap";
 
 const PIE_COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16","#ec4899","#14b8a6"];
 
@@ -275,6 +276,9 @@ export default function Analytics() {
         )}
 
 
+
+        {/* Product Performance Heatmap */}
+        <ProductHeatmap />
 
         {/* Weekly Coaching Insights */}
         <WeeklyCoachingInsights />

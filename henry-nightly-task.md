@@ -1,3 +1,127 @@
+# Henry Nightly Task — March 28, 2026
+
+## Priority: HIGH — Deal Scoring Dashboard, Coaching Report Builder, Product Performance Heatmap, Session Replay Timeline, Real-Time Alerts Panel, Test Coverage Expansion
+
+## Context
+Previous build (March 27) completed: Goal Tracker, Weekly Coaching Insights, Session Export Modal (CSV/JSON), Global Search (Cmd+K), Analytics drill-down by dealership + MoM deltas.
+Current test state: 479/480 passing (1 pre-existing deepgram env var failure).
+Git: 5f4dbb9 — docs: update manus deploy prompt for March 27 build
+TypeScript: 0 errors — clean baseline.
+
+All pages exist: Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
+AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
+DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison,
+SessionPrintReport, NotificationCenter, Leaderboard, GoalTracker.
+
+## Tonight's Tasks
+
+### 1. Deal Scoring Dashboard (HIGH)
+New page `DealScoring.tsx` at `/deal-scoring`:
+- Shows all deals (sessions) with a calculated "Deal Score" — composite metric:
+  - PVR contribution (40% weight): actual PVR vs dealership avg
+  - Product penetration (30%): products accepted / products presented
+  - Compliance score (20%): from session grade
+  - Customer sentiment (10%): derived from objection count (fewer = better)
+- Deal Score displayed as 0–100, color-coded (red <60, yellow 60–79, green 80+)
+- Table view: Customer, Date, PVR, Products Sold, Compliance %, Deal Score, badge
+- Sort by any column, filter by score tier (All/Green/Yellow/Red)
+- Summary KPI bar: Avg Deal Score, % Green Deals, Total PVR, Best Deal Score
+- Add to sidebar nav under "Analytics"
+- Lazy-loaded route in App.tsx at `/deal-scoring`
+
+### 2. Coaching Report Builder (HIGH)
+New page `CoachingReportBuilder.tsx` at `/coaching-report`:
+- Build custom PDF-ready coaching reports for individual F&I managers
+- Manager selector (from `auth.myRooftops` or user list)
+- Date range picker (last 30 / last 90 / custom)
+- Report sections (toggleable checkboxes):
+  - Performance Summary (grade trend sparkline, avg score)
+  - Strength/Weakness Breakdown (top 3 each)
+  - Objection Pattern Analysis (top 3 objection types)
+  - Deal-by-Deal Score Table
+  - ASURA OPS Checklist Compliance %
+  - Personalized Coaching Recommendations (3 bullet points, template-generated client-side)
+- "Preview Report" shows styled report preview below form
+- "Download PDF" triggers `window.print()` on the preview section
+- Add to sidebar nav under "Coaching"
+- Lazy-loaded route in App.tsx at `/coaching-report`
+
+### 3. Product Performance Heatmap (MEDIUM)
+New component `ProductHeatmap.tsx`:
+- Heatmap grid: rows = F&I products (VSC, GAP, Tire/Wheel, Paint/Fabric, etc.), columns = days of week (Mon–Sun)
+- Cell value = avg product acceptance rate for that product on that day
+- Color intensity = acceptance rate (white = 0%, dark green = 100%)
+- Tooltip showing exact % and deal count on hover
+- Data sourced client-side from sessions/products loaded via existing tRPC
+- Display on Analytics page (new tab "Product Heatmap" alongside existing charts)
+- Also accessible standalone from `ProductMenu.tsx` page as a "Performance Heatmap" button/section
+
+### 4. Session Replay Timeline (MEDIUM)
+New component `SessionReplayTimeline.tsx`:
+- Available in `SessionDetail.tsx` as a new tab ("Replay Timeline")
+- Visual horizontal timeline of the session by minute
+- Events plotted as markers: compliance flags (red), objections raised (orange), product mentions (blue), checklist completions (green)
+- Clicking a marker scrolls the transcript to that timestamp
+- Show overall "session arc" — grade by time segment (first third / middle / last third)
+- Build with recharts or pure CSS positioning (no new dependencies)
+
+### 5. Real-Time Alerts Panel (MEDIUM)
+New component `LiveAlertsPanel.tsx`:
+- Available in `LiveSession.tsx` as a right-side collapsible panel
+- Shows real-time alerts as they fire during the session:
+  - Compliance warnings (TILA/ECOA/UDAP flags)
+  - Low-score moments ("Closing technique below threshold")
+  - Objection detected ("Customer pushed back on price")
+  - Missed product mention ("VSC not yet offered")
+- Alerts accumulate as session progresses (simulated with demo data in non-live mode)
+- Each alert: icon, severity badge, timestamp, short description
+- "Dismiss" button per alert, "Dismiss All" at top
+- Panel toggle button in LiveSession header
+
+### 6. Expand Test Suite to 510+ (MEDIUM)
+Add `server/nightly-march28.test.ts` with tests for:
+- Deal Score calculation (PVR contribution, penetration, compliance, sentiment weights)
+- Deal Score color tier logic (red/yellow/green thresholds)
+- Deal Score sorting and filtering
+- Coaching report section toggles (all on, all off, partial)
+- Coaching report date range filter logic
+- Product heatmap data aggregation (by product × day of week)
+- Product heatmap color intensity calculation
+- Session replay timeline event parsing (compliance flags, objections, products, checklist)
+- Session arc grade calculation (first/middle/last third)
+- Live alerts panel accumulation logic
+- Alert severity classification
+- Summary KPI calculations (avg deal score, % green)
+Target: 510+ tests passing (up from 479)
+
+## Technical Notes
+- No build step for dev — Vite dev server, vanilla tRPC
+- Tests: pnpm test (target: 510+/511)
+- TypeScript: pnpm check (target: 0 errors)
+- The 1 deepgram.test.ts failure is pre-existing and acceptable
+- Use recharts for heatmap and timeline visuals (already installed)
+- New pages must be lazy-loaded in App.tsx with React.Suspense
+- Print CSS for CoachingReportBuilder preview section (similar pattern to SessionPrintReport.tsx)
+- DealScoring and CoachingReportBuilder should use existing AppLayout sidebar
+
+## Definition of Done
+- [ ] Deal Scoring Dashboard at /deal-scoring with composite score, table, KPI bar
+- [ ] Coaching Report Builder at /coaching-report with sections, preview, print
+- [ ] Product Performance Heatmap on Analytics + ProductMenu
+- [ ] Session Replay Timeline tab in SessionDetail
+- [ ] Real-Time Alerts Panel in LiveSession
+- [ ] 510+ tests passing
+- [ ] 0 TypeScript errors
+- [ ] Git commit + push
+
+## When Done
+1. Git add, commit: "feat: deal scoring dashboard, coaching report builder, product heatmap, session replay timeline, live alerts panel"
+2. Push to origin main
+3. Update this file with completion notes
+4. Write/update manus-deploy-prompt.md
+
+---
+
 # Henry Nightly Task — March 27, 2026
 
 ## Priority: HIGH — Goal Tracker, AI Coaching Insights, Session Export (CSV/JSON), Search Enhancements, Analytics Deep Dive

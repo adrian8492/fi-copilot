@@ -32,6 +32,8 @@ import {
   Trophy,
   Bell,
   Target,
+  Award,
+  FileText,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -61,6 +63,8 @@ const PERFORMANCE_ITEMS = [
   { path: "/compare", label: "Compare Sessions", icon: GitCompareArrows },
   { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { path: "/goals", label: "Goal Tracker", icon: Target },
+  { path: "/deal-scoring", label: "Deal Scoring", icon: Award },
+  { path: "/coaching-report", label: "Coaching Report", icon: FileText },
 ];
 
 const ADMIN_ITEMS = [

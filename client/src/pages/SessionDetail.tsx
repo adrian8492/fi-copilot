@@ -25,6 +25,7 @@ import { PrintReportButton } from "@/components/PrintReportButton";
 import { AsuraScorecard } from "@/components/AsuraScorecard";
 import { ComplianceReport } from "@/components/ComplianceReport";
 import { ProductIntelligenceTab } from "@/components/ProductIntelligenceTab";
+import SessionReplayTimeline from "@/components/SessionReplayTimeline";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -489,6 +490,10 @@ export default function SessionDetail() {
             <TabsTrigger value="product-intelligence" className="gap-1.5">
               <Package className="w-3.5 h-3.5" />
               Product Intelligence
+            </TabsTrigger>
+            <TabsTrigger value="replay-timeline" className="gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              Replay Timeline
             </TabsTrigger>
           </TabsList>
 
@@ -1064,6 +1069,19 @@ export default function SessionDetail() {
             <ProductIntelligenceTab
               sessionId={sessionId}
               hasTranscript={!!(transcripts && transcripts.length > 0)}
+            />
+          </TabsContent>
+
+          {/* Replay Timeline Tab */}
+          <TabsContent value="replay-timeline" className="mt-4">
+            <SessionReplayTimeline
+              complianceFlags={complianceFlags ?? []}
+              transcripts={transcripts ?? []}
+              sessionStart={session?.startedAt instanceof Date ? session.startedAt.toISOString() : session?.startedAt}
+              onScrollToTimestamp={(seconds) => {
+                const el = transcriptScrollRef.current;
+                if (el) el.scrollTo({ top: seconds * 3, behavior: "smooth" });
+              }}
             />
           </TabsContent>
         </Tabs>

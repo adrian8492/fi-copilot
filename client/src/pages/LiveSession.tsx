@@ -20,7 +20,8 @@ import AsurastepPanel, { detectStepFromTranscript, computeLiveScore } from "@/co
 import { cn } from "@/lib/utils";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
-import { Keyboard } from "lucide-react";
+import { Keyboard, Bell } from "lucide-react";
+import LiveAlertsPanel from "@/components/LiveAlertsPanel";
 
 interface TranscriptEntry {
   id: string;
@@ -163,6 +164,7 @@ export default function LiveSession() {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [speakerMode, setSpeakerMode] = useState<SpeakerMode>("manager");
 
   // Data state
@@ -1221,6 +1223,15 @@ export default function LiveSession() {
             >
               <Keyboard className="w-3.5 h-3.5" />
             </Button>
+            <Button
+              variant={alertsPanelOpen ? "default" : "outline"}
+              size="sm"
+              className="gap-1.5 text-xs hidden md:inline-flex"
+              onClick={() => setAlertsPanelOpen((v) => !v)}
+            >
+              <Bell className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Alerts</span>
+            </Button>
           </div>
         </div>
         <KeyboardShortcutsHelp isOpen={showShortcutsHelp} onClose={() => setShowShortcutsHelp(false)} />
@@ -1720,6 +1731,15 @@ export default function LiveSession() {
               )}
             </div>
           </div>
+
+          {/* Live Alerts Panel */}
+          <LiveAlertsPanel
+            isOpen={alertsPanelOpen}
+            onToggle={() => setAlertsPanelOpen((v) => !v)}
+            isLive={isRecording}
+            complianceFlags={complianceAlerts.map((a) => a.flag)}
+            elapsed={elapsed}
+          />
         </div>
       </div>
     </AppLayout>

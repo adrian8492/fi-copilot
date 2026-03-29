@@ -13,8 +13,9 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  Package, Plus, Edit2, Trash2, DollarSign, Clock, Gauge, Loader2, ChevronUp, ChevronDown,
+  Package, Plus, Edit2, Trash2, DollarSign, Clock, Gauge, Loader2, ChevronUp, ChevronDown, Grid3X3,
 } from "lucide-react";
+import ProductHeatmap from "@/components/ProductHeatmap";
 
 const PRODUCT_TYPES = [
   { value: "vehicle_service_contract", label: "Vehicle Service Contract (VSC)" },
@@ -66,6 +67,7 @@ export default function ProductMenu() {
   useEffect(() => { document.title = "Product Menu | F&I Co-Pilot by ASURA Group"; }, []);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const { data: products, isLoading, refetch } = trpc.productMenu.list.useQuery();
 
@@ -272,6 +274,20 @@ export default function ProductMenu() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Performance Heatmap Section */}
+      <div className="px-6 pb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 mb-3"
+          onClick={() => setShowHeatmap((v) => !v)}
+        >
+          <Grid3X3 className="w-4 h-4" />
+          {showHeatmap ? "Hide" : "Show"} Performance Heatmap
+        </Button>
+        {showHeatmap && <ProductHeatmap />}
       </div>
 
       {/* Create / Edit Dialog */}
