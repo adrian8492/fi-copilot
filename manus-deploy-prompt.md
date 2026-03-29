@@ -1,5 +1,5 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** March 27, 2026 — Build 8260c05
+**Updated:** March 28, 2026 — Build 46cda49
 
 ## What to Deploy
 
@@ -10,14 +10,22 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 
 ## What's New in This Build
 
-### Build 2823d1f / 8260c05 — March 27, 2026
+### Build 46cda49 — March 28, 2026
+- **Deal Scoring Dashboard:** `/deal-scoring` — Composite deal score (PVR 40%, Penetration 30%, Compliance 20%, Customer Sentiment 10%), color-coded 0–100 score (red/yellow/green), sortable table, tier filter (All/Green/Yellow/Red), KPI bar (Avg Deal Score, % Green Deals, Total PVR, Best Deal Score). Added to sidebar nav.
+- **Coaching Report Builder:** `/coaching-report` — Build custom PDF-ready coaching reports. Manager selector, date range (Last 30/Last 90/Custom), 6 toggleable sections (Performance Summary, Strengths/Weaknesses, Objection Patterns, Deal Table, Checklist Compliance, Coaching Recommendations), styled live preview, `window.print()` PDF download. Added to sidebar nav.
+- **Product Performance Heatmap:** `ProductHeatmap.tsx` — Recharts heatmap grid showing F&I product acceptance rates by day of week. Color intensity = acceptance %. Hover tooltips show exact % and deal count. Available as "Product Heatmap" tab in Analytics page and collapsible section in ProductMenu page.
+- **Session Replay Timeline:** `SessionReplayTimeline.tsx` — Horizontal visual timeline in SessionDetail "Replay Timeline" tab. Events plotted as colored markers (compliance=red, objections=orange, product mentions=blue, checklist=green). Click marker to scroll transcript. Session arc shows grade by first/middle/last third of session.
+- **Real-Time Alerts Panel:** `LiveAlertsPanel.tsx` — Collapsible right panel in LiveSession. Accumulates live alerts (compliance warnings, low-score moments, objection detected, missed product mention). Dismiss per alert + Dismiss All. Toggle button in LiveSession header.
+- **Test Suite:** 527/528 passing (1 pre-existing deepgram env failure — acceptable). +48 new tests.
+- **TypeScript:** 0 errors
+
+### Build 5f4dbb9 / 2823d1f — March 27, 2026
 - **Goal Tracker:** `/goals` — Monthly PVR, Penetration, Compliance, and Score goal cards with progress bars (color-coded red/yellow/green), gap text ("$247 behind" / "On Track!"), default demo goals pre-populated, pulls current metrics from `analytics.summary`. Added to sidebar nav.
 - **Weekly Coaching Insights:** `WeeklyCoachingInsights.tsx` — client-side weekly summary card: best/weakest performance area (from 5 subscores), grade trend (up/down/flat vs prior 7 days), consecutive session streak (>=80). Displayed on Dashboard (full-width below activity feed) and Analytics (bottom section).
 - **Session Export Modal:** Enhanced SessionHistory export — full modal with CSV/JSON format toggle, scope selector (Current Page / All Sessions / Date Range with date pickers), field checkboxes (Transcript / Grade / Compliance / Deal Details), progress indicator for large exports (>50 sessions).
 - **Global Search (Cmd+K):** Command palette modal — search sessions (customer name, deal number), customers (by name), objections (by keyword). Results grouped by type with icons. Recent searches persisted in localStorage (last 5). Cmd+K / Ctrl+K to open, Escape to close. Wired to `sessions.search` tRPC procedure.
 - **Analytics Drill-Down:** Dealership selector dropdown at top filters all charts. Comparison Mode toggle shows two dealerships on grade trend chart. Net Revenue Estimate KPI card (sessions × avg PVR). Month-over-month delta indicators on all KPI cards.
-- **Test Suite:** 479/480 passing (1 pre-existing deepgram env failure — acceptable). +34 new tests.
-- **TypeScript:** 0 errors
+- **479/480 tests passing**
 
 ### Build aae5e02 / 778e2ba — March 26, 2026
 - **Notification Center:** Full inbox at `/notifications` — filter tabs (All/Unread/Critical/Warnings), icons by severity, mark all as read, session deep-links.
@@ -81,7 +89,7 @@ See `ENV_REFERENCE.md` in the repo root for full documentation of each variable.
 
 ## Deployment Steps
 
-1. Pull latest from `origin/main` (commit `8260c05`)
+1. Pull latest from `origin/main` (commit `46cda49`)
 2. Install dependencies: `pnpm install --frozen-lockfile`
 3. Build client: `pnpm build`
 4. Run database migrations: `pnpm db:push` (or apply migration SQL from `drizzle/` folder)
@@ -93,6 +101,11 @@ After deploy, verify:
 - `GET /api/health` returns `{"status":"ok","db":"connected",...}`
 - Login flow works via Clerk OAuth
 - Dashboard loads with KPI cards + Recent Activity Feed + Weekly Coaching Insights card
+- `/deal-scoring` — Deal Scoring Dashboard shows composite score table and KPI bar
+- `/coaching-report` — Coaching Report Builder shows manager selector, toggleable sections, print button
+- Analytics page → "Product Heatmap" tab shows product × day-of-week heatmap
+- SessionDetail → "Replay Timeline" tab shows horizontal event timeline
+- LiveSession → alert panel toggle button appears in header, panel slides open
 - `/goals` — Goal Tracker shows 4 goal cards with progress bars
 - Cmd+K opens Global Search command palette; typing filters results
 - SessionHistory export button opens modal with CSV/JSON/scope options
@@ -108,10 +121,12 @@ After deploy, verify:
 - **SessionDetail bundle size:** ~1MB chunk flagged for future code-splitting. Does not block deploy.
 - **RBAC is UI-only:** Role guards are client-side only. Server-side tRPC role enforcement is a future task.
 - **Global Search localStorage:** Recent searches stored per-browser. Clears on localStorage wipe.
+- **Live Alerts Panel:** In non-live/demo sessions, alerts are simulated from session data. Real-time alerts require active WebSocket session.
+- **Product Heatmap:** Color intensity computed client-side from loaded session data — requires session history data to populate. Empty state shown when no data.
 - **90-day seed data:** If database is empty, run `node scripts/seed-90-days.mjs` with `DATABASE_URL` set.
 - **WebSocket proxy:** Auto-falls back to HTTP streaming + SSE if proxy blocks WS upgrades.
 
 ## Rollback
 
-Previous stable commit: `aae5e02` (March 26 — Notification Center, Leaderboard, Objection Playbook, RBAC)
-To rollback: `git checkout aae5e02 && pnpm install && pnpm build`
+Previous stable commit: `5f4dbb9` (March 27 — Goal Tracker, Coaching Insights, Export Modal, Global Search, Analytics Drill-Down)
+To rollback: `git checkout 5f4dbb9 && pnpm install && pnpm build`

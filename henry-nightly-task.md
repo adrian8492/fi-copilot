@@ -105,20 +105,39 @@ Target: 510+ tests passing (up from 479)
 - DealScoring and CoachingReportBuilder should use existing AppLayout sidebar
 
 ## Definition of Done
-- [ ] Deal Scoring Dashboard at /deal-scoring with composite score, table, KPI bar
-- [ ] Coaching Report Builder at /coaching-report with sections, preview, print
-- [ ] Product Performance Heatmap on Analytics + ProductMenu
-- [ ] Session Replay Timeline tab in SessionDetail
-- [ ] Real-Time Alerts Panel in LiveSession
-- [ ] 510+ tests passing
-- [ ] 0 TypeScript errors
-- [ ] Git commit + push
+- [x] Deal Scoring Dashboard at /deal-scoring with composite score, table, KPI bar
+- [x] Coaching Report Builder at /coaching-report with sections, preview, print
+- [x] Product Performance Heatmap on Analytics + ProductMenu
+- [x] Session Replay Timeline tab in SessionDetail
+- [x] Real-Time Alerts Panel in LiveSession
+- [x] 510+ tests passing (527/528)
+- [x] 0 TypeScript errors
+- [x] Git commit + push
 
 ## When Done
 1. Git add, commit: "feat: deal scoring dashboard, coaching report builder, product heatmap, session replay timeline, live alerts panel"
 2. Push to origin main
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md
+
+---
+
+## Prior Completion Notes
+
+### March 28, 2026
+
+**Completed by:** Henry (Claude Code) — 2026-03-28 ~22:48 PST
+
+All March 28 tasks completed:
+- **Deal Scoring Dashboard**: `DealScoring.tsx` at `/deal-scoring` — composite deal score (PVR 40%, Penetration 30%, Compliance 20%, Customer Sentiment 10%), sortable table with tier filter (All/Green/Yellow/Red), KPI summary bar (Avg Deal Score, % Green Deals, Total PVR, Best Deal Score). Added to sidebar nav.
+- **Coaching Report Builder**: `CoachingReportBuilder.tsx` at `/coaching-report` — manager selector, date range (Last 30 / Last 90 / Custom), 6 toggleable report sections (Performance Summary, Strength/Weakness Breakdown, Objection Patterns, Deal-by-Deal Table, Checklist Compliance, Coaching Recommendations), styled report preview below form, `window.print()` PDF download. Added to sidebar nav.
+- **Product Performance Heatmap**: `ProductHeatmap.tsx` — recharts heatmap grid (F&I products × days of week), color intensity by acceptance rate, hover tooltips with exact % and deal count. Added as "Product Heatmap" tab in Analytics.tsx and collapsible section in ProductMenu.tsx.
+- **Session Replay Timeline**: `SessionReplayTimeline.tsx` — horizontal visual timeline with colored event markers (compliance=red, objections=orange, product mentions=blue, checklist=green), click-to-scroll transcript, session arc grade display (first/middle/last third). Added as "Replay Timeline" tab in SessionDetail.tsx.
+- **Real-Time Alerts Panel**: `LiveAlertsPanel.tsx` — collapsible right panel in LiveSession.tsx, accumulates compliance warnings, low-score moments, objection detected, and missed product alerts, dismiss per alert + "Dismiss All", toggle button in LiveSession header.
+- **48 new tests** in `server/nightly-march28.test.ts` covering deal score weight calculations, tier thresholds, sort/filter, coaching report toggle logic, date range filtering, product heatmap aggregation (product×day), color intensity calculation, session replay event parsing, session arc grade calculation, live alerts accumulation, alert severity classification, KPI summary calculations.
+- **527/528 tests passing** (1 pre-existing deepgram failure)
+- `pnpm check`: 0 TypeScript errors
+- Git: `46cda49` — "feat: deal scoring dashboard, coaching report builder, product heatmap, session replay timeline, live alerts panel"
 
 ---
 
