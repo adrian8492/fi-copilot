@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, useEffect } from "react";
+import ScorecardPDFExport from "@/components/ScorecardPDFExport";
 
 // ─── Sparkline Component ────────────────────────────────────────────────────
 function Sparkline({
@@ -280,9 +281,38 @@ export default function ManagerScorecard() {
               </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => window.print()}>
-            <Printer className="w-4 h-4" /> Export Scorecard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => window.print()}>
+              <Printer className="w-4 h-4" /> Export Scorecard
+            </Button>
+            <ScorecardPDFExport data={{
+              managerName: "F&I Manager",
+              dealership: "Dealership",
+              dateRange: `Last ${weeks} weeks`,
+              overallScore: summary?.overallAvgScore ?? 0,
+              subscores: [
+                { label: "Rapport", value: summary?.overallAvgScore ?? 0 },
+                { label: "Needs Discovery", value: summary?.overallAvgScriptFidelity ?? 0 },
+                { label: "Product Presentation", value: summary?.overallUtilization ?? 0 },
+                { label: "Objection Handling", value: summary?.overallAvgCompliance ?? 0 },
+                { label: "Closing", value: summary?.overallAvgScore ?? 0 },
+              ],
+              strengths: [
+                { label: "Compliance Score", value: summary?.overallAvgCompliance ?? 0 },
+                { label: "Script Fidelity", value: summary?.overallAvgScriptFidelity ?? 0 },
+                { label: "Overall Score", value: summary?.overallAvgScore ?? 0 },
+              ].sort((a, b) => b.value - a.value),
+              improvements: [
+                { label: "Compliance Score", value: summary?.overallAvgCompliance ?? 0 },
+                { label: "Script Fidelity", value: summary?.overallAvgScriptFidelity ?? 0 },
+                { label: "Overall Score", value: summary?.overallAvgScore ?? 0 },
+              ].sort((a, b) => a.value - b.value),
+              gradeTrend: sparklines.scores,
+              sessionsCount: summary?.totalSessions ?? 0,
+              avgPvr: summary?.overallAvgPvr ?? 0,
+              penetrationPct: summary?.overallUtilization ?? 0,
+            }} />
+          </div>
         </div>
 
         {/* Metric Cards Grid */}

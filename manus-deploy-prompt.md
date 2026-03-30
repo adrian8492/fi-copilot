@@ -1,5 +1,5 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** March 28, 2026 — Build 46cda49
+**Updated:** March 29, 2026 — Build (pending commit)
 
 ## What to Deploy
 
@@ -9,6 +9,15 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 **Current URL:** https://finico-pilot-mqskutaj.manus.space/
 
 ## What's New in This Build
+
+### Build (latest) — March 29, 2026
+- **F&I Scorecard PDF Export:** `ScorecardPDFExport.tsx` — Print-optimized full-page PDF scorecard accessible from ManagerScorecard page via "Export Scorecard PDF" button. SVG score gauge with color ring, 5 subscore bars (Rapport, Needs Discovery, Product Presentation, Objection Handling, Closing), two-column strengths/improvements layout, grade trend sparkline, key metrics (sessions, PVR, penetration), ASURA OPS branding footer. `@media print` CSS hides app chrome and shows only the scorecard. "Print / Save as PDF" triggers `window.print()`.
+- **Trainer Dashboard:** `/trainer` — For coaches/trainers monitoring multiple managers. Top KPI bar (Total Managers, Avg Score This Month, Most Improved, Most At-Risk). Manager card grid with color coding (green ≥80, yellow 60–79, red <60), trend arrows (vs last month), PVR/compliance metrics, 4-week sparkline per card. Sort controls (Score/A-Z/Most Improved/At-Risk), dealership filter. "View Full Scorecard" link → `/scorecard?id=X`, "Send Coaching Note" modal with textarea (client-side toast). Added to sidebar nav.
+- **Deal Timeline:** `/deal-timeline` — Chronological timeline of all deals grouped by week (collapsible sections). Each deal shows date, customer, manager, dealership, score badge (color-coded), product badges, PVR. Sidebar filters: score tier (All/Green/Yellow/Red), manager, dealership. Summary strip: Deals This Week, Avg Deal Score, Best PVR, Total Revenue. "Export Timeline" downloads filtered deals as JSON. Click deal → `/session/:id`. Added to sidebar nav.
+- **Performance Benchmarking Panel:** `BenchmarkingPanel.tsx` — New "Benchmarking" tab in Analytics page. Horizontal grouped bar chart (recharts) comparing individual manager vs dealership average vs ASURA national benchmark (Avg Score 74, PVR $2,850, Penetration 61%) for 5 metrics. Gap analysis table with status (Above/Below/On Par). "Areas to Close" section with auto-generated 2–3 coaching actions. Manager selector dropdown. Top 10% thresholds shown (Score 91, PVR $3,900, Penetration 78%).
+- **Objection Trend Tracker:** `ObjectionTrendTracker.tsx` — New "Trends" tab in ObjectionAnalysis page. Line chart (recharts): 8-week objection frequency, one line per type (Price/Payment, Rate, Trade Value, Not Needed, Think About It). "Fastest Growing" and "Trending Down" badges on chart legend. Week-over-week comparison table (count, delta %, trend arrow). "Focus Area" callout card highlighting top objection with ASURA word track.
+- **Test Suite:** 579/580 passing (1 pre-existing deepgram env failure — acceptable). +52 new tests.
+- **TypeScript:** 0 errors
 
 ### Build 46cda49 — March 28, 2026
 - **Deal Scoring Dashboard:** `/deal-scoring` — Composite deal score (PVR 40%, Penetration 30%, Compliance 20%, Customer Sentiment 10%), color-coded 0–100 score (red/yellow/green), sortable table, tier filter (All/Green/Yellow/Red), KPI bar (Avg Deal Score, % Green Deals, Total PVR, Best Deal Score). Added to sidebar nav.
@@ -114,6 +123,11 @@ After deploy, verify:
 - `/leaderboard` — Leaderboard shows manager rankings with badges
 - ObjectionAnalysis page shows ASURA Playbook panel on right side
 - Admin-only pages (AdminPanel, DealershipSettings, ComplianceRules) show AccessDenied for non-admin users
+- ManagerScorecard → "Export Scorecard PDF" button opens print-optimized PDF view
+- `/trainer` — Trainer Dashboard shows manager grid with KPIs, coaching note modal
+- `/deal-timeline` — Deal Timeline shows week-grouped deals with filters and JSON export
+- Analytics → "Benchmarking" tab shows grouped bar chart and gap analysis table
+- ObjectionAnalysis → "Trends" tab shows 8-week trend lines and focus area card
 
 ## Known Issues / Notes
 
@@ -128,5 +142,5 @@ After deploy, verify:
 
 ## Rollback
 
-Previous stable commit: `5f4dbb9` (March 27 — Goal Tracker, Coaching Insights, Export Modal, Global Search, Analytics Drill-Down)
-To rollback: `git checkout 5f4dbb9 && pnpm install && pnpm build`
+Previous stable commit: `46cda49` (March 28 — Deal Scoring, Coaching Report Builder, Product Heatmap, Session Replay Timeline, Live Alerts Panel)
+To rollback: `git checkout 46cda49 && pnpm install && pnpm build`

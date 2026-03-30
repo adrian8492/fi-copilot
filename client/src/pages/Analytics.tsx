@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import WeeklyCoachingInsights from "@/components/WeeklyCoachingInsights";
 import ProductHeatmap from "@/components/ProductHeatmap";
+import BenchmarkingPanel from "@/components/BenchmarkingPanel";
 
 const PIE_COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16","#ec4899","#14b8a6"];
 
@@ -36,6 +37,7 @@ function MomDelta({ current, prior, prefix = "", suffix = "" }: { current: numbe
 export default function Analytics() {
   useEffect(() => { document.title = "Analytics | F&I Co-Pilot by ASURA Group"; }, []);
   const [selectedDealership, setSelectedDealership] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"overview" | "benchmarking">("overview");
   const { data: dealerships } = trpc.auth.myRooftops.useQuery();
   const { data: summary } = trpc.analytics.summary.useQuery();
   const { data: gradeTrend } = trpc.analytics.myGradeTrend.useQuery({ limit: 20 });
@@ -127,6 +129,36 @@ export default function Analytics() {
           </div>
         )}
 
+        {/* Tab Toggle */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
+              activeTab === "overview"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:border-primary/40"
+            )}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab("benchmarking")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
+              activeTab === "benchmarking"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:border-primary/40"
+            )}
+          >
+            Benchmarking
+          </button>
+        </div>
+
+        {activeTab === "benchmarking" ? (
+          <BenchmarkingPanel />
+        ) : (
+        <>
         {/* KPI Summary Row with MoM Deltas */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
@@ -292,6 +324,8 @@ export default function Analytics() {
               </p>
             </CardContent>
           </Card>
+        )}
+        </>
         )}
       </div>
     </AppLayout>

@@ -11,6 +11,7 @@ import {
 import { ShieldAlert, AlertTriangle, TrendingDown, CheckCircle2, XCircle, BookOpen, Search, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import ObjectionTrendTracker from "@/components/ObjectionTrendTracker";
 
 const PRODUCT_COLORS: Record<string, string> = {
   "Vehicle Service Contract": "#3b82f6",
@@ -132,7 +133,7 @@ function ObjectionPlaybook() {
   );
 }
 
-type ViewMode = "product" | "concern";
+type ViewMode = "product" | "concern" | "trends";
 
 export default function ObjectionAnalysis() {
   useEffect(() => { document.title = "Objection Analysis | F&I Co-Pilot by ASURA Group"; }, []);
@@ -192,8 +193,23 @@ export default function ObjectionAnalysis() {
           >
             By Concern Type
           </button>
+          <button
+            onClick={() => setViewMode("trends")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              viewMode === "trends"
+                ? "bg-blue-600 text-white"
+                : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"
+            }`}
+          >
+            Trends
+          </button>
         </div>
 
+        {/* Trends Tab */}
+        {viewMode === "trends" ? (
+          <ObjectionTrendTracker />
+        ) : (
+        <>
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-4">
           <Card className="bg-slate-800/50 border-slate-700">
@@ -359,6 +375,8 @@ export default function ObjectionAnalysis() {
               </div>
             </CardContent>
           </Card>
+        )}
+      </>
         )}
       </div>
 

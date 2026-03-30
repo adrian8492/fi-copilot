@@ -34,6 +34,8 @@ import {
   Target,
   Award,
   FileText,
+  GraduationCap,
+  Clock,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -65,6 +67,8 @@ const PERFORMANCE_ITEMS = [
   { path: "/goals", label: "Goal Tracker", icon: Target },
   { path: "/deal-scoring", label: "Deal Scoring", icon: Award },
   { path: "/coaching-report", label: "Coaching Report", icon: FileText },
+  { path: "/trainer", label: "Trainer Dashboard", icon: GraduationCap },
+  { path: "/deal-timeline", label: "Deal Timeline", icon: Clock },
 ];
 
 const ADMIN_ITEMS = [

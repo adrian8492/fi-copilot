@@ -42,6 +42,8 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const GoalTracker = lazy(() => import("./pages/GoalTracker"));
 const DealScoring = lazy(() => import("./pages/DealScoring"));
 const CoachingReportBuilder = lazy(() => import("./pages/CoachingReportBuilder"));
+const TrainerDashboard = lazy(() => import("./pages/TrainerDashboard"));
+const DealTimeline = lazy(() => import("./pages/DealTimeline"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -86,6 +88,8 @@ function Router() {
         <Route path="/goals" component={GoalTracker} />
         <Route path="/deal-scoring" component={DealScoring} />
         <Route path="/coaching-report" component={CoachingReportBuilder} />
+        <Route path="/trainer" component={TrainerDashboard} />
+        <Route path="/deal-timeline" component={DealTimeline} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
