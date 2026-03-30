@@ -1,5 +1,5 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** March 29, 2026 — Build (pending commit)
+**Updated:** March 29, 2026 — Build 8465f4c
 
 ## What to Deploy
 
@@ -10,7 +10,7 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 
 ## What's New in This Build
 
-### Build (latest) — March 29, 2026
+### Build 8465f4c — March 29, 2026
 - **F&I Scorecard PDF Export:** `ScorecardPDFExport.tsx` — Print-optimized full-page PDF scorecard accessible from ManagerScorecard page via "Export Scorecard PDF" button. SVG score gauge with color ring, 5 subscore bars (Rapport, Needs Discovery, Product Presentation, Objection Handling, Closing), two-column strengths/improvements layout, grade trend sparkline, key metrics (sessions, PVR, penetration), ASURA OPS branding footer. `@media print` CSS hides app chrome and shows only the scorecard. "Print / Save as PDF" triggers `window.print()`.
 - **Trainer Dashboard:** `/trainer` — For coaches/trainers monitoring multiple managers. Top KPI bar (Total Managers, Avg Score This Month, Most Improved, Most At-Risk). Manager card grid with color coding (green ≥80, yellow 60–79, red <60), trend arrows (vs last month), PVR/compliance metrics, 4-week sparkline per card. Sort controls (Score/A-Z/Most Improved/At-Risk), dealership filter. "View Full Scorecard" link → `/scorecard?id=X`, "Send Coaching Note" modal with textarea (client-side toast). Added to sidebar nav.
 - **Deal Timeline:** `/deal-timeline` — Chronological timeline of all deals grouped by week (collapsible sections). Each deal shows date, customer, manager, dealership, score badge (color-coded), product badges, PVR. Sidebar filters: score tier (All/Green/Yellow/Red), manager, dealership. Summary strip: Deals This Week, Avg Deal Score, Best PVR, Total Revenue. "Export Timeline" downloads filtered deals as JSON. Click deal → `/session/:id`. Added to sidebar nav.
@@ -98,7 +98,7 @@ See `ENV_REFERENCE.md` in the repo root for full documentation of each variable.
 
 ## Deployment Steps
 
-1. Pull latest from `origin/main` (commit `46cda49`)
+1. Pull latest from `origin/main` (commit `8465f4c`)
 2. Install dependencies: `pnpm install --frozen-lockfile`
 3. Build client: `pnpm build`
 4. Run database migrations: `pnpm db:push` (or apply migration SQL from `drizzle/` folder)
