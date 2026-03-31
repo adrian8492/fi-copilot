@@ -1,5 +1,5 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** March 29, 2026 — Build 8465f4c
+**Updated:** March 30, 2026 — Build 2e1181e
 
 ## What to Deploy
 
@@ -9,6 +9,15 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 **Current URL:** https://finico-pilot-mqskutaj.manus.space/
 
 ## What's New in This Build
+
+### Build 2e1181e — March 30, 2026
+- **Multi-Location Rollup Dashboard:** `/multi-location` — Dealer group operators view for monitoring multiple rooftops. Top KPI bar (Total Locations, Combined PVR, Best/Lowest Performing Location). Location card grid with color coding (green ≥80, yellow 60–79, red <60), trend arrows, manager count, avg PVR, penetration %. Sort controls (Score/Alphabetical/PVR/Most Improved). Combined grade trend chart (recharts Line, all locations overlaid, 12 weeks). "Export Rollup" JSON download. Click card → dealership detail. New "Operations" sidebar section.
+- **Lender Rate Comparison Panel:** `LenderComparison.tsx` — New "Lender Rates" toggle in ProductMenu. 5 demo lenders (Capital One Auto, Ally Financial, Chase Auto, Wells Fargo Dealer, US Bank DFS). Rate table with color-coded best/worst rates. Credit tier selector (Tier 1–4). Rate calculator (amount + term → estimated monthly payment per lender). Reserve spread bar chart (recharts). "Best Match" highlight badge for optimal lender per tier.
+- **Shift Performance View:** `/shift-performance` — Day-of-week × shift heatmap (Mon–Sat × Morning/Afternoon/Evening) with color-coded avg deal scores. Cell tooltips showing score, deal count, avg PVR. Summary bar (Best/Worst Performing Shift, Peak Deal Volume). Hourly line chart (score by hour 0–23). Manager/dealership/date range filters. Auto-generated "Staffing Insight" callout with scheduling recommendation.
+- **Training Curriculum Tracker:** `/training` — ASURA OPS training module tracker with 6 modules (22 lessons). Module cards with progress bars, status badges (Not Started/In Progress/Completed). Expandable lesson checkboxes with localStorage persistence. Overall progress ring. "Assign Training" modal. Completion celebration card when all modules complete.
+- **Session Tags & Notes:** `SessionTags.tsx` — Tag and notes system on SessionDetail page. 6 predefined color-coded tags (Hot Lead, Follow Up, Coaching Moment, Great Close, Compliance Issue, Escalation) + custom tags. Notes textarea with pin support. All localStorage-persisted by session ID.
+- **Test Suite:** 645/646 passing (1 pre-existing deepgram env failure — acceptable). +66 new tests.
+- **TypeScript:** 0 errors
 
 ### Build 8465f4c — March 29, 2026
 - **F&I Scorecard PDF Export:** `ScorecardPDFExport.tsx` — Print-optimized full-page PDF scorecard accessible from ManagerScorecard page via "Export Scorecard PDF" button. SVG score gauge with color ring, 5 subscore bars (Rapport, Needs Discovery, Product Presentation, Objection Handling, Closing), two-column strengths/improvements layout, grade trend sparkline, key metrics (sessions, PVR, penetration), ASURA OPS branding footer. `@media print` CSS hides app chrome and shows only the scorecard. "Print / Save as PDF" triggers `window.print()`.
