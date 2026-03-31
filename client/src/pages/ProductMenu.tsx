@@ -16,6 +16,7 @@ import {
   Package, Plus, Edit2, Trash2, DollarSign, Clock, Gauge, Loader2, ChevronUp, ChevronDown, Grid3X3,
 } from "lucide-react";
 import ProductHeatmap from "@/components/ProductHeatmap";
+import LenderComparison from "@/components/LenderComparison";
 
 const PRODUCT_TYPES = [
   { value: "vehicle_service_contract", label: "Vehicle Service Contract (VSC)" },
@@ -68,6 +69,7 @@ export default function ProductMenu() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showLenderRates, setShowLenderRates] = useState(false);
 
   const { data: products, isLoading, refetch } = trpc.productMenu.list.useQuery();
 
@@ -277,17 +279,29 @@ export default function ProductMenu() {
       </div>
 
       {/* Performance Heatmap Section */}
-      <div className="px-6 pb-4">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 mb-3"
-          onClick={() => setShowHeatmap((v) => !v)}
-        >
-          <Grid3X3 className="w-4 h-4" />
-          {showHeatmap ? "Hide" : "Show"} Performance Heatmap
-        </Button>
+      <div className="px-6 pb-4 space-y-3">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowHeatmap((v) => !v)}
+          >
+            <Grid3X3 className="w-4 h-4" />
+            {showHeatmap ? "Hide" : "Show"} Performance Heatmap
+          </Button>
+          <Button
+            variant={showLenderRates ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowLenderRates((v) => !v)}
+          >
+            <DollarSign className="w-4 h-4" />
+            {showLenderRates ? "Hide" : "Show"} Lender Rates
+          </Button>
+        </div>
         {showHeatmap && <ProductHeatmap />}
+        {showLenderRates && <LenderComparison />}
       </div>
 
       {/* Create / Edit Dialog */}

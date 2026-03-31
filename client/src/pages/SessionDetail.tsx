@@ -26,6 +26,7 @@ import { AsuraScorecard } from "@/components/AsuraScorecard";
 import { ComplianceReport } from "@/components/ComplianceReport";
 import { ProductIntelligenceTab } from "@/components/ProductIntelligenceTab";
 import SessionReplayTimeline from "@/components/SessionReplayTimeline";
+import SessionTags from "@/components/SessionTags";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -428,6 +429,9 @@ export default function SessionDetail() {
         </div>
 
         {/* Quick Coaching Insights */}
+        {/* Session Tags & Notes */}
+        <SessionTags sessionId={String(sessionId)} />
+
         {grade && (
           <Card className="bg-gradient-to-r from-primary/5 to-transparent border-primary/20">
             <CardContent className="p-4">

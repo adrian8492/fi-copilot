@@ -36,6 +36,9 @@ import {
   FileText,
   GraduationCap,
   Clock,
+  Building2,
+  Timer,
+  BookOpen,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -69,6 +72,12 @@ const PERFORMANCE_ITEMS = [
   { path: "/coaching-report", label: "Coaching Report", icon: FileText },
   { path: "/trainer", label: "Trainer Dashboard", icon: GraduationCap },
   { path: "/deal-timeline", label: "Deal Timeline", icon: Clock },
+  { path: "/shift-performance", label: "Shift Performance", icon: Timer },
+  { path: "/training", label: "Training Curriculum", icon: BookOpen },
+];
+
+const OPERATIONS_ITEMS = [
+  { path: "/multi-location", label: "Multi-Location Rollup", icon: Building2 },
 ];
 
 const ADMIN_ITEMS = [
@@ -182,6 +191,13 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             <div className="pt-4">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Performance</p>
               {PERFORMANCE_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+                <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
+              ))}
+            </div>
+
+            <div className="pt-4">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Operations</p>
+              {OPERATIONS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                 <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
               ))}
             </div>

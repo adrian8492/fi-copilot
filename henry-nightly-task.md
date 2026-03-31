@@ -1,122 +1,139 @@
-# Henry Nightly Task — March 29, 2026
+# Henry Nightly Task — March 30, 2026
 
-## Priority: HIGH — F&I Scorecard PDF Export, Trainer Dashboard, Deal Timeline View, Performance Benchmarking Panel, Objection Trend Tracker, Test Coverage Expansion
+## Priority: HIGH — Multi-Location Rollup, Lender Rate Comparison, Shift Performance View, Training Curriculum Tracker, Session Tags, Test Coverage Expansion
 
 ## Context
-Previous build (March 28) completed: Deal Scoring Dashboard, Coaching Report Builder, Product Performance Heatmap, Session Replay Timeline, Real-Time Alerts Panel.
-Current test state: 527/528 passing (1 pre-existing deepgram env var failure).
-Git: c2bf3f1 — docs: update nightly task completion notes and manus deploy prompt for March 28 build
+Previous build (March 29) completed: F&I Scorecard PDF Export, Trainer Dashboard, Deal Timeline View, Performance Benchmarking Panel, Objection Trend Tracker.
+Current test state: 579/580 passing (1 pre-existing deepgram env var failure).
+Git: ed705c4 — docs: update nightly task completion notes and manus deploy prompt for March 29 build
 TypeScript: 0 errors — clean baseline.
 
 All pages exist: Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
 AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
 DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison,
-SessionPrintReport, NotificationCenter, Leaderboard, GoalTracker, DealScoring, CoachingReportBuilder.
+SessionPrintReport, NotificationCenter, Leaderboard, GoalTracker, DealScoring, CoachingReportBuilder,
+TrainerDashboard, DealTimeline.
 
 ## Tonight's Tasks
 
-### 1. F&I Scorecard PDF Export (HIGH)
-New component `ScorecardPDFExport.tsx`:
-- Available from `ManagerScorecard.tsx` as an "Export Scorecard PDF" button
-- Generates a print-optimized full-page PDF scorecard layout (via `window.print()` on hidden div, similar to SessionPrintReport)
-- Scorecard content:
-  - Manager name, dealership, date range
-  - Overall score gauge (big centered number, color ring)
-  - 5 subscore bars (Rapport, Needs Discovery, Product Presentation, Objection Handling, Closing)
-  - Top 3 Strengths / Top 3 Improvement Areas (styled two-column layout)
-  - Grade trend sparkline (last 30 days)
-  - Sessions count, PVR avg, penetration %
-  - ASURA OPS branding footer
-- Print CSS scoped to the export container
-- "Print / Save as PDF" button triggers `window.print()`
-- Add `@media print` CSS that hides the rest of the app and shows only the scorecard
-- Wire button into ManagerScorecard.tsx next to existing Export button
+### 1. Multi-Location Rollup Dashboard (HIGH)
+New page `MultiLocationRollup.tsx` at `/multi-location`:
+- For dealer group operators managing multiple rooftops from one view
+- Top KPI bar: Total Locations, Combined PVR, Best Performing Location, Lowest Performing Location
+- Location grid (card layout): each card shows dealership name, manager count, avg score, avg PVR, penetration %, trend arrow (up/down/flat vs prior month)
+- Color coding per card: green (avg score ≥80), yellow (60–79), red (<60)
+- Sort controls: by Score / Alphabetical / PVR / Most Improved
+- Click card → navigates to `/settings` (dealership detail)
+- Combined grade trend chart (recharts Line): all locations overlaid, one line per location, last 12 weeks
+- "Export Rollup" button downloads JSON summary of all locations
+- Add to sidebar nav under a new "Operations" section after the Performance section
+- Lazy-loaded route in App.tsx at `/multi-location`
 
-### 2. Trainer Dashboard (HIGH)
-New page `TrainerDashboard.tsx` at `/trainer`:
-- For ASURA coaches/trainers monitoring multiple managers simultaneously
-- Top KPI bar: Total Managers Tracked, Avg Score This Month, Most Improved Manager, Most At-Risk Manager
-- Manager grid (card layout): each card shows manager name, dealership, current score, trend arrow (up/down/flat vs last month), PVR, compliance %, and a mini 4-week sparkline
-- Color coding per card: green (score ≥80), yellow (60–79), red (<60)
-- Sort controls: by Score / Alphabetical / Most Improved / Most At-Risk
-- Filter by dealership dropdown
-- "View Full Scorecard" link per card → navigates to `/manager-scorecard?id=X`
-- "Send Coaching Note" button per card (opens a modal with a textarea and send button — client-side only, shows success toast)
-- Add to sidebar nav under "Coaching" section
-- Lazy-loaded route in App.tsx at `/trainer`
+### 2. Lender Rate Comparison Panel (HIGH)
+New component `LenderComparison.tsx`:
+- Accessible from ProductMenu page as a new tab "Lender Rates"
+- Hard-coded demo lender data (5 lenders: Capital One Auto, Ally Financial, Chase Auto, Wells Fargo Dealer, US Bank DFS)
+- Table columns: Lender Name, Base Rate (APR%), Buydown Rate, Reserve Spread, Max Term (months), Min Credit Score
+- Color coding: best rate highlighted green, worst red
+- "Rate Calculator" section: input fields for Amount Financed + Term + Credit Tier → shows estimated monthly payment per lender
+- Bar chart (recharts): visual comparison of reserve spread across lenders for selected credit tier
+- Credit tier selector: Tier 1 (720+), Tier 2 (680-719), Tier 3 (620-679), Tier 4 (<620)
+- "Best Match" highlight: auto-highlights the lender with best reserve opportunity for selected tier
 
-### 3. Deal Timeline View (HIGH)
-New page `DealTimeline.tsx` at `/deal-timeline`:
-- Visual chronological timeline of all deals (sessions) sorted by date
-- Group by week (collapsible week sections)
-- Each deal entry shows: date/time, customer name, F&I manager, deal score (from DealScoring logic), products sold (badge list), grade badge, PVR
-- Click a deal → navigates to `/session/:id`
-- Sidebar filters: Date Range picker, Manager selector, Score tier (All/Green/Yellow/Red), Dealership
-- Summary strip at top: Total Deals This Week, Avg Deal Score, Best PVR, Total F&I Revenue
-- "Export Timeline" button downloads JSON of filtered deals
-- Add to sidebar nav under "Analytics"
-- Lazy-loaded route at `/deal-timeline`
+### 3. Shift Performance View (HIGH)
+New page `ShiftPerformance.tsx` at `/shift-performance`:
+- Analyze F&I performance by time-of-day and day-of-week
+- Heatmap grid (recharts): rows = days of week (Mon-Sat), columns = shifts (Morning 8-12, Afternoon 12-5, Evening 5-9)
+- Cell color = avg deal score for that day+shift combo (green/yellow/red)
+- Cell tooltip: avg score, deal count, avg PVR for that slot
+- Summary bar: Best Performing Shift, Worst Performing Shift, Peak Deal Volume shift
+- Below heatmap: line chart showing avg deal score by hour-of-day (0-23)
+- Filter by manager, dealership, date range (last 30/60/90 days)
+- "Staffing Insight" callout: auto-generated text like "Your strongest scores happen Tuesday afternoons — consider scheduling your top closer there"
+- Data computed client-side from session timestamps + scores
+- Add to sidebar nav under "Analytics" section (after Deal Timeline)
+- Lazy-loaded route at `/shift-performance`
 
-### 4. Performance Benchmarking Panel (MEDIUM)
-New component `BenchmarkingPanel.tsx`:
-- Accessible from the Analytics page as a new tab "Benchmarking"
-- Shows individual manager's scores vs:
-  - Dealership average
-  - ASURA national benchmark (hard-coded demo values: Avg Score 74, PVR $2,850, Penetration 61%)
-  - Top 10% threshold (hard-coded: Score 91, PVR $3,900, Penetration 78%)
-- Horizontal grouped bar chart (recharts) showing manager vs dealership avg vs national benchmark for 5 metrics
-- Gap analysis table: metric, current, benchmark, gap, status (Above/Below/On Par)
-- "Areas to Close" section: auto-generated 2–3 bullet coaching actions based on gap analysis
-- Manager selector dropdown at top
+### 4. Training Curriculum Tracker (MEDIUM)
+New page `TrainingCurriculum.tsx` at `/training`:
+- Track F&I manager progress through ASURA OPS training modules
+- Module list (hard-coded demo curriculum):
+  1. "The Menu Order System" — 4 lessons
+  2. "The Upgrade Architecture" — 3 lessons
+  3. "The Objection Prevention Framework" — 5 lessons
+  4. "The Coaching Cadence" — 3 lessons
+  5. "Compliance Essentials" — 4 lessons
+  6. "Advanced Closing Techniques" — 3 lessons
+- Each module card shows: module name, lesson count, completion % (progress bar), status badge (Not Started / In Progress / Completed)
+- Click module → expands to show individual lessons with checkboxes (toggle complete, persisted in localStorage)
+- Overall progress ring at top: X of 22 lessons completed, % complete
+- "Assign Training" button: opens modal to select a manager from dropdown and assign a module (client-side only, shows toast)
+- Completion certificate preview: when all modules complete, show a "Training Complete" celebration card with confetti emoji
+- Add to sidebar nav under "Coaching" section (after Trainer Dashboard)
+- Lazy-loaded route at `/training`
 
-### 5. Objection Trend Tracker (MEDIUM)
-New component `ObjectionTrendTracker.tsx`:
-- Accessible from `ObjectionAnalysis.tsx` as a new tab "Trends"
-- Line chart (recharts): objection frequency over last 8 weeks, one line per objection type (Price/Payment, Rate, Trade Value, Not Needed, Think About It)
-- "Fastest Growing" and "Trending Down" badges on the chart legend
-- Below chart: table showing objection type, count this week, count last week, delta %, trend arrow
-- "Focus Area" highlight: top objection type this week shown in a callout card with the ASURA word track for that objection
-- Data sourced client-side from sessions loaded via existing tRPC
+### 5. Session Tags & Notes System (MEDIUM)
+New component `SessionTags.tsx`:
+- Displayed on SessionDetail page below the grade section
+- Tag system: predefined tags (Hot Lead, Follow Up, Coaching Moment, Great Close, Compliance Issue, Escalation) + custom tag input
+- Tags displayed as colored badges (each predefined tag has a consistent color)
+- Click tag to remove, "+" button to add from predefined list or type custom
+- Notes section below tags: textarea for free-form session notes
+- All data persisted in localStorage keyed by session ID
+- "Pinned Notes" section: checkbox to pin important notes (shows yellow star)
+- Tags filterable from SessionHistory page: add tag filter dropdown to existing filters
+- When tags exist for a session, show tag count badge on the session row in SessionHistory
 
-### 6. Expand Test Suite to 560+ (MEDIUM)
-Add `server/nightly-march29.test.ts` with tests for:
-- Scorecard PDF export data formatting (score formatting, subscore array structure)
-- Trainer dashboard KPI calculations (avg score, most improved = largest positive delta, most at-risk = lowest score)
-- Manager card color tier logic (green/yellow/red thresholds — same as deal scoring)
-- Deal timeline grouping by week (ISO week, correct week boundaries)
-- Deal timeline filtering (by date range, score tier, manager, dealership)
-- Deal timeline summary strip calculations (avg deal score, total PVR, best PVR)
-- Benchmarking gap calculation (current vs benchmark, gap absolute and %)
-- Benchmarking status logic ("Above" if current > benchmark, "Below" if current < benchmark by >5%, "On Par" otherwise)
-- Coaching action generation from gaps (array length 2–3, triggered only when below benchmark)
-- Objection trend line data shaping (8 weeks × 5 types matrix)
-- "Fastest Growing" detection (largest positive week-over-week delta)
-- "Trending Down" detection (largest negative week-over-week delta)
-- Objection word track lookup (returns correct track for each objection type)
-Target: 560+ tests passing (up from 527)
+### 6. Expand Test Suite to 620+ (MEDIUM)
+Add `server/nightly-march30.test.ts` with tests for:
+- Multi-location rollup KPI calculations (combined PVR = weighted avg, best/lowest location detection)
+- Location card color tier logic (green/yellow/red thresholds)
+- Location sort logic (by score, alphabetical, PVR, most improved)
+- Lender comparison rate data structure (5 lenders, required fields present)
+- Rate calculator payment formula (A * r(1+r)^n / ((1+r)^n - 1) where r = monthly rate)
+- Best match detection (highest reserve spread for given tier)
+- Credit tier threshold validation (720+, 680-719, 620-679, <620)
+- Shift performance heatmap data shaping (7 days × 3 shifts matrix)
+- Peak shift detection (shift with highest avg score)
+- Hour-of-day aggregation (24-bucket array from session timestamps)
+- Staffing insight generation (text includes best shift day + time)
+- Training curriculum module structure (6 modules, 22 total lessons)
+- Module completion percentage calculation (completed/total × 100)
+- Overall progress calculation (sum of completed across all modules)
+- Lesson toggle logic (complete/incomplete state transitions)
+- Session tag operations (add, remove, predefined color mapping)
+- Session tag persistence key format (sessionId-based)
+- Pinned notes logic (pin/unpin toggle, pinned notes sorted first)
+- Tag filter matching (session matches if it has any of selected tags)
+- Tag count badge calculation (count of tags per session)
+Target: 620+ tests passing (up from 579)
 
 ## Technical Notes
 - No build step for dev — Vite dev server, vanilla tRPC
-- Tests: pnpm test (target: 560+/561)
+- Tests: pnpm test (target: 620+/621)
 - TypeScript: pnpm check (target: 0 errors)
 - The 1 deepgram.test.ts failure is pre-existing and acceptable
 - Use recharts for all charts (already installed)
 - New pages must be lazy-loaded in App.tsx with React.Suspense
-- Print CSS for ScorecardPDFExport follows same pattern as SessionPrintReport.tsx
-- TrainerDashboard and DealTimeline use existing AppLayout sidebar
+- New pages use existing AppLayout sidebar
+- Add "Operations" nav section in AppLayout for Multi-Location Rollup
+- Training Curriculum uses localStorage for lesson completion persistence
+- Session Tags use localStorage keyed by session ID
+- Lender data is hard-coded demo data (no backend needed)
+- Shift Performance computes from existing session data (timestamps + scores)
 
 ## Definition of Done
-- [x] ScorecardPDFExport component wired into ManagerScorecard with print CSS
-- [x] Trainer Dashboard at /trainer with manager grid, KPIs, coaching note modal
-- [x] Deal Timeline at /deal-timeline with week grouping, filters, export
-- [x] Performance Benchmarking Panel as Analytics tab
-- [x] Objection Trend Tracker as ObjectionAnalysis tab
-- [x] 560+ tests passing
-- [x] 0 TypeScript errors
-- [x] Git commit + push
+- [ ] Multi-Location Rollup at /multi-location with location grid, KPIs, combined trend chart, export
+- [ ] Lender Rate Comparison as ProductMenu tab with calculator and bar chart
+- [ ] Shift Performance at /shift-performance with heatmap, hour chart, staffing insight
+- [ ] Training Curriculum at /training with module cards, lesson checkboxes, progress ring
+- [ ] Session Tags & Notes on SessionDetail with localStorage persistence + SessionHistory filter
+- [ ] 620+ tests passing
+- [ ] 0 TypeScript errors
+- [ ] Git commit + push
 
 ## When Done
-1. Git add, commit: "feat: scorecard PDF export, trainer dashboard, deal timeline, benchmarking panel, objection trend tracker"
+1. Git add, commit: "feat: multi-location rollup, lender comparison, shift performance, training curriculum, session tags"
 2. Push to origin main
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md
@@ -139,8 +156,6 @@ All March 29 tasks completed:
 - **579/580 tests passing** (1 pre-existing deepgram failure)
 - `pnpm check`: 0 TypeScript errors
 
----
-
 ### March 28, 2026
 
 **Completed by:** Henry (Claude Code) — 2026-03-28 ~22:48 PST
@@ -151,211 +166,32 @@ All March 28 tasks completed:
 - **Product Performance Heatmap**: `ProductHeatmap.tsx` — recharts heatmap grid (F&I products × days of week), color intensity by acceptance rate, hover tooltips with exact % and deal count. Added as "Product Heatmap" tab in Analytics.tsx and collapsible section in ProductMenu.tsx.
 - **Session Replay Timeline**: `SessionReplayTimeline.tsx` — horizontal visual timeline with colored event markers (compliance=red, objections=orange, product mentions=blue, checklist=green), click-to-scroll transcript, session arc grade display (first/middle/last third). Added as "Replay Timeline" tab in SessionDetail.tsx.
 - **Real-Time Alerts Panel**: `LiveAlertsPanel.tsx` — collapsible right panel in LiveSession.tsx, accumulates compliance warnings, low-score moments, objection detected, and missed product alerts, dismiss per alert + "Dismiss All", toggle button in LiveSession header.
-- **48 new tests** in `server/nightly-march28.test.ts` covering deal score weight calculations, tier thresholds, sort/filter, coaching report toggle logic, date range filtering, product heatmap aggregation (product×day), color intensity calculation, session replay event parsing, session arc grade calculation, live alerts accumulation, alert severity classification, KPI summary calculations.
+- **48 new tests** in `server/nightly-march28.test.ts`
 - **527/528 tests passing** (1 pre-existing deepgram failure)
-- `pnpm check`: 0 TypeScript errors
-- Git: `46cda49` — "feat: deal scoring dashboard, coaching report builder, product heatmap, session replay timeline, live alerts panel"
-
----
-
-# Henry Nightly Task — March 27, 2026
-
-## Priority: HIGH — Goal Tracker, AI Coaching Insights, Session Export (CSV/JSON), Search Enhancements, Analytics Deep Dive
-
-## Context
-Previous build (March 26) completed: Notification Center, Leaderboard, Objection Playbook panel, Role-Based Access UI guards, Session History stats bar, Dashboard activity feed.
-Current test state: 445/446 passing (1 pre-existing deepgram env var failure).
-Git: 29eaa78 — docs: update manus deploy prompt for March 26 build
-TypeScript: 0 errors — clean baseline.
-
-All pages exist: Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
-AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
-DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison,
-SessionPrintReport, NotificationCenter, Leaderboard.
-
-## Tonight's Tasks
-
-### 1. Monthly Goal Tracker (HIGH)
-New page `GoalTracker.tsx` at `/goals`:
-- F&I managers set monthly PVR and product penetration goals
-- UI: "Set Goal" form — metric selector (PVR / Product Penetration / Compliance Score / Overall Score), target value, time period (month)
-- Progress bar per goal showing current vs target with % complete
-- Pull current performance from `analytics.summary` tRPC procedure
-- Hard-coded default goals for demo: PVR $3,200, Penetration 68%, Compliance 95%, Score 82/100
-- Goal cards: metric name, target, current, gap ("$247 behind"), color-coded (red/yellow/green)
-- Add to AppLayout sidebar nav
-- Add lazy-loaded route in App.tsx at `/goals`
-
-### 2. AI Coaching Insights — Weekly Summary Card (HIGH)
-New component `WeeklyCoachingInsights.tsx`:
-- Pull last 7 days of sessions + grades via existing tRPC procedures
-- Generate client-side summary:
-  - Best performing area (highest avg subscore)
-  - Weakest area (lowest avg subscore) — "Focus Here This Week"
-  - Grade trend: up/down/flat vs prior 7 days
-  - Most common objection type from `objections.byProduct` (if data available)
-  - Streak: consecutive sessions above 80
-- Surface as a card on Dashboard (replace or augment the ASURA OPS scorecard widget position)
-- Also accessible as a standalone panel on the Analytics page (bottom section)
-- No new tRPC procedures — compute client-side from existing data
-
-### 3. Session Export — CSV and JSON (HIGH)
-Enhance `SessionHistory.tsx`:
-- Existing CSV export button already exports basic session data
-- Replace/enhance with Export Modal:
-  - Format: CSV or JSON
-  - Scope: Current page / All sessions / Date range (start/end date pickers)
-  - Fields to include: checkboxes for Transcript, Grade, Compliance Flags, Deal Details
-  - "Export" button triggers download
-  - CSV: flat structure (one row per session, grade columns appended)
-  - JSON: full nested object per session
-- Wire to existing `sessions.exportCsv` tRPC procedure for CSV
-- For JSON: client-side construction from already-loaded data + `sessions.list` full fetch
-- Show export progress indicator for large exports (>50 sessions)
-
-### 4. Global Search (MEDIUM)
-New component `GlobalSearch.tsx`:
-- Keyboard shortcut: Cmd+K (or Ctrl+K) opens a command palette modal
-- Search across: sessions (by customer name, deal number), objections (by keyword), customers (by name)
-- Results grouped by type with icons
-- Click to navigate
-- Wire to existing `sessions.search` tRPC proc + client-side filter of loaded customers
-- Add Cmd+K listener in AppLayout
-- Escape to close
-- Show recent searches (localStorage, last 5)
-
-### 5. Analytics — Drill-Down by Dealership (MEDIUM)
-Enhance `Analytics.tsx`:
-- Add dealership selector dropdown at the top (pull from `dealerships.list` tRPC)
-- Filter all charts to selected dealership (pass dealershipId to existing queries where supported)
-- Add "Comparison Mode" toggle: show two dealerships side-by-side on grade trend chart
-- Add Net Revenue Estimate panel: sessions × avg PVR estimate, styled as a KPI card
-- Show month-over-month delta for each KPI card (vs prior 30 days)
-
-### 6. Expand Test Suite to 470+ (MEDIUM)
-Add `server/nightly-march27.test.ts` with tests for:
-- Goal tracker default goals structure (unit: correct metric names, targets)
-- Goal progress calculation (current vs target, % complete, gap, color logic)
-- Weekly coaching insights: best/worst area calculation from grade array
-- Weekly coaching insights: streak calculation (consecutive sessions >80)
-- Session export scope filter logic (current page vs all vs date range)
-- Global search result grouping (sessions vs objections vs customers)
-- Analytics dealership filter (query param passes through correctly)
-- Net revenue estimate calculation (sessions × PVR)
-- MoM delta calculation (current 30d vs prior 30d)
-Target: 470+ tests passing (up from 445)
-
-## Technical Notes
-- No build step for dev — Vite dev server, vanilla tRPC
-- Tests: pnpm test (target: 470+/471)
-- TypeScript: pnpm check (target: 0 errors)
-- The 1 deepgram.test.ts failure is pre-existing and acceptable
-- Use recharts for progress/sparkline visuals (already installed)
-- New pages must be lazy-loaded in App.tsx with React.Suspense
-- GlobalSearch modal: use cmdk or build with existing shadcn Dialog + Command component
-
-## Definition of Done
-- [x] Goal Tracker page at /goals with progress cards
-- [x] Weekly Coaching Insights card on Dashboard + Analytics
-- [x] Session Export modal with CSV/JSON/scope options
-- [x] Global Search (Cmd+K) command palette
-- [x] Analytics dealership drill-down + MoM deltas
-- [x] 470+ tests passing
-- [x] 0 TypeScript errors
-- [x] Git commit + push
-
-## When Done
-1. Git add, commit: "feat: goal tracker, coaching insights, session export modal, global search, analytics drill-down"
-2. Push to origin main
-3. Update this file with completion notes
-4. Write/update manus-deploy-prompt.md
-
----
-
-## Prior Completion Notes
 
 ### March 27, 2026
 
 **Completed by:** Henry (Claude Code) — 2026-03-27 ~22:10 PST
 
 All March 27 tasks completed:
-- **Goal Tracker**: `GoalTracker.tsx` at `/goals` — set monthly PVR/Penetration/Compliance/Score goals with form, progress bars (color-coded red/yellow/green), gap text ("$247 behind" / "On Track!"), default demo goals pre-populated, pulls current metrics from `analytics.summary`.
-- **Weekly Coaching Insights**: `WeeklyCoachingInsights.tsx` — client-side computed card showing best/weakest performance area (from 5 subscores), grade trend (up/down/flat vs prior 7 days), consecutive session streak (>=80), displayed on Dashboard (full-width) and Analytics (bottom section).
-- **Session Export Modal**: `SessionExportModal.tsx` — replaces simple CSV button in SessionHistory with full modal: CSV/JSON format toggle, scope selector (Current Page/All/Date Range with date pickers), field checkboxes (Transcript/Grade/Compliance/Deal Details), progress indicator for large exports.
-- **Global Search (Cmd+K)**: `GlobalSearch.tsx` — command palette modal with `useGlobalSearchShortcut` hook in AppLayout, searches sessions via `sessions.search` tRPC, grouped results with icons, keyboard navigation (arrows/enter/escape), recent searches in localStorage (last 5).
-- **Analytics Drill-Down**: Dealership selector using `auth.myRooftops`, MoM delta indicators on KPI cards (score, PVR), Net Revenue Estimate panel (sessions × avg PVR), 5-column KPI grid.
-- **34 new tests** in `server/nightly-march27.test.ts` covering goal defaults/progress/color logic, coaching insights best/worst area + streak, export scope filtering, search grouping, dealership filter params, net revenue calculation, MoM delta calculation.
-- **479/480 tests passing** (1 pre-existing deepgram failure)
-- `pnpm check`: 0 TypeScript errors
-- Git: `2823d1f` — "feat: goal tracker, coaching insights, session export modal, global search, analytics drill-down"
+- **Goal Tracker**: `GoalTracker.tsx` at `/goals` — monthly goals with progress bars, gap text, default demo goals.
+- **Weekly Coaching Insights**: `WeeklyCoachingInsights.tsx` — best/weakest area, grade trend, streak counter.
+- **Session Export Modal**: `SessionExportModal.tsx` — CSV/JSON format, scope selector, field checkboxes, progress indicator.
+- **Global Search (Cmd+K)**: `GlobalSearch.tsx` — command palette, tRPC search, keyboard nav, recent searches.
+- **Analytics Drill-Down**: Dealership selector, MoM delta indicators, Net Revenue Estimate panel.
+- **34 new tests** — 479/480 passing
 
 ### March 26, 2026
-
-**Completed by:** Henry (Claude Code) — 2026-03-26 ~22:55 PST
-
-All March 26 tasks completed:
-- **Notification Center**: `NotificationCenter.tsx` at `/notifications` — filter tabs (All/Unread/Critical/Warnings), mark all read, severity icons, session links, empty state. "View All Notifications" link added to AlertBell dropdown.
-- **Leaderboard**: `Leaderboard.tsx` at `/leaderboard` — weekly performance rankings by Overall Score/PVR/Product Penetration/Compliance, time period toggles (30/90/All), rank badges (gold/silver/bronze), best week highlight.
-- **Objection Playbook**: ObjectionAnalysis right-side panel with all 10 ASURA word tracks, keyword search, copy-to-clipboard per objection.
-- **RBAC Guards**: `useRole()` hook reading from auth context, `AccessDenied.tsx` component, AppLayout nav items filtered by role, role badge in sidebar user profile. Admin-only: AdminPanel, DealershipSettings, ComplianceRules. Manager+: BatchUpload, EagleEyeView, ManagerScorecard.
-- **Session History Stats Bar**: Total Sessions, Avg Grade, Best PVR, Avg Duration, Recharts sparkline for grade trend.
-- **Dashboard Activity Feed**: Recent Activity panel combining last 5 sessions + 3 compliance alerts + 2 deal recoveries, sorted by time, clickable navigation.
-- **34 new tests** in `server/nightly-march26.test.ts` covering notification filters, leaderboard ranking/sorting, role access control, objection playbook search, session stats computation, activity feed aggregation.
-- **445/446 tests passing** (1 pre-existing deepgram failure)
-- `pnpm check`: 0 TypeScript errors
-- Git: `778e2ba` — "feat: notification center, leaderboard, objection playbook, RBAC guards, activity feed"
-
+- Notification Center, Leaderboard, Objection Playbook, RBAC Guards, Session History Stats Bar, Dashboard Activity Feed — 445/446 passing
 
 ### March 25, 2026
-
-**Completed by:** Henry (Claude Code) — 2026-03-25 ~22:49 PST
-
-All March 25 tasks completed:
-- **PDF/Print Report**: `SessionPrintReport.tsx` at `/session/:id/print` — full print-optimized report with session metadata, grade breakdown, compliance flags table, ASURA co-pilot suggestions, checklist results, coaching report, full speaker-labeled transcript. Print CSS styles for clean output. `PrintReportButton` component already wired in SessionDetail.
-- **Deal Recovery Analytics**: Stats bar (Total Attempted, Won Back, Revenue Recovered, Win Rate %), 8-week stacked bar chart (Recharts), status filter (All/Pending/Attempted/Recovered/Lost), sort by Date/Revenue/Status. tRPC `dealRecovery.stats` procedure wired.
-- **Pipeline Diagnostics**: Expandable row detail, pipeline health score (0-100) with color coding (green/yellow/red), component-level health checks with re-check buttons, troubleshooting guide.
-- **Customer Detail**: Visual session timeline with colored status dots, product acceptance history, "Schedule Follow-up" button with date picker modal, wired to `getSessionsByCustomerId` via tRPC.
-- **Auto Coaching Report**: Template-based auto-generation on session end — compliance/script fidelity/closing focus areas, strength identification, stored via `upsertCoachingReport`.
-- **Bundle Analysis**: 5 chunks >500KB identified, documented in App.tsx comment. SessionDetail (1MB) is largest candidate for future splitting.
-- **TypeScript fixes**: Fixed field name mismatches (`closingScore` → `closingTechniqueScore`, `productKnowledgeScore` → `productPresentationScore`, `createdAt` → `startedAt`, `checklist` → `checklists` tRPC path).
-- **411/412 tests passing** (1 pre-existing deepgram failure)
-- `pnpm check`: 0 TypeScript errors
+- PDF/Print Report, Deal Recovery Analytics, Pipeline Diagnostics, Customer Detail, Auto Coaching Report, Bundle Analysis — 411/412 passing
 
 ### March 24, 2026
-
-**Completed by:** Henry (Claude Code) — 2026-03-24 ~22:15 PST
-
-All March 24 tasks completed:
-- **Demo Mode**: Full 6-minute scripted replay with timeline, transcript, ASURA co-pilot suggestions, compliance flags, 15-point checklist, final score 87/100, PVR $2,847. Start/Pause/Reset controls. No backend required.
-- **Manager Scorecard**: Already wired to `analytics.managerScorecard` tRPC procedure. Added Export Scorecard button (window.print), Top 3 Strengths / Top 3 Improvements cards with ranked metrics.
-- **Alert Bell**: New `AlertBell.tsx` component in AppLayout header. Backend: `getUnreadAlerts(userId)` sources from unresolved compliance flags (critical/warning) + low grades (<60%). `markAlertRead(alertId)` resolves flags. tRPC `alerts.list` + `alerts.markRead` procedures added.
-- **Session Comparison**: Enhanced with AppLayout wrapper, delta summary section with color-coded indicators, Badge deltas per score category. Already routed at `/compare`.
-- **document.title**: Added to all 18 page components ("Page Name | F&I Co-Pilot by ASURA Group").
-- **Lazy Load Audit**: All pages (except Dashboard + Login) confirmed lazy-loaded with React.Suspense spinner fallback.
-- **Seed Data**: `scripts/seed-90-days.mjs` exists. Session count depends on DB — document-only, no build failure.
-- 15 new tests in `server/nightly-march24.test.ts`
-- **382/383 tests passing** (1 pre-existing deepgram failure)
-- `pnpm check`: 0 TypeScript errors
+- Demo Mode, Manager Scorecard, Alert Bell, Session Comparison, document.title, Lazy Load Audit — 382/383 passing
 
 ### March 23, 2026
-
-**Completed by:** Henry (Claude Code) — 2026-03-23 ~22:06 PST
-
-All March 23 tasks were confirmed already implemented in prior builds:
-- TypeScript pagination errors fixed, `pnpm check` clean
-- Cursor-based pagination in AdminPanel + SessionHistory
-- Export CSV button in SessionHistory
-- Mobile responsive AppLayout, LiveSession, Dashboard
-- 19 new tests added in `server/pagination-export.test.ts`
-- **367/368 tests passing** (1 pre-existing deepgram failure)
-- Git: `340dc21` — "feat: pagination, CSV export, mobile responsive, seed data"
+- Pagination, CSV Export, Mobile Responsive, Seed Data — 367/368 passing
 
 ### March 22, 2026
-
-**Completed by:** Henry (Claude Code) — 2026-03-22 ~22:05 PST
-
-- Federal Compliance Engine built + wired to WebSocket
-- Eagle Eye custom date range picker
-- 90-day seed script ready
-- 348/349 tests passing
-- Git: `cd5fd53`
+- Federal Compliance Engine, Eagle Eye Date Range, 90-day Seed Script — 348/349 passing

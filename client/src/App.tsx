@@ -44,6 +44,9 @@ const DealScoring = lazy(() => import("./pages/DealScoring"));
 const CoachingReportBuilder = lazy(() => import("./pages/CoachingReportBuilder"));
 const TrainerDashboard = lazy(() => import("./pages/TrainerDashboard"));
 const DealTimeline = lazy(() => import("./pages/DealTimeline"));
+const MultiLocationRollup = lazy(() => import("./pages/MultiLocationRollup"));
+const ShiftPerformance = lazy(() => import("./pages/ShiftPerformance"));
+const TrainingCurriculum = lazy(() => import("./pages/TrainingCurriculum"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -90,6 +93,9 @@ function Router() {
         <Route path="/coaching-report" component={CoachingReportBuilder} />
         <Route path="/trainer" component={TrainerDashboard} />
         <Route path="/deal-timeline" component={DealTimeline} />
+        <Route path="/multi-location" component={MultiLocationRollup} />
+        <Route path="/shift-performance" component={ShiftPerformance} />
+        <Route path="/training" component={TrainingCurriculum} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
