@@ -142,6 +142,20 @@ Target: 620+ tests passing (up from 579)
 
 ## Prior Completion Notes
 
+### March 30, 2026
+
+**Completed by:** Henry (Claude Code) — 2026-03-30 ~22:12 PST
+
+All March 30 tasks completed:
+- **Multi-Location Rollup Dashboard**: `MultiLocationRollup.tsx` at `/multi-location` — top KPI bar (Total Locations, Combined PVR, Best/Lowest Performing), location card grid with color coding (green ≥80, yellow 60–79, red <60), trend arrows, sort controls (Score/Alphabetical/PVR/Most Improved), click card → `/settings`, combined grade trend chart (recharts Line, all locations overlaid, 12 weeks), "Export Rollup" JSON download. Added to sidebar under new "Operations" section.
+- **Lender Rate Comparison Panel**: `LenderComparison.tsx` — accessible from ProductMenu as "Lender Rates" toggle. 5 lenders (Capital One Auto, Ally Financial, Chase Auto, Wells Fargo Dealer, US Bank DFS), rate table with color-coded best/worst rates, credit tier selector (Tier 1–4), rate calculator (amount + term → estimated monthly payment per lender), reserve spread bar chart, "Best Match" highlight badge.
+- **Shift Performance View**: `ShiftPerformance.tsx` at `/shift-performance` — heatmap grid (Mon–Sat × Morning/Afternoon/Evening), cell color by avg score (green/yellow/red), cell tooltip with score/deals/PVR, summary bar (Best/Worst Performing, Peak Volume), hourly line chart (score by hour 0–23), staffing insight callout, date range filter. Added to sidebar under Performance.
+- **Training Curriculum Tracker**: `TrainingCurriculum.tsx` at `/training` — 6 modules (22 lessons total), module cards with progress bars and status badges (Not Started/In Progress/Completed), expandable lesson checkboxes (localStorage persistence), overall progress ring, "Assign Training" modal, completion celebration card. Added to sidebar under Performance.
+- **Session Tags & Notes**: `SessionTags.tsx` — displayed on SessionDetail below grade section. 6 predefined tags (Hot Lead, Follow Up, Coaching Moment, Great Close, Compliance Issue, Escalation) + custom tags, colored badges, click to remove, notes textarea, pinned notes with star, all localStorage-persisted by session ID.
+- **66 new tests** in `server/nightly-march30.test.ts` covering multi-location rollup KPIs (weighted PVR, best/lowest detection), location card color tiers, location sort logic (4 modes), lender data structure validation, rate calculator payment formula, best match detection, credit tier thresholds, shift heatmap data shaping, peak shift detection, hour-of-day aggregation, staffing insight generation, training curriculum structure (6 modules, 22 lessons), module completion percentage, overall progress calculation, lesson toggle logic, session tag operations, tag persistence key format, pinned notes logic, tag filter matching, tag count badge calculation.
+- **645/646 tests passing** (1 pre-existing deepgram failure)
+- `pnpm check`: 0 TypeScript errors
+
 ### March 29, 2026
 
 **Completed by:** Henry (Claude Code) — 2026-03-29 ~22:12 PST
