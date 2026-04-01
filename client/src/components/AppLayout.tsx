@@ -39,6 +39,11 @@ import {
   Building2,
   Timer,
   BookOpen,
+  TrendingUp,
+  Map,
+  UserCheck,
+  ShieldAlert,
+  MessageSquare,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -70,19 +75,26 @@ const PERFORMANCE_ITEMS = [
   { path: "/goals", label: "Goal Tracker", icon: Target },
   { path: "/deal-scoring", label: "Deal Scoring", icon: Award },
   { path: "/coaching-report", label: "Coaching Report", icon: FileText },
-  { path: "/trainer", label: "Trainer Dashboard", icon: GraduationCap },
   { path: "/deal-timeline", label: "Deal Timeline", icon: Clock },
   { path: "/shift-performance", label: "Shift Performance", icon: Timer },
+  { path: "/customer-journey", label: "Customer Journey", icon: Map },
+];
+
+const COACHING_ITEMS = [
+  { path: "/trainer", label: "Trainer Dashboard", icon: GraduationCap },
   { path: "/training", label: "Training Curriculum", icon: BookOpen },
+  { path: "/one-on-ones", label: "1-on-1 Tracker", icon: MessageSquare },
 ];
 
 const OPERATIONS_ITEMS = [
   { path: "/multi-location", label: "Multi-Location Rollup", icon: Building2 },
+  { path: "/profit-analysis", label: "Profit Analysis", icon: TrendingUp },
 ];
 
 const ADMIN_ITEMS = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck },
   { path: "/compliance-rules", label: "Compliance Rules", icon: Shield },
+  { path: "/compliance-audit", label: "Compliance Audit", icon: ShieldAlert },
   { path: "/settings", label: "Dealership Settings", icon: Settings },
   { path: "/diagnostics", label: "Pipeline Diagnostics", icon: Activity },
   { path: "/mfa/setup", label: "MFA Security", icon: KeyRound },
@@ -196,6 +208,13 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             </div>
 
             <div className="pt-4">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Coaching</p>
+              {COACHING_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+                <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
+              ))}
+            </div>
+
+            <div className="pt-4">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Operations</p>
               {OPERATIONS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                 <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
@@ -283,6 +302,20 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
                 <div className="pt-4">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Performance</p>
                   {PERFORMANCE_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+                    <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
+                  ))}
+                </div>
+
+                <div className="pt-4">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Coaching</p>
+                  {COACHING_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+                    <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
+                  ))}
+                </div>
+
+                <div className="pt-4">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Operations</p>
+                  {OPERATIONS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                     <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
                   ))}
                 </div>

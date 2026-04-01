@@ -47,6 +47,10 @@ const DealTimeline = lazy(() => import("./pages/DealTimeline"));
 const MultiLocationRollup = lazy(() => import("./pages/MultiLocationRollup"));
 const ShiftPerformance = lazy(() => import("./pages/ShiftPerformance"));
 const TrainingCurriculum = lazy(() => import("./pages/TrainingCurriculum"));
+const ProfitAnalysis = lazy(() => import("./pages/ProfitAnalysis"));
+const CustomerJourney = lazy(() => import("./pages/CustomerJourney"));
+const OneOnOneTracker = lazy(() => import("./pages/OneOnOneTracker"));
+const ComplianceAudit = lazy(() => import("./pages/ComplianceAudit"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -96,6 +100,10 @@ function Router() {
         <Route path="/multi-location" component={MultiLocationRollup} />
         <Route path="/shift-performance" component={ShiftPerformance} />
         <Route path="/training" component={TrainingCurriculum} />
+        <Route path="/profit-analysis" component={ProfitAnalysis} />
+        <Route path="/customer-journey" component={CustomerJourney} />
+        <Route path="/one-on-ones" component={OneOnOneTracker} />
+        <Route path="/compliance-audit" component={ComplianceAudit} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

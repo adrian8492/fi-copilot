@@ -1,139 +1,146 @@
-# Henry Nightly Task — March 30, 2026
+# Henry Nightly Task — March 31, 2026
 
-## Priority: HIGH — Multi-Location Rollup, Lender Rate Comparison, Shift Performance View, Training Curriculum Tracker, Session Tags, Test Coverage Expansion
+## Priority: HIGH — Profit Analysis Dashboard, Customer Journey Map, Manager 1-on-1 Tracker, Compliance Audit Log, Dark/Light Theme Polish, Test Coverage Expansion
 
 ## Context
-Previous build (March 29) completed: F&I Scorecard PDF Export, Trainer Dashboard, Deal Timeline View, Performance Benchmarking Panel, Objection Trend Tracker.
-Current test state: 579/580 passing (1 pre-existing deepgram env var failure).
-Git: ed705c4 — docs: update nightly task completion notes and manus deploy prompt for March 29 build
+Previous build (March 30) completed: Multi-Location Rollup, Lender Rate Comparison, Shift Performance View, Training Curriculum Tracker, Session Tags & Notes.
+Current test state: 645/646 passing (1 pre-existing deepgram env var failure).
+Git: e308244 — docs: update manus deploy prompt for March 30 build
 TypeScript: 0 errors — clean baseline.
 
 All pages exist: Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
 AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
 DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison,
 SessionPrintReport, NotificationCenter, Leaderboard, GoalTracker, DealScoring, CoachingReportBuilder,
-TrainerDashboard, DealTimeline.
+TrainerDashboard, DealTimeline, MultiLocationRollup, ShiftPerformance, TrainingCurriculum.
 
 ## Tonight's Tasks
 
-### 1. Multi-Location Rollup Dashboard (HIGH)
-New page `MultiLocationRollup.tsx` at `/multi-location`:
-- For dealer group operators managing multiple rooftops from one view
-- Top KPI bar: Total Locations, Combined PVR, Best Performing Location, Lowest Performing Location
-- Location grid (card layout): each card shows dealership name, manager count, avg score, avg PVR, penetration %, trend arrow (up/down/flat vs prior month)
-- Color coding per card: green (avg score ≥80), yellow (60–79), red (<60)
-- Sort controls: by Score / Alphabetical / PVR / Most Improved
-- Click card → navigates to `/settings` (dealership detail)
-- Combined grade trend chart (recharts Line): all locations overlaid, one line per location, last 12 weeks
-- "Export Rollup" button downloads JSON summary of all locations
-- Add to sidebar nav under a new "Operations" section after the Performance section
-- Lazy-loaded route in App.tsx at `/multi-location`
+### 1. Profit Analysis Dashboard (HIGH)
+New page `ProfitAnalysis.tsx` at `/profit-analysis`:
+- F&I profit breakdown by product, manager, and time period
+- Top KPI bar: Total F&I Revenue (MTD), Avg PVR (front + back), Gross Profit per Deal, Product Penetration Rate
+- Revenue waterfall chart (recharts Bar): show contribution of each F&I product to total revenue (VSC, GAP, Tire & Wheel, Paint Protection, Maintenance Plan, Theft Deterrent, Windshield, Key Replacement)
+- Manager profit leaderboard table: Name, Deals, Total F&I Revenue, Avg PVR, Top Product, Profit Trend (sparkline)
+- Profit vs Volume scatter plot: X = deal count, Y = total profit, bubble size = avg PVR per manager
+- Time period selector: MTD / QTD / YTD / Last 30 / Last 90 / Custom Range
+- "Missed Revenue" card: estimate of lost revenue from declined products (deals × avg acceptance rate gap × avg product price)
+- Export profit summary as CSV
+- Hard-coded demo data: 6 managers, 8 products, 90 days of deal history
+- Add to sidebar nav under "Operations" section
+- Lazy-loaded route in App.tsx at `/profit-analysis`
 
-### 2. Lender Rate Comparison Panel (HIGH)
-New component `LenderComparison.tsx`:
-- Accessible from ProductMenu page as a new tab "Lender Rates"
-- Hard-coded demo lender data (5 lenders: Capital One Auto, Ally Financial, Chase Auto, Wells Fargo Dealer, US Bank DFS)
-- Table columns: Lender Name, Base Rate (APR%), Buydown Rate, Reserve Spread, Max Term (months), Min Credit Score
-- Color coding: best rate highlighted green, worst red
-- "Rate Calculator" section: input fields for Amount Financed + Term + Credit Tier → shows estimated monthly payment per lender
-- Bar chart (recharts): visual comparison of reserve spread across lenders for selected credit tier
-- Credit tier selector: Tier 1 (720+), Tier 2 (680-719), Tier 3 (620-679), Tier 4 (<620)
-- "Best Match" highlight: auto-highlights the lender with best reserve opportunity for selected tier
+### 2. Customer Journey Map (HIGH)
+New page `CustomerJourney.tsx` at `/customer-journey`:
+- Visual flow of the F&I customer experience from entry to delivery
+- Horizontal step flow (styled divs, not recharts): Greeting → Needs Discovery → Menu Presentation → Product Discussion → Objection Handling → Closing → Delivery
+- Each step shows: avg time spent (minutes), avg score for that phase, common issues/flags
+- Click step → expands to show top 3 coaching tips for that phase from ASURA OPS
+- "Journey Score" composite: weighted average across all phases (Greeting 5%, Discovery 15%, Menu 25%, Products 25%, Objections 15%, Closing 10%, Delivery 5%)
+- Manager comparison: dropdown to compare two managers' journey maps side-by-side
+- "Drop-off Analysis" section: bar chart showing which phase has the most score degradation
+- Date range filter: Last 30 / Last 60 / Last 90 days
+- Hard-coded demo journey data keyed per manager
+- Add to sidebar nav under "Performance" section (after Training Curriculum)
+- Lazy-loaded route at `/customer-journey`
 
-### 3. Shift Performance View (HIGH)
-New page `ShiftPerformance.tsx` at `/shift-performance`:
-- Analyze F&I performance by time-of-day and day-of-week
-- Heatmap grid (recharts): rows = days of week (Mon-Sat), columns = shifts (Morning 8-12, Afternoon 12-5, Evening 5-9)
-- Cell color = avg deal score for that day+shift combo (green/yellow/red)
-- Cell tooltip: avg score, deal count, avg PVR for that slot
-- Summary bar: Best Performing Shift, Worst Performing Shift, Peak Deal Volume shift
-- Below heatmap: line chart showing avg deal score by hour-of-day (0-23)
-- Filter by manager, dealership, date range (last 30/60/90 days)
-- "Staffing Insight" callout: auto-generated text like "Your strongest scores happen Tuesday afternoons — consider scheduling your top closer there"
-- Data computed client-side from session timestamps + scores
-- Add to sidebar nav under "Analytics" section (after Deal Timeline)
-- Lazy-loaded route at `/shift-performance`
+### 3. Manager 1-on-1 Tracker (HIGH)
+New page `OneOnOneTracker.tsx` at `/one-on-ones`:
+- Track coaching 1-on-1 meetings between trainers and F&I managers
+- Meeting list view: date, manager name, trainer name, status (Scheduled / Completed / Missed), key topics
+- "Schedule 1-on-1" button: opens modal with manager selector, date picker, time, topic textarea, recurring toggle (weekly/biweekly/monthly)
+- Meeting detail view (click row → expand): agenda items (editable text list), action items with assignee and due date, notes textarea, "Follow Up Required" checkbox
+- Action item tracker: separate tab showing all open action items across all 1-on-1s, sortable by due date and assignee
+- Calendar mini-view: month calendar with dots on days that have 1-on-1s scheduled
+- All data persisted in localStorage
+- Hard-coded demo: 4 managers, 8 past meetings, 3 upcoming
+- Status summary bar: Meetings This Month, Completion Rate, Open Action Items, Avg Meeting Duration
+- Add to sidebar nav under "Coaching" section (create new section between Performance and Operations, move Trainer Dashboard and Training Curriculum here too)
+- Lazy-loaded route at `/one-on-ones`
 
-### 4. Training Curriculum Tracker (MEDIUM)
-New page `TrainingCurriculum.tsx` at `/training`:
-- Track F&I manager progress through ASURA OPS training modules
-- Module list (hard-coded demo curriculum):
-  1. "The Menu Order System" — 4 lessons
-  2. "The Upgrade Architecture" — 3 lessons
-  3. "The Objection Prevention Framework" — 5 lessons
-  4. "The Coaching Cadence" — 3 lessons
-  5. "Compliance Essentials" — 4 lessons
-  6. "Advanced Closing Techniques" — 3 lessons
-- Each module card shows: module name, lesson count, completion % (progress bar), status badge (Not Started / In Progress / Completed)
-- Click module → expands to show individual lessons with checkboxes (toggle complete, persisted in localStorage)
-- Overall progress ring at top: X of 22 lessons completed, % complete
-- "Assign Training" button: opens modal to select a manager from dropdown and assign a module (client-side only, shows toast)
-- Completion certificate preview: when all modules complete, show a "Training Complete" celebration card with confetti emoji
-- Add to sidebar nav under "Coaching" section (after Trainer Dashboard)
-- Lazy-loaded route at `/training`
+### 4. Compliance Audit Trail (HIGH)
+New page `ComplianceAudit.tsx` at `/compliance-audit`:
+- Complete audit log of all compliance events across sessions
+- Table columns: Timestamp, Session ID, Manager, Rule Violated, Severity (Critical/Warning/Info), Excerpt, Status (Open/Resolved/Dismissed)
+- Filters: severity level, rule type (TILA, ECOA, UDAP, State Law, Internal Policy), manager, date range, status
+- Summary cards: Total Flags (30d), Critical Count, Resolution Rate %, Avg Time to Resolve
+- Trend chart (recharts Area): compliance flags per week over last 12 weeks, stacked by severity
+- "Export Audit" button: downloads CSV of all filtered flags
+- Click row → links to session detail page for context
+- "Resolution Modal": on each row, button to mark as Resolved with resolution notes
+- Hard-coded demo data: 50 compliance events across 20 sessions, 5 managers, mix of severities
+- Add to sidebar nav under "Admin" section (after Compliance Rules)
+- Lazy-loaded route at `/compliance-audit`
 
-### 5. Session Tags & Notes System (MEDIUM)
-New component `SessionTags.tsx`:
-- Displayed on SessionDetail page below the grade section
-- Tag system: predefined tags (Hot Lead, Follow Up, Coaching Moment, Great Close, Compliance Issue, Escalation) + custom tag input
-- Tags displayed as colored badges (each predefined tag has a consistent color)
-- Click tag to remove, "+" button to add from predefined list or type custom
-- Notes section below tags: textarea for free-form session notes
-- All data persisted in localStorage keyed by session ID
-- "Pinned Notes" section: checkbox to pin important notes (shows yellow star)
-- Tags filterable from SessionHistory page: add tag filter dropdown to existing filters
-- When tags exist for a session, show tag count badge on the session row in SessionHistory
+### 5. Quick Actions Command Bar Enhancement (MEDIUM)
+Update `GlobalSearch.tsx`:
+- Add "Quick Actions" section below search results when search is empty
+- Quick actions list: Start New Session, View Analytics, Check Compliance, Open Leaderboard, Export Report, Schedule 1-on-1
+- Each action has icon + label + keyboard shortcut hint
+- Actions navigate directly to the target page
+- Recent searches persist in localStorage (max 5)
+- Search result categories: Pages, Sessions, Managers, Customers (visually separated with headers)
+- Add fuzzy matching for page names (e.g., "profit" matches "Profit Analysis")
 
-### 6. Expand Test Suite to 620+ (MEDIUM)
-Add `server/nightly-march30.test.ts` with tests for:
-- Multi-location rollup KPI calculations (combined PVR = weighted avg, best/lowest location detection)
-- Location card color tier logic (green/yellow/red thresholds)
-- Location sort logic (by score, alphabetical, PVR, most improved)
-- Lender comparison rate data structure (5 lenders, required fields present)
-- Rate calculator payment formula (A * r(1+r)^n / ((1+r)^n - 1) where r = monthly rate)
-- Best match detection (highest reserve spread for given tier)
-- Credit tier threshold validation (720+, 680-719, 620-679, <620)
-- Shift performance heatmap data shaping (7 days × 3 shifts matrix)
-- Peak shift detection (shift with highest avg score)
-- Hour-of-day aggregation (24-bucket array from session timestamps)
-- Staffing insight generation (text includes best shift day + time)
-- Training curriculum module structure (6 modules, 22 total lessons)
-- Module completion percentage calculation (completed/total × 100)
-- Overall progress calculation (sum of completed across all modules)
-- Lesson toggle logic (complete/incomplete state transitions)
-- Session tag operations (add, remove, predefined color mapping)
-- Session tag persistence key format (sessionId-based)
-- Pinned notes logic (pin/unpin toggle, pinned notes sorted first)
-- Tag filter matching (session matches if it has any of selected tags)
-- Tag count badge calculation (count of tags per session)
-Target: 620+ tests passing (up from 579)
+### 6. Expand Test Suite to 690+ (MEDIUM)
+Add `server/nightly-march31.test.ts` with tests for:
+- Profit analysis revenue waterfall calculation (8 products, sum = total revenue)
+- Manager profit leaderboard sorting (by revenue, by PVR, by deal count)
+- Avg PVR calculation (total F&I revenue / total deals)
+- Missed revenue estimation formula (gap × price × deal count)
+- Product penetration rate calculation (accepted / offered × 100)
+- Profit vs volume data shaping (manager → {deals, profit, avgPVR})
+- Customer journey phase scoring (7 phases, weighted composite)
+- Journey score weighted average calculation (weights sum to 100%)
+- Drop-off analysis detection (phase with largest score decrease)
+- Manager journey comparison data structure (two managers side-by-side)
+- Phase coaching tips lookup (3 tips per phase, 7 phases)
+- One-on-one meeting status transitions (Scheduled → Completed/Missed)
+- Meeting scheduling validation (future date required, manager required)
+- Action item status tracking (open/completed states)
+- Recurring meeting generation (weekly = 7 days, biweekly = 14, monthly = 30)
+- Meeting completion rate calculation (completed / (completed + missed) × 100)
+- Calendar dot computation (meetings grouped by date)
+- Compliance audit severity counts (critical/warning/info grouping)
+- Resolution rate calculation (resolved / total × 100)
+- Compliance flag filtering (multi-criteria: severity + rule + manager + date + status)
+- Compliance trend data shaping (12-week buckets, stacked by severity)
+- Resolution modal validation (notes required for resolution)
+- Audit CSV export column structure (7 required columns)
+- Quick action navigation mapping (6 actions → 6 routes)
+- Fuzzy page name matching (partial string matches)
+- Recent search localStorage persistence (max 5, FIFO eviction)
+- Search result category grouping (4 categories: Pages/Sessions/Managers/Customers)
+Target: 690+ tests passing (up from 645)
 
 ## Technical Notes
 - No build step for dev — Vite dev server, vanilla tRPC
-- Tests: pnpm test (target: 620+/621)
+- Tests: pnpm test (target: 690+/691)
 - TypeScript: pnpm check (target: 0 errors)
 - The 1 deepgram.test.ts failure is pre-existing and acceptable
 - Use recharts for all charts (already installed)
 - New pages must be lazy-loaded in App.tsx with React.Suspense
 - New pages use existing AppLayout sidebar
-- Add "Operations" nav section in AppLayout for Multi-Location Rollup
-- Training Curriculum uses localStorage for lesson completion persistence
-- Session Tags use localStorage keyed by session ID
-- Lender data is hard-coded demo data (no backend needed)
-- Shift Performance computes from existing session data (timestamps + scores)
+- Create "Coaching" nav section in AppLayout: move Trainer Dashboard, Training Curriculum from Performance, add 1-on-1 Tracker
+- Profit Analysis goes under Operations section
+- Customer Journey goes under Performance section
+- Compliance Audit goes under Admin section
+- All new pages use hard-coded demo data (no backend mutations needed)
+- 1-on-1 Tracker uses localStorage for meeting/action item persistence
+- Quick Actions enhancement updates existing GlobalSearch.tsx component
 
 ## Definition of Done
-- [ ] Multi-Location Rollup at /multi-location with location grid, KPIs, combined trend chart, export
-- [ ] Lender Rate Comparison as ProductMenu tab with calculator and bar chart
-- [ ] Shift Performance at /shift-performance with heatmap, hour chart, staffing insight
-- [ ] Training Curriculum at /training with module cards, lesson checkboxes, progress ring
-- [ ] Session Tags & Notes on SessionDetail with localStorage persistence + SessionHistory filter
-- [ ] 620+ tests passing
+- [ ] Profit Analysis at /profit-analysis with waterfall chart, manager leaderboard, scatter plot, missed revenue card
+- [ ] Customer Journey at /customer-journey with step flow, journey score, manager comparison, drop-off analysis
+- [ ] Manager 1-on-1 Tracker at /one-on-ones with meeting list, scheduler modal, action items, calendar mini-view
+- [ ] Compliance Audit at /compliance-audit with audit table, filters, trend chart, resolution modal
+- [ ] Quick Actions enhancement in GlobalSearch with actions, fuzzy matching, categorized results
+- [ ] 690+ tests passing
 - [ ] 0 TypeScript errors
 - [ ] Git commit + push
 
 ## When Done
-1. Git add, commit: "feat: multi-location rollup, lender comparison, shift performance, training curriculum, session tags"
+1. Git add, commit: "feat: profit analysis, customer journey map, 1-on-1 tracker, compliance audit trail, quick actions"
 2. Push to origin main
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md
