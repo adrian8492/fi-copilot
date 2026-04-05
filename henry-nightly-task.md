@@ -130,14 +130,14 @@ Target: 690+ tests passing (up from 645)
 - Quick Actions enhancement updates existing GlobalSearch.tsx component
 
 ## Definition of Done
-- [ ] Profit Analysis at /profit-analysis with waterfall chart, manager leaderboard, scatter plot, missed revenue card
-- [ ] Customer Journey at /customer-journey with step flow, journey score, manager comparison, drop-off analysis
-- [ ] Manager 1-on-1 Tracker at /one-on-ones with meeting list, scheduler modal, action items, calendar mini-view
-- [ ] Compliance Audit at /compliance-audit with audit table, filters, trend chart, resolution modal
-- [ ] Quick Actions enhancement in GlobalSearch with actions, fuzzy matching, categorized results
-- [ ] 690+ tests passing
-- [ ] 0 TypeScript errors
-- [ ] Git commit + push
+- [x] Profit Analysis at /profit-analysis with waterfall chart, manager leaderboard, scatter plot, missed revenue card
+- [x] Customer Journey at /customer-journey with step flow, journey score, manager comparison, drop-off analysis
+- [x] Manager 1-on-1 Tracker at /one-on-ones with meeting list, scheduler modal, action items, calendar mini-view
+- [x] Compliance Audit at /compliance-audit with audit table, filters, trend chart, resolution modal
+- [x] Quick Actions enhancement in GlobalSearch with actions, fuzzy matching, categorized results
+- [x] 720/721 tests passing (exceeded 690+ target by 30)
+- [x] 0 TypeScript errors
+- [x] Git commit + push (2a7d9f7)
 
 ## When Done
 1. Git add, commit: "feat: profit analysis, customer journey map, 1-on-1 tracker, compliance audit trail, quick actions"
@@ -148,6 +148,25 @@ Target: 690+ tests passing (up from 645)
 ---
 
 ## Prior Completion Notes
+
+### March 31, 2026
+
+**Completed by:** Henry (Claude Code) — 2026-03-31 ~22:10 PST
+
+All March 31 tasks completed:
+- **Profit Analysis Dashboard**: `ProfitAnalysis.tsx` at `/profit-analysis` (325 lines) — top KPI bar (Total F&I Revenue MTD, Avg PVR, Gross Profit per Deal, Product Penetration Rate), revenue waterfall chart (recharts Bar: VSC, GAP, Tire & Wheel, Paint Protection, Maintenance Plan, Theft Deterrent, Windshield, Key Replacement), manager profit leaderboard table (Name, Deals, Total F&I Revenue, Avg PVR, Top Product, Profit Trend sparkline), profit vs volume scatter plot (X = deal count, Y = total profit, bubble size = avg PVR), time period selector (MTD/QTD/YTD/Last 30/Last 90/Custom Range), "Missed Revenue" card with estimated lost revenue calculation, CSV export. Added to sidebar under Operations.
+- **Customer Journey Map**: `CustomerJourney.tsx` at `/customer-journey` (365 lines) — horizontal step flow (Greeting → Needs Discovery → Menu Presentation → Product Discussion → Objection Handling → Closing → Delivery), each step shows avg time/score/common issues, click-to-expand coaching tips from ASURA OPS per phase, Journey Score composite (weighted: Greeting 5%, Discovery 15%, Menu 25%, Products 25%, Objections 15%, Closing 10%, Delivery 5%), manager comparison dropdown (side-by-side), drop-off analysis bar chart, date range filter (Last 30/60/90). Added to sidebar under Performance.
+- **Manager 1-on-1 Tracker**: `OneOnOneTracker.tsx` at `/one-on-ones` (443 lines) — meeting list view (date, manager, trainer, status, topics), "Schedule 1-on-1" modal (manager selector, date picker, time, topic textarea, recurring toggle), meeting detail expand (agenda items, action items with assignee/due date, notes, follow-up checkbox), action item tracker tab (all open items, sortable), calendar mini-view (month with dots on meeting days), summary bar (Meetings This Month, Completion Rate, Open Action Items, Avg Duration), all localStorage persisted. Created new "Coaching" sidebar section (moved Trainer Dashboard + Training Curriculum there, added 1-on-1 Tracker).
+- **Compliance Audit Trail**: `ComplianceAudit.tsx` at `/compliance-audit` (324 lines) — audit log table (Timestamp, Session ID, Manager, Rule Violated, Severity, Excerpt, Status), filters (severity, rule type TILA/ECOA/UDAP/State Law/Internal Policy, manager, date range, status), summary cards (Total Flags 30d, Critical Count, Resolution Rate %, Avg Time to Resolve), trend chart (recharts Area: 12 weeks stacked by severity), resolution modal (mark resolved with notes), CSV export, click row → session detail. Added to sidebar under Admin.
+- **Quick Actions Enhancement**: Updated `GlobalSearch.tsx` (469 lines) — quick actions section when search empty (Start New Session, View Analytics, Check Compliance, Open Leaderboard, Export Report, Schedule 1-on-1) with icons + keyboard shortcut hints, fuzzy matching for page names, categorized search results (Pages/Sessions/Managers/Customers), recent searches in localStorage (max 5).
+- **75 new tests** in `server/nightly-march31.test.ts` (780 lines) covering profit analysis revenue waterfall calculation, manager profit leaderboard sorting, avg PVR calculation, missed revenue estimation, product penetration rate, profit vs volume data shaping, customer journey phase scoring, journey score weighted average, drop-off analysis detection, manager journey comparison, phase coaching tips lookup, 1-on-1 meeting status transitions, scheduling validation, action item tracking, recurring meeting generation, completion rate calculation, calendar dot computation, compliance audit severity counts, resolution rate, multi-criteria filtering, compliance trend shaping, resolution modal validation, CSV export structure, quick action navigation mapping, fuzzy matching, recent search persistence, search result categorization.
+- **720/721 tests passing** (1 pre-existing deepgram failure) — exceeded 690+ target by 30
+- `pnpm check`: 0 TypeScript errors
+- Git: `2a7d9f7` — feat: profit analysis, customer journey map, 1-on-1 tracker, compliance audit trail, quick actions
+
+**Total codebase growth:** +2,635 lines across 9 files
+
+**Current page count:** 35 pages (Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis, AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu, DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode, SessionComparison, SessionPrintReport, NotificationCenter, Leaderboard, GoalTracker, DealScoring, CoachingReportBuilder, TrainerDashboard, DealTimeline, MultiLocationRollup, ShiftPerformance, TrainingCurriculum, ProfitAnalysis, CustomerJourney, OneOnOneTracker, ComplianceAudit + GlobalSearch command bar)
 
 ### March 30, 2026
 

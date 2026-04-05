@@ -1,5 +1,5 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** March 30, 2026 — Build 2e1181e
+**Updated:** March 31, 2026 — Build 2a7d9f7
 
 ## What to Deploy
 
@@ -9,6 +9,15 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 **Current URL:** https://finico-pilot-mqskutaj.manus.space/
 
 ## What's New in This Build
+
+### Build 2a7d9f7 — March 31, 2026
+- **Profit Analysis Dashboard:** `/profit-analysis` — Full F&I profit breakdown by product, manager, and time period. Top KPI bar (Total F&I Revenue MTD, Avg PVR front+back, Gross Profit per Deal, Product Penetration Rate). Revenue waterfall chart (recharts Bar: VSC, GAP, Tire & Wheel, Paint Protection, Maintenance Plan, Theft Deterrent, Windshield, Key Replacement contribution to total revenue). Manager profit leaderboard table (Name, Deals, Total F&I Revenue, Avg PVR, Top Product, Profit Trend sparkline). Profit vs Volume scatter plot (X = deal count, Y = total profit, bubble size = avg PVR per manager). Time period selector (MTD/QTD/YTD/Last 30/Last 90/Custom Range). "Missed Revenue" card with estimated lost revenue from declined products. CSV export. Added to sidebar under Operations.
+- **Customer Journey Map:** `/customer-journey` — Visual flow of F&I customer experience. Horizontal step flow (Greeting → Needs Discovery → Menu Presentation → Product Discussion → Objection Handling → Closing → Delivery). Each step shows avg time spent, avg score, common issues/flags. Click step to expand top 3 ASURA OPS coaching tips per phase. Journey Score composite (weighted: Greeting 5%, Discovery 15%, Menu 25%, Products 25%, Objections 15%, Closing 10%, Delivery 5%). Manager comparison dropdown (side-by-side journey maps). Drop-off analysis bar chart (phase with most score degradation). Date range filter (Last 30/60/90 days). Added to sidebar under Performance.
+- **Manager 1-on-1 Tracker:** `/one-on-ones` — Coaching meeting tracker for trainers and F&I managers. Meeting list view (date, manager, trainer, status Scheduled/Completed/Missed, key topics). "Schedule 1-on-1" modal (manager selector, date picker, time, topic textarea, recurring toggle weekly/biweekly/monthly). Meeting detail expand (editable agenda items, action items with assignee and due date, notes textarea, Follow Up Required checkbox). Action item tracker tab (all open items across 1-on-1s, sortable by due date and assignee). Calendar mini-view (month with dots on meeting days). Summary bar (Meetings This Month, Completion Rate, Open Action Items, Avg Duration). All localStorage persisted. New "Coaching" sidebar section created (Trainer Dashboard + Training Curriculum moved there + 1-on-1 Tracker added).
+- **Compliance Audit Trail:** `/compliance-audit` — Complete audit log of compliance events across sessions. Table (Timestamp, Session ID, Manager, Rule Violated, Severity Critical/Warning/Info, Excerpt, Status Open/Resolved/Dismissed). Filters (severity, rule type TILA/ECOA/UDAP/State Law/Internal Policy, manager, date range, status). Summary cards (Total Flags 30d, Critical Count, Resolution Rate %, Avg Time to Resolve). Trend chart (recharts Area: 12 weeks stacked by severity). Resolution modal (mark resolved with required notes). CSV audit export. Click row → session detail. Added to sidebar under Admin.
+- **Quick Actions Command Bar Enhancement:** Updated GlobalSearch (Cmd+K) with Quick Actions section when search is empty (Start New Session, View Analytics, Check Compliance, Open Leaderboard, Export Report, Schedule 1-on-1). Each action has icon + label + keyboard shortcut hint. Fuzzy matching for page names (e.g., "profit" matches "Profit Analysis"). Categorized search results (Pages/Sessions/Managers/Customers with headers). Recent searches in localStorage (max 5, FIFO eviction).
+- **Test Suite:** 720/721 passing (1 pre-existing deepgram env failure — acceptable). +75 new tests in nightly-march31.test.ts.
+- **TypeScript:** 0 errors
 
 ### Build 2e1181e — March 30, 2026
 - **Multi-Location Rollup Dashboard:** `/multi-location` — Dealer group operators view for monitoring multiple rooftops. Top KPI bar (Total Locations, Combined PVR, Best/Lowest Performing Location). Location card grid with color coding (green ≥80, yellow 60–79, red <60), trend arrows, manager count, avg PVR, penetration %. Sort controls (Score/Alphabetical/PVR/Most Improved). Combined grade trend chart (recharts Line, all locations overlaid, 12 weeks). "Export Rollup" JSON download. Click card → dealership detail. New "Operations" sidebar section.
