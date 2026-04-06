@@ -51,6 +51,10 @@ const ProfitAnalysis = lazy(() => import("./pages/ProfitAnalysis"));
 const CustomerJourney = lazy(() => import("./pages/CustomerJourney"));
 const OneOnOneTracker = lazy(() => import("./pages/OneOnOneTracker"));
 const ComplianceAudit = lazy(() => import("./pages/ComplianceAudit"));
+const ROICalculator = lazy(() => import("./pages/ROICalculator"));
+const PayoffTracker = lazy(() => import("./pages/PayoffTracker"));
+const ManagerSchedule = lazy(() => import("./pages/ManagerSchedule"));
+const ComplianceScorecard = lazy(() => import("./pages/ComplianceScorecard"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -104,6 +108,10 @@ function Router() {
         <Route path="/customer-journey" component={CustomerJourney} />
         <Route path="/one-on-ones" component={OneOnOneTracker} />
         <Route path="/compliance-audit" component={ComplianceAudit} />
+        <Route path="/roi-calculator" component={ROICalculator} />
+        <Route path="/payoff-tracker" component={PayoffTracker} />
+        <Route path="/schedule" component={ManagerSchedule} />
+        <Route path="/compliance-scorecard" component={ComplianceScorecard} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
@@ -114,9 +122,9 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider defaultTheme="dark" switchable>
         <TooltipProvider>
-          <Toaster theme="dark" position="top-right" richColors />
+          <Toaster position="top-right" richColors />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

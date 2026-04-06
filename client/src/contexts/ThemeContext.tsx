@@ -4,11 +4,20 @@ type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
-  toggleTheme?: () => void;
+  toggleTheme: () => void;
   switchable: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+const STORAGE_KEY = "fi-copilot-theme";
+
+function getSystemPreference(): Theme {
+  if (typeof window !== "undefined" && window.matchMedia) {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return "dark";
+}
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -18,13 +27,14 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "light",
-  switchable = false,
+  defaultTheme = "dark",
+  switchable = true,
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    if (switchable) {
-      const stored = localStorage.getItem("theme");
-      return (stored as Theme) || defaultTheme;
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "light" || stored === "dark") return stored;
+      return getSystemPreference();
     }
     return defaultTheme;
   });
@@ -36,17 +46,27 @@ export function ThemeProvider({
     } else {
       root.classList.remove("dark");
     }
+    localStorage.setItem(STORAGE_KEY, theme);
+  }, [theme]);
 
-    if (switchable) {
-      localStorage.setItem("theme", theme);
-    }
-  }, [theme, switchable]);
-
-  const toggleTheme = switchable
-    ? () => {
-        setTheme(prev => (prev === "light" ? "dark" : "light"));
+  // Listen for system preference changes
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => {
+      // Only auto-switch if user hasn't explicitly set a preference
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) {
+        setTheme(e.matches ? "dark" : "light");
       }
-    : undefined;
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>

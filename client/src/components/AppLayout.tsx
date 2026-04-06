@@ -44,6 +44,12 @@ import {
   UserCheck,
   ShieldAlert,
   MessageSquare,
+  Calendar,
+  Calculator,
+  ReceiptText,
+  ClipboardCheck,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -52,6 +58,7 @@ import { DelphiEmbed } from "@/components/DelphiEmbed";
 import AlertBell from "@/components/AlertBell";
 import { useRole } from "@/hooks/useRole";
 import GlobalSearch, { useGlobalSearchShortcut } from "@/components/GlobalSearch";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -84,17 +91,24 @@ const COACHING_ITEMS = [
   { path: "/trainer", label: "Trainer Dashboard", icon: GraduationCap },
   { path: "/training", label: "Training Curriculum", icon: BookOpen },
   { path: "/one-on-ones", label: "1-on-1 Tracker", icon: MessageSquare },
+  { path: "/schedule", label: "Manager Schedule", icon: Calendar },
 ];
 
 const OPERATIONS_ITEMS = [
   { path: "/multi-location", label: "Multi-Location Rollup", icon: Building2 },
   { path: "/profit-analysis", label: "Profit Analysis", icon: TrendingUp },
+  { path: "/payoff-tracker", label: "Payoff Tracker", icon: ReceiptText },
+];
+
+const BUSINESS_ITEMS = [
+  { path: "/roi-calculator", label: "ROI Calculator", icon: Calculator },
 ];
 
 const ADMIN_ITEMS = [
   { path: "/admin", label: "Admin Panel", icon: ShieldCheck },
   { path: "/compliance-rules", label: "Compliance Rules", icon: Shield },
   { path: "/compliance-audit", label: "Compliance Audit", icon: ShieldAlert },
+  { path: "/compliance-scorecard", label: "Compliance Scorecard", icon: ClipboardCheck },
   { path: "/settings", label: "Dealership Settings", icon: Settings },
   { path: "/diagnostics", label: "Pipeline Diagnostics", icon: Activity },
   { path: "/mfa/setup", label: "MFA Security", icon: KeyRound },
@@ -132,6 +146,19 @@ const NavItem = memo(function NavItem({
     </Link>
   );
 });
+
+function ThemeToggleButton() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors w-full"
+    >
+      {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+    </button>
+  );
+}
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -221,6 +248,13 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
               ))}
             </div>
 
+            <div className="pt-4">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Business</p>
+              {BUSINESS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+                <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
+              ))}
+            </div>
+
             {role === "admin" && (
               <>
                 <div className="pt-4">
@@ -233,8 +267,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
             )}
           </nav>
 
-          {/* User Profile */}
-          <div className="px-3 py-4 border-t border-border">
+          {/* Theme Toggle + User Profile */}
+          <div className="px-3 py-4 border-t border-border space-y-2">
+            <ThemeToggleButton />
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent/50">
               <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
                 <span className="text-xs font-bold text-primary">
@@ -320,6 +355,13 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
                   ))}
                 </div>
 
+                <div className="pt-4">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Business</p>
+                  {BUSINESS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+                    <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
+                  ))}
+                </div>
+
                 {role === "admin" && (
                   <>
                     <div className="pt-4">
@@ -332,8 +374,9 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
                 )}
               </nav>
 
-              {/* User Profile */}
-              <div className="px-3 py-4 border-t border-border">
+              {/* Theme Toggle + User Profile */}
+              <div className="px-3 py-4 border-t border-border space-y-2">
+                <ThemeToggleButton />
                 <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-accent/50">
                   <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
                     <span className="text-xs font-bold text-primary">
