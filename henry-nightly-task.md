@@ -141,17 +141,37 @@ Target: 770+ tests passing (up from 720)
 - $200M+ F&I revenue generated for clients — use this in ROI Calculator hero text
 
 ## Definition of Done
-- [ ] ROI Calculator at /roi-calculator with input panel, before/after cards, revenue projection chart, sensitivity slider
-- [ ] Product Payoff Tracker at /payoff-tracker with retention table, cancellation trends, at-risk alerts
-- [ ] Manager Schedule at /schedule with weekly grid, coverage scoring, auto-fill, conflict detection
-- [ ] Compliance Scorecard at /compliance-scorecard with per-manager scores, risk profiles, training recommendations
-- [ ] Dark mode toggle in sidebar with localStorage persistence and system preference detection
-- [ ] 770+ tests passing
-- [ ] 0 TypeScript errors
-- [ ] Git commit + push
+- [x] ROI Calculator at /roi-calculator with input panel, before/after cards, revenue projection chart, sensitivity slider
+- [x] Product Payoff Tracker at /payoff-tracker with retention table, cancellation trends, at-risk alerts
+- [x] Manager Schedule at /schedule with weekly grid, coverage scoring, auto-fill, conflict detection
+- [x] Compliance Scorecard at /compliance-scorecard with per-manager scores, risk profiles, training recommendations
+- [x] Dark mode toggle in sidebar with localStorage persistence and system preference detection
+- [x] 818/819 tests passing (770+ target exceeded, 1 pre-existing deepgram failure)
+- [x] 0 TypeScript errors
+- [x] Git commit + push
 
 ## When Done
 1. Git add, commit: "feat: ROI calculator, payoff tracker, manager schedule, compliance scorecard, dark mode"
 2. Push to origin main
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md
+
+## Completion Notes — April 5, 2026
+**Completed by**: Henry (Claude Opus 4.6)
+**Commit**: 5878ed6
+**Tests**: 818/819 passing (98 new tests from nightly-april5.test.ts)
+**TypeScript**: 0 errors
+
+### What was built:
+1. **ROI Calculator** (`/roi-calculator`) — Input panel with 5 adjustable params, before/after comparison cards, 12-month AreaChart revenue projection, sensitivity slider (±$200 from $759 baseline), share/print buttons, $200M+ hero text
+2. **Product Payoff Tracker** (`/payoff-tracker`) — 4 KPI cards, 8-product retention table with color-coded cancel rates, 12-month LineChart cancellation trends (toggleable per product), cancellation window BarChart (5 buckets), manager comparison table, at-risk alerts, date range filter, CSV export
+3. **Manager Schedule** (`/schedule`) — Mon-Sat × 9AM-8PM weekly grid, 4 color-coded managers, click-to-assign cells, coverage scoring (red/yellow/green), weekly summary cards, auto-fill button, conflict detection (>50hr warning), full localStorage persistence
+4. **Compliance Scorecard** (`/compliance-scorecard`) — 4 summary KPIs, per-manager scorecard cards with 5 compliance categories (TILA/ECOA/UDAP/State Law/Internal Policy), color coding (green ≥90, yellow 70-89, red <70), sparkline trends, drill-down with 10 compliance events, leaderboard, risk profiles (Low/Moderate/High), training recommendations, date range filter
+5. **Dark Mode Toggle** — Sun/moon icon in sidebar footer, `fi-copilot-theme` localStorage key, system preference detection via `prefers-color-scheme`, full light theme CSS variables added to index.css, ThemeContext updated with switchable=true
+6. **Test Suite** — 98 new tests in `nightly-april5.test.ts` covering ROI calculations, payoff tracking, schedule management, compliance scoring, and dark mode
+
+### Sidebar navigation updates:
+- **Business** section (new): ROI Calculator
+- **Operations**: added Payoff Tracker
+- **Coaching**: added Manager Schedule
+- **Admin**: added Compliance Scorecard (after Compliance Audit)
