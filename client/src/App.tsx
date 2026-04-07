@@ -55,6 +55,10 @@ const ROICalculator = lazy(() => import("./pages/ROICalculator"));
 const PayoffTracker = lazy(() => import("./pages/PayoffTracker"));
 const ManagerSchedule = lazy(() => import("./pages/ManagerSchedule"));
 const ComplianceScorecard = lazy(() => import("./pages/ComplianceScorecard"));
+const LenderMatrix = lazy(() => import("./pages/LenderMatrix"));
+const DealJacket = lazy(() => import("./pages/DealJacket"));
+const WeekendRecap = lazy(() => import("./pages/WeekendRecap"));
+const CommissionCalculator = lazy(() => import("./pages/CommissionCalculator"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -112,6 +116,10 @@ function Router() {
         <Route path="/payoff-tracker" component={PayoffTracker} />
         <Route path="/schedule" component={ManagerSchedule} />
         <Route path="/compliance-scorecard" component={ComplianceScorecard} />
+        <Route path="/lender-matrix" component={LenderMatrix} />
+        <Route path="/deal-jacket" component={DealJacket} />
+        <Route path="/weekend-recap" component={WeekendRecap} />
+        <Route path="/commission-calculator" component={CommissionCalculator} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

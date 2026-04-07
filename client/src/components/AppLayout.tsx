@@ -50,13 +50,19 @@ import {
   ClipboardCheck,
   Sun,
   Moon,
+  Grid3X3,
+  FolderOpen,
+  CalendarDays,
+  Banknote,
+  MoreHorizontal,
 } from "lucide-react";
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, memo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import DealershipSwitcher from "@/components/DealershipSwitcher";
 import { DelphiEmbed } from "@/components/DelphiEmbed";
 import AlertBell from "@/components/AlertBell";
 import { useRole } from "@/hooks/useRole";
+import { useIsMobile } from "@/hooks/useMobile";
 import GlobalSearch, { useGlobalSearchShortcut } from "@/components/GlobalSearch";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -67,6 +73,7 @@ const NAV_ITEMS = [
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/customers", label: "Customers", icon: Users },
   { path: "/product-menu", label: "Product Menu", icon: Package },
+  { path: "/deal-jacket", label: "Deal Jacket", icon: FolderOpen },
   { path: "/upload", label: "Batch Upload", icon: Upload },
   { path: "/notifications", label: "Notifications", icon: Bell },
 ];
@@ -85,6 +92,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/deal-timeline", label: "Deal Timeline", icon: Clock },
   { path: "/shift-performance", label: "Shift Performance", icon: Timer },
   { path: "/customer-journey", label: "Customer Journey", icon: Map },
+  { path: "/weekend-recap", label: "Weekend Recap", icon: CalendarDays },
 ];
 
 const COACHING_ITEMS = [
@@ -98,10 +106,12 @@ const OPERATIONS_ITEMS = [
   { path: "/multi-location", label: "Multi-Location Rollup", icon: Building2 },
   { path: "/profit-analysis", label: "Profit Analysis", icon: TrendingUp },
   { path: "/payoff-tracker", label: "Payoff Tracker", icon: ReceiptText },
+  { path: "/lender-matrix", label: "Lender Matrix", icon: Grid3X3 },
 ];
 
 const BUSINESS_ITEMS = [
   { path: "/roi-calculator", label: "ROI Calculator", icon: Calculator },
+  { path: "/commission-calculator", label: "Commission Calculator", icon: Banknote },
 ];
 
 const ADMIN_ITEMS = [
@@ -171,6 +181,8 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
   const { role, canAccess } = useRole();
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
+  const isMobile = useIsMobile();
   const { open: searchOpen, setOpen: setSearchOpen, onClose: closeSearch } = useGlobalSearchShortcut();
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
@@ -449,33 +461,89 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
         </main>
 
         {/* Mobile Bottom Nav */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-sidebar border-t border-sidebar-border flex items-center justify-around h-14 px-1">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border flex items-center justify-around h-16 px-1" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
           {[
-            { path: "/", label: "Home", icon: LayoutDashboard },
-            { path: "/session/new", label: "Record", icon: Mic },
+            { path: "/", label: "Dashboard", icon: LayoutDashboard },
+            { path: "/session/new", label: "Live Session", icon: Mic },
             { path: "/history", label: "History", icon: History },
             { path: "/analytics", label: "Analytics", icon: BarChart3 },
-            ...(role === "admin"
-              ? [{ path: "/admin", label: "Admin", icon: ShieldCheck }]
-              : []),
           ].map((item) => {
             const active = isItemActive(item.path);
             return (
               <Link key={item.path} href={item.path}>
                 <button
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg transition-colors min-w-[48px]",
+                    "flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 transition-colors min-w-[56px] relative",
                     active ? "text-primary" : "text-muted-foreground"
                   )}
-                  onClick={closeSidebar}
+                  onClick={() => { closeSidebar(); setMoreDrawerOpen(false); }}
                 >
-                  <item.icon className="w-5 h-5" />
+                  <item.icon className={cn("w-5 h-5", active && "fill-primary/20")} />
                   <span className="text-[9px] font-medium leading-tight">{item.label}</span>
+                  {active && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />}
                 </button>
               </Link>
             );
           })}
+          <button
+            className={cn(
+              "flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 transition-colors min-w-[56px] relative",
+              moreDrawerOpen ? "text-primary" : "text-muted-foreground"
+            )}
+            onClick={() => setMoreDrawerOpen(!moreDrawerOpen)}
+          >
+            <MoreHorizontal className="w-5 h-5" />
+            <span className="text-[9px] font-medium leading-tight">More</span>
+            {moreDrawerOpen && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />}
+          </button>
         </nav>
+
+        {/* More Drawer (slide-up) */}
+        {moreDrawerOpen && (
+          <div className="lg:hidden fixed inset-0 z-30" onClick={() => setMoreDrawerOpen(false)}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div
+              className="absolute bottom-16 left-0 right-0 bg-card border-t border-border rounded-t-xl max-h-[70vh] overflow-y-auto"
+              style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mt-2 mb-3" />
+              {[
+                { section: "Performance", items: PERFORMANCE_ITEMS },
+                { section: "Coaching", items: COACHING_ITEMS },
+                { section: "Operations", items: OPERATIONS_ITEMS },
+                { section: "Business", items: BUSINESS_ITEMS },
+                ...(role === "admin" ? [{ section: "Admin", items: ADMIN_ITEMS }] : []),
+              ].map(group => (
+                <div key={group.section} className="px-4 pb-3">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1.5">{group.section}</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {group.items.filter(item => canAccess(item.path)).map(item => {
+                      const active = isItemActive(item.path);
+                      return (
+                        <Link key={item.path} href={item.path}>
+                          <button
+                            className={cn(
+                              "flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-center w-full transition-colors",
+                              active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                            )}
+                            onClick={() => setMoreDrawerOpen(false)}
+                          >
+                            <item.icon className="w-5 h-5" />
+                            <span className="text-[10px] font-medium leading-tight">{item.label}</span>
+                          </button>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              <div className="px-4 pb-4">
+                <ThemeToggleButton />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Global Search (Cmd+K) */}
