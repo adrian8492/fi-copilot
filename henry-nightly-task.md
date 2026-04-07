@@ -151,13 +151,13 @@ Target: 870+ tests passing (up from 818)
 - Commission demo defaults reflect realistic F&I pay plans
 
 ## Definition of Done
-- [ ] Lender Matrix at /lender-matrix with comparison table, rate spread chart, best lender finder, reserve heatmap
-- [ ] Deal Jacket at /deal-jacket with document checklist, product summary, compliance check, deal timeline
-- [ ] Weekend Recap at /weekend-recap with executive summary, manager scoreboard, wins/opportunities, coaching focus
-- [ ] Commission Calculator at /commission-calculator with 3 scenarios, projection chart, PVR slider, pay plan presets
-- [ ] Mobile bottom navigation bar with 5-item tab bar and "More" drawer
-- [ ] 870+ tests passing (1 pre-existing deepgram failure acceptable)
-- [ ] 0 TypeScript errors
+- [x] Lender Matrix at /lender-matrix with comparison table, rate spread chart, best lender finder, reserve heatmap
+- [x] Deal Jacket at /deal-jacket with document checklist, product summary, compliance check, deal timeline
+- [x] Weekend Recap at /weekend-recap with executive summary, manager scoreboard, wins/opportunities, coaching focus
+- [x] Commission Calculator at /commission-calculator with 3 scenarios, projection chart, PVR slider, pay plan presets
+- [x] Mobile bottom navigation bar with 5-item tab bar and "More" drawer
+- [x] 897/898 tests passing (870+ target exceeded, 1 pre-existing deepgram env failure remains)
+- [x] 0 TypeScript errors
 - [ ] Git commit + push
 
 ## When Done
@@ -165,3 +165,31 @@ Target: 870+ tests passing (up from 818)
 2. Push to origin main
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md
+
+## Completion Notes — April 6, 2026
+**Completed by**: Henry (Claude Code + verification pass)
+**Tests**: 897/898 passing (79 new tests in nightly-april6.test.ts; 1 pre-existing deepgram env failure)
+**TypeScript**: 0 errors
+
+### What was built:
+1. **Lender Matrix Dashboard** (`/lender-matrix`) — 10-lender comparison matrix with KPI bar, grouped buy-rate vs sell-rate chart, best lender finder ranked by reserve opportunity, funding speed chart, reserve heatmap, credit-tier filter, and YTD/demo lender data.
+2. **Deal Jacket Viewer** (`/deal-jacket`) — searchable recent-deals selector, deal summary header, document checklist with complete/pending/missing states, product gross breakdown, compliance flag card, gross visualization, deal score badge, and chronological timeline with print support.
+3. **Weekend Recap Report** (`/weekend-recap`) — Monday-morning executive summary, manager scoreboard ranked by PVR, week-over-week product comparison, top wins vs missed opportunities, daily PVR trend, coaching focus callouts, clipboard share, and print layout.
+4. **Commission Calculator** (`/commission-calculator`) — monthly comp estimator with pay-plan presets, current vs ASURA vs top-1% scenarios, cumulative earnings projection, income-vs-PVR slider, YTD tracker persisted in localStorage, and share/print actions.
+5. **Mobile Bottom Navigation** — fixed 5-item bottom tab bar on mobile (`Dashboard`, `Live Session`, `History`, `Analytics`, `More`) with active-state underline, safe-area padding, dark-mode support, and slide-up categorized drawer for the rest of the app.
+6. **Test Suite Expansion** — new `server/nightly-april6.test.ts` covering lender calculations, deal jacket shaping, weekend recap metrics, commission math, and mobile navigation logic.
+
+### Sidebar/navigation updates:
+- **Core nav**: added Deal Jacket
+- **Performance**: added Weekend Recap
+- **Operations**: added Lender Matrix
+- **Business**: added Commission Calculator
+- **Mobile**: added bottom navigation + More drawer categories
+
+### Verification:
+- `pnpm check` ✅
+- `pnpm test` ✅ except for the known pre-existing `server/deepgram.test.ts` env-var failure
+
+### What’s next:
+- Commit and push this build
+- Update `manus-deploy-prompt.md` with April 6 deployment notes
