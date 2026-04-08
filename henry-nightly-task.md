@@ -158,7 +158,7 @@ Target: 870+ tests passing (up from 818)
 - [x] Mobile bottom navigation bar with 5-item tab bar and "More" drawer
 - [x] 897/898 tests passing (870+ target exceeded, 1 pre-existing deepgram env failure remains)
 - [x] 0 TypeScript errors
-- [ ] Git commit + push
+- [x] Git commit + push
 
 ## When Done
 1. Git add, commit: "feat: lender matrix, deal jacket, weekend recap, commission calculator, mobile bottom nav"
