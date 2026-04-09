@@ -191,5 +191,13 @@ Target: 870+ tests passing (up from 818)
 - `pnpm test` ✅ except for the known pre-existing `server/deepgram.test.ts` env-var failure
 
 ### What’s next:
-- Commit and push this build
-- Update `manus-deploy-prompt.md` with April 6 deployment notes
+- Deploy the latest `main` build to Manus
+- Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
+
+## Re-verification — April 8, 2026
+**Verified by**: Henry (Claude Code)
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — 897/898 passing (1 pre-existing deepgram env failure)
+- All 4 new pages confirmed in `App.tsx` routes and lazy-loaded
+- Mobile bottom nav confirmed in `AppLayout.tsx`
+- `manus-deploy-prompt.md` updated for April 8 deployment
