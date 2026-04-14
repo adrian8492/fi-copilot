@@ -1,5 +1,7 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** April 8, 2026 — Verified and ready to deploy
+**Updated:** April 13, 2026 — Re-verified and ready to deploy
+
+Re-verification note: no new feature work needed on April 13. Current `main` remains the April 6 feature set, re-verified with 0 TypeScript errors and 897/898 tests passing (1 pre-existing Deepgram env failure).
 
 ## What to Deploy
 
