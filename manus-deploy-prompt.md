@@ -12,7 +12,7 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 
 ## What's New in This Build
 
-### Build a9c98bc — April 6, 2026 (verified April 8)
+### Build ae7a757 — April 6, 2026 (re-verified April 13)
 - **Lender Matrix Dashboard:** `/lender-matrix` — lender comparison workspace for structuring finance deals. Includes KPI bar (Avg Buy Rate, Avg Sell Rate, Avg Reserve Spread, Approval Rate, Avg Funding Time), 10-lender comparison table, grouped buy-rate vs sell-rate chart, Best Lender Finder ranked by reserve opportunity for selected score/amount/term, funding speed chart, reserve opportunity heatmap by credit tier, and date/tier filtering.
 - **Deal Jacket Viewer:** `/deal-jacket` — digital deal jacket for recent deals. Includes searchable deal selector, summary header (customer, vehicle, deal type, lender, rate, term, payment), required-document checklist with complete/pending/missing states, product summary with gross profit, compliance flag card, gross breakdown visualization, ASURA deal score badge, full timeline, and print-ready layout.
 - **Weekend Recap Report:** `/weekend-recap` — Monday-morning executive summary view. Includes total deals, total F&I revenue, avg PVR, prior-week delta, penetration, top manager, biggest win, ranked manager scoreboard, week-over-week product comparison chart, wins/opportunities cards, daily PVR trend, coaching focus insights, clipboard share, and print layout.

@@ -218,15 +218,17 @@ Target: 870+ tests passing (up from 818)
 - Verify mobile bottom nav behavior on a narrow viewport in Manus after deploy
 
 ## Re-verification — April 13, 2026
-**Verified by**: Henry (Claude Code — nightly run)
+**Verified by**: Henry (Claude Code + manual verification)
+- Re-ran the nightly verification flow in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed the April 6 feature set is already present, including routes for `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
+- Confirmed mobile bottom navigation and More drawer are present in `client/src/components/AppLayout.tsx`
+- Confirmed `server/nightly-april6.test.ts` is present with lender, deal jacket, weekend recap, commission, and mobile-nav coverage
 - `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 897/898 passing (1 pre-existing deepgram env failure, `DEEPGRAM_API_KEY` not set)
-- All 4 new pages confirmed in `App.tsx` routes and lazy-loaded
-- Mobile bottom nav confirmed in `AppLayout.tsx`
-- `git status` — no code changes; doc-only updates staged and committed
-- Latest commit on `main` at verification time: `bbaf9b6 docs: update nightly task verification and deploy prompt for April 8`
+- `pnpm test` ⚠️ — 897/898 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
+- `git status` ✅ — only documentation updates for this verification run
+- Latest commit on `main` before tonight’s doc update: `bbaf9b6 docs: update nightly task verification and deploy prompt for April 8`
 
 ### What’s next:
 - Deploy current `main` to Manus
-- Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, `/commission-calculator`
-- Verify mobile bottom nav on narrow viewport after deploy
+- Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
+- Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
