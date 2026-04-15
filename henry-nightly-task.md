@@ -232,3 +232,19 @@ Target: 870+ tests passing (up from 818)
 - Deploy current `main` to Manus
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
+
+## Re-verification — April 14, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all April 6 features present: `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, `/commission-calculator`
+- Confirmed mobile bottom navigation and More drawer in `AppLayout.tsx`
+- Confirmed `server/nightly-april6.test.ts` present with 79 tests
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — 897/898 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ — only documentation update for this verification run
+- Latest commit on `main` before tonight's update: `8e4f033 docs: refresh nightly verification for april 13`
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
+- Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
