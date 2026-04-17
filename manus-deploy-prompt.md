@@ -1,7 +1,7 @@
 # Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** April 15, 2026 — Re-verified and ready to deploy
+**Updated:** April 16, 2026 — Re-verified and ready to deploy
 
-Re-verification note: no new feature work needed on April 15. Current `main` remains the April 6 feature set, re-verified with 0 TypeScript errors and 897/898 tests passing (1 pre-existing Deepgram env failure).
+Re-verification note: no new feature work needed on April 16. Current `main` includes the April 6 feature set plus the April 15 build (FI Benchmarks Hub, Objection Library, Deal Funding Tracker). Re-verified with 0 TypeScript errors and 967/968 tests passing (1 pre-existing Deepgram env failure).
 
 ## What to Deploy
 
@@ -12,7 +12,7 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 
 ## What's New in This Build
 
-### Build ae7a757 — April 6, 2026 (re-verified April 15)
+### Build ae7a757 — April 6, 2026 (re-verified April 16)
 - **Lender Matrix Dashboard:** `/lender-matrix` — lender comparison workspace for structuring finance deals. Includes KPI bar (Avg Buy Rate, Avg Sell Rate, Avg Reserve Spread, Approval Rate, Avg Funding Time), 10-lender comparison table, grouped buy-rate vs sell-rate chart, Best Lender Finder ranked by reserve opportunity for selected score/amount/term, funding speed chart, reserve opportunity heatmap by credit tier, and date/tier filtering.
 - **Deal Jacket Viewer:** `/deal-jacket` — digital deal jacket for recent deals. Includes searchable deal selector, summary header (customer, vehicle, deal type, lender, rate, term, payment), required-document checklist with complete/pending/missing states, product summary with gross profit, compliance flag card, gross breakdown visualization, ASURA deal score badge, full timeline, and print-ready layout.
 - **Weekend Recap Report:** `/weekend-recap` — Monday-morning executive summary view. Includes total deals, total F&I revenue, avg PVR, prior-week delta, penetration, top manager, biggest win, ranked manager scoreboard, week-over-week product comparison chart, wins/opportunities cards, daily PVR trend, coaching focus insights, clipboard share, and print layout.
@@ -47,7 +47,7 @@ Deploy the latest build of the F&I Co-Pilot application from the GitHub reposito
 
 ## Current Stats
 - **Total Pages:** 43
-- **Tests:** 897/898 passing (1 pre-existing deepgram env failure)
+- **Tests:** 967/968 passing (1 pre-existing deepgram env failure)
 - **TypeScript:** 0 errors
 - **Sidebar Sections:** Core, Performance, Coaching, Operations, Business, Admin
 - **Mobile Navigation:** bottom tab bar + More drawer
