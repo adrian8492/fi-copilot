@@ -93,6 +93,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/shift-performance", label: "Shift Performance", icon: Timer },
   { path: "/customer-journey", label: "Customer Journey", icon: Map },
   { path: "/weekend-recap", label: "Weekend Recap", icon: CalendarDays },
+  { path: "/benchmarks", label: "F&I Benchmarks", icon: BarChart3 },
 ];
 
 const COACHING_ITEMS = [
@@ -100,6 +101,7 @@ const COACHING_ITEMS = [
   { path: "/training", label: "Training Curriculum", icon: BookOpen },
   { path: "/one-on-ones", label: "1-on-1 Tracker", icon: MessageSquare },
   { path: "/schedule", label: "Manager Schedule", icon: Calendar },
+  { path: "/objection-library", label: "Objection Library", icon: BookOpen },
 ];
 
 const OPERATIONS_ITEMS = [
@@ -107,6 +109,7 @@ const OPERATIONS_ITEMS = [
   { path: "/profit-analysis", label: "Profit Analysis", icon: TrendingUp },
   { path: "/payoff-tracker", label: "Payoff Tracker", icon: ReceiptText },
   { path: "/lender-matrix", label: "Lender Matrix", icon: Grid3X3 },
+  { path: "/funding-tracker", label: "Deal Funding Tracker", icon: ClipboardCheck },
 ];
 
 const BUSINESS_ITEMS = [

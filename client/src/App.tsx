@@ -59,6 +59,9 @@ const LenderMatrix = lazy(() => import("./pages/LenderMatrix"));
 const DealJacket = lazy(() => import("./pages/DealJacket"));
 const WeekendRecap = lazy(() => import("./pages/WeekendRecap"));
 const CommissionCalculator = lazy(() => import("./pages/CommissionCalculator"));
+const FIBenchmarks = lazy(() => import("./pages/FIBenchmarks"));
+const ObjectionLibrary = lazy(() => import("./pages/ObjectionLibrary"));
+const DealFundingTracker = lazy(() => import("./pages/DealFundingTracker"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -120,6 +123,9 @@ function Router() {
         <Route path="/deal-jacket" component={DealJacket} />
         <Route path="/weekend-recap" component={WeekendRecap} />
         <Route path="/commission-calculator" component={CommissionCalculator} />
+        <Route path="/benchmarks" component={FIBenchmarks} />
+        <Route path="/objection-library" component={ObjectionLibrary} />
+        <Route path="/funding-tracker" component={DealFundingTracker} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
