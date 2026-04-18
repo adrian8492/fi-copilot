@@ -283,3 +283,21 @@ Target: 870+ tests passing (up from 818)
 - Deploy current `main` to Manus
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
+
+## Nightly Build — April 17, 2026
+**Completed by**: Henry (Claude Code kickoff + manual completion/verification)
+- Built **Heat Sheet** at `/heat-sheet` with heat-score tiers, factor badges, KPI bar, sort/filter controls, refresh countdown, heat breakdown modal, and follow-up action modal
+- Built **Word Track Library** at `/word-tracks` with category filtering, search, favorites via localStorage, expandable scripts, copy-to-clipboard, and ASURA pillar tagging across 25+ tracks
+- Built **Desk Log** at `/desk-log` with date selector, KPI summary, editable deal table, add-deal slide-over, CSV export, print support, and status-based row coloring
+- Built **Rate Watch** at `/rate-watch` with 12-month rate trend chart, lender table, alert management via localStorage, market context, and payment impact calculator
+- Added all four pages to lazy-loaded routes in `client/src/App.tsx`
+- Added nav/sidebar entries in `client/src/components/AppLayout.tsx` for Heat Sheet, Word Tracks, Desk Log, and Rate Watch
+- Added `server/nightly-april17.test.ts` with 61 new tests covering heat scoring, word-track filtering/favorites, desk-log calculations/CSV behavior, and rate-watch calculations/alerts
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ⚠️ — 1028/1029 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
+- Test suite target exceeded beyond 1,020 passing tests
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/heat-sheet`, `/word-tracks`, `/desk-log`, and `/rate-watch`
+- Re-check mobile nav and More drawer behavior on a narrow viewport after deploy

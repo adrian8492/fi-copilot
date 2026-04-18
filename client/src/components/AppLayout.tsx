@@ -55,6 +55,10 @@ import {
   CalendarDays,
   Banknote,
   MoreHorizontal,
+  Flame,
+  ScrollText,
+  ClipboardPenLine,
+  LineChart,
 } from "lucide-react";
 import { useState, useCallback, memo, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -94,6 +98,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/customer-journey", label: "Customer Journey", icon: Map },
   { path: "/weekend-recap", label: "Weekend Recap", icon: CalendarDays },
   { path: "/benchmarks", label: "F&I Benchmarks", icon: BarChart3 },
+  { path: "/heat-sheet", label: "Heat Sheet", icon: Flame },
 ];
 
 const COACHING_ITEMS = [
@@ -102,6 +107,7 @@ const COACHING_ITEMS = [
   { path: "/one-on-ones", label: "1-on-1 Tracker", icon: MessageSquare },
   { path: "/schedule", label: "Manager Schedule", icon: Calendar },
   { path: "/objection-library", label: "Objection Library", icon: BookOpen },
+  { path: "/word-tracks", label: "Word Tracks", icon: ScrollText },
 ];
 
 const OPERATIONS_ITEMS = [
@@ -110,6 +116,8 @@ const OPERATIONS_ITEMS = [
   { path: "/payoff-tracker", label: "Payoff Tracker", icon: ReceiptText },
   { path: "/lender-matrix", label: "Lender Matrix", icon: Grid3X3 },
   { path: "/funding-tracker", label: "Deal Funding Tracker", icon: ClipboardCheck },
+  { path: "/desk-log", label: "Desk Log", icon: ClipboardPenLine },
+  { path: "/rate-watch", label: "Rate Watch", icon: LineChart },
 ];
 
 const BUSINESS_ITEMS = [

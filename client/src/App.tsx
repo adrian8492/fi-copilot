@@ -62,6 +62,10 @@ const CommissionCalculator = lazy(() => import("./pages/CommissionCalculator"));
 const FIBenchmarks = lazy(() => import("./pages/FIBenchmarks"));
 const ObjectionLibrary = lazy(() => import("./pages/ObjectionLibrary"));
 const DealFundingTracker = lazy(() => import("./pages/DealFundingTracker"));
+const HeatSheet = lazy(() => import("./pages/HeatSheet"));
+const WordTracks = lazy(() => import("./pages/WordTracks"));
+const DeskLog = lazy(() => import("./pages/DeskLog"));
+const RateWatch = lazy(() => import("./pages/RateWatch"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -126,6 +130,10 @@ function Router() {
         <Route path="/benchmarks" component={FIBenchmarks} />
         <Route path="/objection-library" component={ObjectionLibrary} />
         <Route path="/funding-tracker" component={DealFundingTracker} />
+        <Route path="/heat-sheet" component={HeatSheet} />
+        <Route path="/word-tracks" component={WordTracks} />
+        <Route path="/desk-log" component={DeskLog} />
+        <Route path="/rate-watch" component={RateWatch} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
