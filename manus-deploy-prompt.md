@@ -1,61 +1,77 @@
-# Manus Deploy Prompt — F&I Co-Pilot
-**Updated:** April 17, 2026 — New feature build ready to deploy
+# Manus Deploy Prompt — April 18, 2026
 
-Deploy the latest build of the F&I Co-Pilot application from the GitHub repository to the Manus hosting environment.
+## App Info
+- **App:** F&I Co-Pilot (ASURA Group)
+- **App ID:** MQskutAJ8qMCMFRFedd6Fn
+- **URL:** https://finico-pilot-mqskutaj.manus.space/
+- **Auth token:** 8d65f4078e4e44c59387a2c6fe8eb551.4na7S8SMu0zeCtP19dMgEqmH
+- **Repo branch:** main
+- **Commit to deploy:** 724a325
 
-**App ID:** MQskutAJ8qMCMFRFedd6Fn  
-**Current URL:** https://finico-pilot-mqskutaj.manus.space/
+## What's New (April 18 build)
 
-## What’s New in This Build
+Four new pages added tonight:
 
-### April 17, 2026 build
-- **Heat Sheet:** `/heat-sheet` — live customer heat tracker with KPI bar, heat tiers, factor badges, sort/filter controls, action notes, and heat-score breakdown modal
-- **Word Track Library:** `/word-tracks` — searchable F&I script library with category filters, 25+ hard-coded tracks, favorites, copy-to-clipboard, and ASURA OPS pillar tags
-- **Desk Log:** `/desk-log` — daily digital desk log with KPI summary, editable deal table, add-deal slide-over, CSV export, print support, and status-based highlighting
-- **Rate Watch:** `/rate-watch` — lender rate-monitoring workspace with 12-month buy-rate trends, lender table, alert tracking, market context, and payment impact calculator
-- **Navigation updates:**
-  - Performance: added Heat Sheet
-  - Coaching: added Word Tracks
-  - Operations: added Desk Log and Rate Watch
-- **Test suite:** 1028/1029 passing, with 61 new tests in `server/nightly-april17.test.ts`
-- **Known failure:** the single remaining failing test is still the pre-existing `server/deepgram.test.ts` env check because `DEEPGRAM_API_KEY` is not set
-- **TypeScript:** 0 errors
+### 1. F&I Snapshot Report (`/fi-snapshot`)
+- One-page printable manager performance snapshot
+- 8-manager selector + period filter (This Month / Last Month / Last 90 / YTD)
+- KPI grid: Deals, PVR, Revenue, Penetration %, Compliance, Coaching — each with 12-week sparkline
+- Product Leaderboard table
+- Objection Handling RadarChart (6 axes)
+- Top 3 wins + 3 coaching focus areas
+- PVR trend AreaChart + share/print buttons
+- Sidebar: Performance section (after Weekend Recap)
 
-### Existing key routes already on main
-- `/lender-matrix`
-- `/deal-jacket`
-- `/weekend-recap`
-- `/commission-calculator`
-- `/benchmarks`
-- `/objection-library`
-- `/funding-tracker`
+### 2. Trade-In Analyzer (`/trade-in`)
+- Year/Make/Condition ACV lookup → equity calculation (ACV - payoff)
+- F&I impact panel for positive vs negative equity scenarios
+- Financed amount, monthly payment (amortization), product affordability calculator
+- Equity position BarChart + Deal Structuring Tips (rule-based)
+- Sidebar: Operations section (after Lender Matrix)
 
-## Deploy Steps
-1. Pull latest from GitHub: `git pull origin main`
-2. Install dependencies: `pnpm install`
-3. Build: `pnpm build`
-4. Start: `pnpm start`
+### 3. Product Profitability Center (`/product-profit`)
+- 10-product P&L table: Avg Retail, Avg Cost, Avg Gross, Margin %, Total Gross
+- Margin waterfall BarChart, cost-vs-revenue ScatterChart, per-manager stacked BarChart
+- Product mix PieChart + month-over-month toggle
+- Underperforming product alerts (margin < 25%)
+- Date range filter: MTD / Last 30 / Last 90 / YTD
+- Sidebar: Business section (after Commission Calculator)
 
-## Post-Deploy Smoke Test
-Verify these routes load cleanly:
-- `/heat-sheet`
-- `/word-tracks`
-- `/desk-log`
-- `/rate-watch`
-- `/lender-matrix`
-- `/deal-jacket`
-- `/weekend-recap`
-- `/commission-calculator`
+### 4. Coaching Session Planner (`/coaching-planner`)
+- Manager list with due-for-coaching badges (> 14 days) + overdue alerts (> 21 days)
+- Session form: type, datetime, agenda builder, notes, star rating, action items, follow-up date
+- localStorage persistence
+- Custom monthly calendar grid with session dots
+- Coaching cadence KPI + session history (last 5 per manager)
+- Sidebar: Performance section (after F&I Snapshot)
 
-Also verify:
-- Mobile bottom nav on a narrow viewport
-- More drawer opens and shows the new links
-- CSV export works on `/desk-log`
-- Favorites persist on `/word-tracks`
-- Rate alerts persist on `/rate-watch`
+## Test Status
+- **1074/1075 passing** (1 pre-existing deepgram env-var failure — safe to ignore)
+- 0 TypeScript errors
+- 46 new tests in `server/nightly-april18.test.ts`
 
-## Current Stats
-- **Total pages:** 47
-- **Tests:** 1028/1029 passing
-- **TypeScript:** 0 errors
-- **Known issue:** missing `DEEPGRAM_API_KEY` causes the only failing test
+## Full Page Inventory (all routes)
+Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
+AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
+DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode,
+SessionComparison, SessionPrintReport, NotificationCenter, Leaderboard, GoalTracker,
+DealScoring, CoachingReportBuilder, TrainerDashboard, DealTimeline, MultiLocationRollup,
+ShiftPerformance, TrainingCurriculum, ProfitAnalysis, CustomerJourney, OneOnOneTracker,
+ComplianceAudit, ROICalculator, PayoffTracker, ManagerSchedule, ComplianceScorecard,
+LenderMatrix, DealJacket, WeekendRecap, CommissionCalculator, FIBenchmarks, ObjectionLibrary,
+DealFundingTracker, HeatSheet, WordTracks, DeskLog, RateWatch,
+**FISnapshot**, **TradeIn**, **ProductProfit**, **CoachingPlanner** ← new tonight
+
+## Smoke Test Checklist (after deploy)
+- [ ] `/fi-snapshot` — manager dropdown works, KPI cards + sparklines render, radar chart loads
+- [ ] `/trade-in` — ACV lookup returns values, equity calculation correct, tips appear on edge cases
+- [ ] `/product-profit` — P&L table shows 10 products, charts render, underperforming alert visible
+- [ ] `/coaching-planner` — manager list shows badges, session form saves to localStorage, calendar grid renders
+- [ ] Sidebar — verify new entries appear in correct sections (Performance, Operations, Business)
+- [ ] Mobile — bottom nav More drawer shows updated section links
+
+## Deploy Command
+```
+# From Manus dashboard or CLI:
+# Pull latest main and redeploy the app
+```

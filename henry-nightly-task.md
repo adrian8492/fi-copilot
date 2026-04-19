@@ -301,3 +301,21 @@ Target: 870+ tests passing (up from 818)
 - Deploy current `main` to Manus
 - Smoke-test `/heat-sheet`, `/word-tracks`, `/desk-log`, and `/rate-watch`
 - Re-check mobile nav and More drawer behavior on a narrow viewport after deploy
+
+## Nightly Build — April 18, 2026
+**Completed by**: Henry (Claude Code + verification pass)
+- Built **F&I Snapshot Report** at `/fi-snapshot` with KPI grid (6 cards), trend sparklines (12-week recharts LineChart), Product Leaderboard table, Objection Handling RadarChart (6 axes), top-3 wins, 3 coaching focus areas, PVR trend AreaChart, share/print buttons — demo data for 8 managers with realistic variance
+- Built **Trade-In Analyzer** at `/trade-in` with year/make/condition ACV lookup table, payoff input, equity calculation, F&I impact panel, financed-amount calculator, monthly payment estimator (amortization formula), product affordability reverse-calculator, equity BarChart, and rule-based Deal Structuring Tips card
+- Built **Product Profitability Center** at `/product-profit` with top KPI bar, 10-product P&L table with trend arrows, margin waterfall BarChart, cost-vs-revenue ScatterChart, per-manager stacked BarChart, month-over-month toggle, underperforming-product alerts (< 25% margin), product mix PieChart, and date range filter — demo data 10 products × 8 managers × 3 months
+- Built **Coaching Session Planner** at `/coaching-planner` with manager list panel (due/overdue badges), session form (type, datetime, agenda builder array, notes, star rating, action items, follow-up date), localStorage persistence, custom monthly calendar grid with session dots, coaching cadence KPI, session history (last 5 per manager), overdue alert banner (> 21 days), and clipboard export
+- Added all 4 pages to lazy-loaded routes in `client/src/App.tsx`
+- Added sidebar entries in `client/src/components/AppLayout.tsx` (FI Snapshot + Coaching Planner → Performance; Trade-In → Operations; Product Profit → Business)
+- Added `server/nightly-april18.test.ts` with 46 new tests covering FI snapshot KPI math, trade-in equity/payment/ACV logic, product profit margin calculations, and coaching planner cadence/overdue logic
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — 1074/1075 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- Commit: `724a325` pushed to `main`
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/fi-snapshot`, `/trade-in`, `/product-profit`, and `/coaching-planner`
+- Verify mobile nav More drawer shows new pages in correct sections
