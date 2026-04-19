@@ -66,6 +66,10 @@ const HeatSheet = lazy(() => import("./pages/HeatSheet"));
 const WordTracks = lazy(() => import("./pages/WordTracks"));
 const DeskLog = lazy(() => import("./pages/DeskLog"));
 const RateWatch = lazy(() => import("./pages/RateWatch"));
+const FISnapshot = lazy(() => import("./pages/FISnapshot"));
+const TradeInAnalyzer = lazy(() => import("./pages/TradeIn"));
+const ProductProfit = lazy(() => import("./pages/ProductProfit"));
+const CoachingPlanner = lazy(() => import("./pages/CoachingPlanner"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -134,6 +138,10 @@ function Router() {
         <Route path="/word-tracks" component={WordTracks} />
         <Route path="/desk-log" component={DeskLog} />
         <Route path="/rate-watch" component={RateWatch} />
+        <Route path="/fi-snapshot" component={FISnapshot} />
+        <Route path="/trade-in" component={TradeInAnalyzer} />
+        <Route path="/product-profit" component={ProductProfit} />
+        <Route path="/coaching-planner" component={CoachingPlanner} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

@@ -59,6 +59,8 @@ import {
   ScrollText,
   ClipboardPenLine,
   LineChart,
+  Camera,
+  Car,
 } from "lucide-react";
 import { useState, useCallback, memo, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -99,6 +101,8 @@ const PERFORMANCE_ITEMS = [
   { path: "/weekend-recap", label: "Weekend Recap", icon: CalendarDays },
   { path: "/benchmarks", label: "F&I Benchmarks", icon: BarChart3 },
   { path: "/heat-sheet", label: "Heat Sheet", icon: Flame },
+  { path: "/fi-snapshot", label: "F&I Snapshot", icon: Camera },
+  { path: "/coaching-planner", label: "Coaching Planner", icon: ClipboardPenLine },
 ];
 
 const COACHING_ITEMS = [
@@ -118,11 +122,13 @@ const OPERATIONS_ITEMS = [
   { path: "/funding-tracker", label: "Deal Funding Tracker", icon: ClipboardCheck },
   { path: "/desk-log", label: "Desk Log", icon: ClipboardPenLine },
   { path: "/rate-watch", label: "Rate Watch", icon: LineChart },
+  { path: "/trade-in", label: "Trade-In Analyzer", icon: Car },
 ];
 
 const BUSINESS_ITEMS = [
   { path: "/roi-calculator", label: "ROI Calculator", icon: Calculator },
   { path: "/commission-calculator", label: "Commission Calculator", icon: Banknote },
+  { path: "/product-profit", label: "Product Profitability", icon: TrendingUp },
 ];
 
 const ADMIN_ITEMS = [
