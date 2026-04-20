@@ -1,4 +1,4 @@
-# Manus Deploy Prompt — April 18, 2026
+# Manus Deploy Prompt — April 19, 2026
 
 ## App Info
 - **App:** F&I Co-Pilot (ASURA Group)
@@ -6,69 +6,66 @@
 - **URL:** https://finico-pilot-mqskutaj.manus.space/
 - **Auth token:** 8d65f4078e4e44c59387a2c6fe8eb551.4na7S8SMu0zeCtP19dMgEqmH
 - **Repo branch:** main
-- **Commit to deploy:** 724a325
+- **Commit to deploy:** latest `main` after April 19 nightly build
 
-## What's New (April 18 build)
+## What's New (April 19 build)
 
 Four new pages added tonight:
 
-### 1. F&I Snapshot Report (`/fi-snapshot`)
-- One-page printable manager performance snapshot
-- 8-manager selector + period filter (This Month / Last Month / Last 90 / YTD)
-- KPI grid: Deals, PVR, Revenue, Penetration %, Compliance, Coaching — each with 12-week sparkline
-- Product Leaderboard table
-- Objection Handling RadarChart (6 axes)
-- Top 3 wins + 3 coaching focus areas
-- PVR trend AreaChart + share/print buttons
-- Sidebar: Performance section (after Weekend Recap)
+### 1. Incentive Tracker (`/incentive-tracker`)
+- Tracks OEM, lender, and dealer incentive programs
+- KPI bar: active incentives, total potential bonus, earned YTD, expiring this month
+- 15-program table with source, type, target, payout, expiration, and status
+- Earned vs potential BarChart + 12-month earnings AreaChart
+- Expiring-soon alert card for programs within 30 days
+- Incentive earnings calculator by program and deal count / penetration
+- Filters for source, type, and status
+- localStorage-backed program tracking
+- Sidebar: Business section
 
-### 2. Trade-In Analyzer (`/trade-in`)
-- Year/Make/Condition ACV lookup → equity calculation (ACV - payoff)
-- F&I impact panel for positive vs negative equity scenarios
-- Financed amount, monthly payment (amortization), product affordability calculator
-- Equity position BarChart + Deal Structuring Tips (rule-based)
-- Sidebar: Operations section (after Lender Matrix)
+### 2. F&I Health Score (`/fi-health`)
+- Composite F&I department score with letter grade
+- Overall gauge + 6 dimension score cards: PVR, penetration, compliance, CSI, lender relations, team velocity
+- Trend chart with 6-month history
+- AI-style prescription list ranked by estimated impact
+- Score breakdown table with weights, raw values, and benchmark deltas
+- Radar comparison across 3 demo locations
+- Sidebar: Performance section
 
-### 3. Product Profitability Center (`/product-profit`)
-- 10-product P&L table: Avg Retail, Avg Cost, Avg Gross, Margin %, Total Gross
-- Margin waterfall BarChart, cost-vs-revenue ScatterChart, per-manager stacked BarChart
-- Product mix PieChart + month-over-month toggle
-- Underperforming product alerts (margin < 25%)
-- Date range filter: MTD / Last 30 / Last 90 / YTD
-- Sidebar: Business section (after Commission Calculator)
+### 3. Stip Tracker (`/stip-tracker`)
+- Tracks lender stips and deal funding requirements
+- KPI bar: open stips, avg days open, cleared today, at-risk deals
+- 20-row stip table with priority, status, assigned owner, and notes
+- Age-bucket heatmap and 30-day clearance trend chart
+- Quick actions per row: submitted, cleared, escalate
+- Bulk clear flow and at-risk deals panel
+- Filters for lender, priority, status, and assigned manager
+- Sidebar: Operations section
 
-### 4. Coaching Session Planner (`/coaching-planner`)
-- Manager list with due-for-coaching badges (> 14 days) + overdue alerts (> 21 days)
-- Session form: type, datetime, agenda builder, notes, star rating, action items, follow-up date
-- localStorage persistence
-- Custom monthly calendar grid with session dots
-- Coaching cadence KPI + session history (last 5 per manager)
-- Sidebar: Performance section (after F&I Snapshot)
+### 4. Deal Profit Breakdown (`/deal-profit`)
+- Per-deal gross analysis with searchable recent-deal selector
+- Deal header with customer, vehicle, lender, manager, and total gross
+- Waterfall-style profit chart: front gross, reserve, products, chargebacks, net F&I gross
+- Product breakdown table with gross margin % and benchmark deltas
+- Reserve efficiency detail: buy/sell rate, spread bps, max reserve, efficiency %
+- Money-left-on-table section for missed products
+- Comparison vs manager avg, store avg, and top quartile
+- Chargeback risk score and penetration efficiency
+- Sidebar: Business section
 
 ## Test Status
-- **1074/1075 passing** (1 pre-existing deepgram env-var failure — safe to ignore)
+- **1123/1124 passing**
 - 0 TypeScript errors
-- 46 new tests in `server/nightly-april18.test.ts`
-
-## Full Page Inventory (all routes)
-Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
-AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
-DealRecovery, DealershipSettings, PipelineDiagnostics, ManagerScorecard, DemoMode,
-SessionComparison, SessionPrintReport, NotificationCenter, Leaderboard, GoalTracker,
-DealScoring, CoachingReportBuilder, TrainerDashboard, DealTimeline, MultiLocationRollup,
-ShiftPerformance, TrainingCurriculum, ProfitAnalysis, CustomerJourney, OneOnOneTracker,
-ComplianceAudit, ROICalculator, PayoffTracker, ManagerSchedule, ComplianceScorecard,
-LenderMatrix, DealJacket, WeekendRecap, CommissionCalculator, FIBenchmarks, ObjectionLibrary,
-DealFundingTracker, HeatSheet, WordTracks, DeskLog, RateWatch,
-**FISnapshot**, **TradeIn**, **ProductProfit**, **CoachingPlanner** ← new tonight
+- 1 pre-existing failure remains: `server/deepgram.test.ts` because `DEEPGRAM_API_KEY` is not set
+- New coverage added in `server/nightly-april19.test.ts`
 
 ## Smoke Test Checklist (after deploy)
-- [ ] `/fi-snapshot` — manager dropdown works, KPI cards + sparklines render, radar chart loads
-- [ ] `/trade-in` — ACV lookup returns values, equity calculation correct, tips appear on edge cases
-- [ ] `/product-profit` — P&L table shows 10 products, charts render, underperforming alert visible
-- [ ] `/coaching-planner` — manager list shows badges, session form saves to localStorage, calendar grid renders
-- [ ] Sidebar — verify new entries appear in correct sections (Performance, Operations, Business)
-- [ ] Mobile — bottom nav More drawer shows updated section links
+- [ ] `/incentive-tracker` — filters work, charts render, calculator updates projected earnings
+- [ ] `/fi-health` — overall score renders, trend chart loads, prescriptions and radar chart display
+- [ ] `/stip-tracker` — table filters work, age buckets render, at-risk panel shows flagged deals
+- [ ] `/deal-profit` — deal selector switches records, waterfall renders, reserve and product tables populate
+- [ ] Sidebar — verify new entries appear in correct sections
+- [ ] Mobile — verify More drawer includes the new routes in the right categories
 
 ## Deploy Command
 ```

@@ -319,3 +319,21 @@ Target: 870+ tests passing (up from 818)
 - Deploy current `main` to Manus
 - Smoke-test `/fi-snapshot`, `/trade-in`, `/product-profit`, and `/coaching-planner`
 - Verify mobile nav More drawer shows new pages in correct sections
+
+## Nightly Build — April 19, 2026
+**Completed by**: Henry (Claude Code kickoff + verification/finalization pass)
+- Built **Incentive Tracker** at `/incentive-tracker` with KPI bar, source/type/status filters, 15-program incentive table, earned-vs-potential chart, monthly earnings trend, expiring-soon alerts, projected earnings calculator, and localStorage-backed program tracking
+- Built **F&I Health Score** at `/fi-health` with overall health grade, weighted dimension scorecards, benchmark deltas, 6-month trend chart, prescription/action items, score breakdown table, and multi-location radar comparison
+- Built **Stip Tracker** at `/stip-tracker` with open-stip KPI bar, lender/priority/status filters, 20-row stip table, age-bucket heatmap, 30-day clearance trend, per-row quick actions, bulk-clear workflow, and at-risk deals panel
+- Built **Deal Profit Breakdown** at `/deal-profit` with searchable deal selector, total gross header, profit waterfall chart, product-level gross table, reserve efficiency detail, money-left-on-table callout, benchmark comparison panel, and chargeback risk scoring
+- Added all 4 pages to lazy-loaded routes in `client/src/App.tsx`
+- Added sidebar entries in `client/src/components/AppLayout.tsx` (F&I Health → Performance; Stip Tracker → Operations; Incentive Tracker + Deal Profit Breakdown → Business)
+- Added `server/nightly-april19.test.ts` with expanded coverage for incentive math, health-score weighting/grades, stip aging and filtering, and deal-profit calculations/comparisons
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ except for the single pre-existing env-var issue — 1123/1124 passing (`server/deepgram.test.ts` still fails because `DEEPGRAM_API_KEY` is not set)
+- Commit + push completed after verification
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/incentive-tracker`, `/fi-health`, `/stip-tracker`, and `/deal-profit`
+- Verify sidebar placement and mobile More drawer categorization for the new pages
