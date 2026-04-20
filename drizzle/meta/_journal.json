@@ -134,6 +134,13 @@
       "when": 1773773002860,
       "tag": "0018_steep_mach_iv",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1776664090478,
+      "tag": "0019_far_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }
