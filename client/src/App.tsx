@@ -70,6 +70,10 @@ const FISnapshot = lazy(() => import("./pages/FISnapshot"));
 const TradeInAnalyzer = lazy(() => import("./pages/TradeIn"));
 const ProductProfit = lazy(() => import("./pages/ProductProfit"));
 const CoachingPlanner = lazy(() => import("./pages/CoachingPlanner"));
+const DealProfit = lazy(() => import("./pages/DealProfit"));
+const FIHealth = lazy(() => import("./pages/FIHealth"));
+const IncentiveTracker = lazy(() => import("./pages/IncentiveTracker"));
+const StipTracker = lazy(() => import("./pages/StipTracker"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -142,6 +146,10 @@ function Router() {
         <Route path="/trade-in" component={TradeInAnalyzer} />
         <Route path="/product-profit" component={ProductProfit} />
         <Route path="/coaching-planner" component={CoachingPlanner} />
+        <Route path="/deal-profit" component={DealProfit} />
+        <Route path="/fi-health" component={FIHealth} />
+        <Route path="/incentive-tracker" component={IncentiveTracker} />
+        <Route path="/stip-tracker" component={StipTracker} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

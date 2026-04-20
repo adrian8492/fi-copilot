@@ -61,6 +61,8 @@ import {
   LineChart,
   Camera,
   Car,
+  Gift,
+  FileSearch,
 } from "lucide-react";
 import { useState, useCallback, memo, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -103,6 +105,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/heat-sheet", label: "Heat Sheet", icon: Flame },
   { path: "/fi-snapshot", label: "F&I Snapshot", icon: Camera },
   { path: "/coaching-planner", label: "Coaching Planner", icon: ClipboardPenLine },
+  { path: "/fi-health", label: "F&I Health Score", icon: Activity },
 ];
 
 const COACHING_ITEMS = [
@@ -119,6 +122,7 @@ const OPERATIONS_ITEMS = [
   { path: "/profit-analysis", label: "Profit Analysis", icon: TrendingUp },
   { path: "/payoff-tracker", label: "Payoff Tracker", icon: ReceiptText },
   { path: "/lender-matrix", label: "Lender Matrix", icon: Grid3X3 },
+  { path: "/stip-tracker", label: "Stip Tracker", icon: FileSearch },
   { path: "/funding-tracker", label: "Deal Funding Tracker", icon: ClipboardCheck },
   { path: "/desk-log", label: "Desk Log", icon: ClipboardPenLine },
   { path: "/rate-watch", label: "Rate Watch", icon: LineChart },
@@ -128,7 +132,9 @@ const OPERATIONS_ITEMS = [
 const BUSINESS_ITEMS = [
   { path: "/roi-calculator", label: "ROI Calculator", icon: Calculator },
   { path: "/commission-calculator", label: "Commission Calculator", icon: Banknote },
+  { path: "/incentive-tracker", label: "Incentive Tracker", icon: Gift },
   { path: "/product-profit", label: "Product Profitability", icon: TrendingUp },
+  { path: "/deal-profit", label: "Deal Profit Breakdown", icon: BarChart3 },
 ];
 
 const ADMIN_ITEMS = [
