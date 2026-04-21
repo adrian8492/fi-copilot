@@ -337,3 +337,22 @@ Target: 870+ tests passing (up from 818)
 - Deploy current `main` to Manus
 - Smoke-test `/incentive-tracker`, `/fi-health`, `/stip-tracker`, and `/deal-profit`
 - Verify sidebar placement and mobile More drawer categorization for the new pages
+
+## Nightly Build — April 20, 2026
+**Completed by**: Henry (Claude Code kickoff + verification/finalization pass)
+- Built **Contract Checklist** at `/contract-checklist` with deal selector, completion progress bar, Ready to Fund badge, KPI bar, critical-items panel, section-by-section checklist, editable notes, print action, and Submit to Lender gating at 100% completion
+- Built **F&I Manager Report Card** at `/report-card` with manager/month selectors, school-style letter grade + GPA header, weighted category breakdown table, 6-month trend chart, radar chart, peer comparison bars, AI coaching narrative, improvement plan, clipboard share, and print support
+- Built **Funding Queue** at `/funding-queue` with KPI bar, status tabs, aging/lender filters, selectable deal table, bulk status actions, funding velocity chart, chargeback-risk alerts, end-of-day clipboard summary, and slide-out detail panel with stip checklist and lender contact
+- Built **Gross Per Unit Tracker** at `/gpu-tracker` with KPI cards, monthly composed GPU trend chart, manager ranking chart, product-line stacked chart, GPU distribution histogram, target-vs-actual radial gauge, benchmarks panel, date-range and manager filters, and clipboard CSV export
+- Added all 4 pages to lazy-loaded routes in `client/src/App.tsx`
+- Added sidebar entries in `client/src/components/AppLayout.tsx` (Report Card → Performance; Contract Checklist + Funding Queue → Operations; GPU Tracker → Business)
+- Added `server/nightly-april20.test.ts` with 57 new tests covering contract checklist calculations, report-card grading logic, funding-queue aging/filtering/KPIs, and GPU tracker calculations/benchmarks
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ except for the single pre-existing env-var issue — 1180/1181 passing (`server/deepgram.test.ts` still fails because `DEEPGRAM_API_KEY` is not set)
+- Commit + push completed after verification
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/contract-checklist`, `/report-card`, `/funding-queue`, and `/gpu-tracker`
+- Verify sidebar placement and mobile More drawer categorization for the new pages
+- Verify Funding Queue bulk actions and detail slide-out behavior in Manus
