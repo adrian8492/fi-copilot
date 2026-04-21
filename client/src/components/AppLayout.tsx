@@ -106,6 +106,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/fi-snapshot", label: "F&I Snapshot", icon: Camera },
   { path: "/coaching-planner", label: "Coaching Planner", icon: ClipboardPenLine },
   { path: "/fi-health", label: "F&I Health Score", icon: Activity },
+  { path: "/report-card", label: "Manager Report Card", icon: Award },
 ];
 
 const COACHING_ITEMS = [
@@ -127,6 +128,8 @@ const OPERATIONS_ITEMS = [
   { path: "/desk-log", label: "Desk Log", icon: ClipboardPenLine },
   { path: "/rate-watch", label: "Rate Watch", icon: LineChart },
   { path: "/trade-in", label: "Trade-In Analyzer", icon: Car },
+  { path: "/contract-checklist", label: "Contract Checklist", icon: ClipboardCheck },
+  { path: "/funding-queue", label: "Funding Queue", icon: Banknote },
 ];
 
 const BUSINESS_ITEMS = [
@@ -135,6 +138,7 @@ const BUSINESS_ITEMS = [
   { path: "/incentive-tracker", label: "Incentive Tracker", icon: Gift },
   { path: "/product-profit", label: "Product Profitability", icon: TrendingUp },
   { path: "/deal-profit", label: "Deal Profit Breakdown", icon: BarChart3 },
+  { path: "/gpu-tracker", label: "GPU Tracker", icon: TrendingUp },
 ];
 
 const ADMIN_ITEMS = [
