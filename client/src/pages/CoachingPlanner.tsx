@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Calendar, Clock, Star, AlertTriangle, Plus, Trash2, Copy, UserCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 const SESSION_TYPES = ["Weekly Check-In", "Monthly Review", "Performance Improvement", "Training Session", "Goal Setting"] as const;
 
@@ -140,7 +141,7 @@ export default function CoachingPlanner() {
     setNotes(""); setRating(0); setTakeaways(""); setActionItems([]); setFollowUp("");
   };
 
-  const exportNotes = () => {
+  const exportNotes = async () => {
     const lines = [
       `Coaching Session: ${manager.name}`,
       `Type: ${sessionType}`,
@@ -157,7 +158,55 @@ export default function CoachingPlanner() {
       ...actionItems.map((a) => `  - ${a}`),
       `Follow-up: ${followUp}`,
     ];
-    navigator.clipboard.writeText(lines.join("\n"));
+    const text = lines.join("\n");
+
+    // 1. Try clipboard copy (with graceful fallback)
+    let copied = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } else {
+        // Fallback for non-secure contexts (e.g. http://)
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          copied = document.execCommand("copy");
+        } catch {
+          copied = false;
+        }
+        document.body.removeChild(ta);
+      }
+    } catch {
+      copied = false;
+    }
+
+    // 2. Always also download as .txt so the user has a real artifact
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const fname = `coaching-${manager.name.replace(/\s+/g, "-").toLowerCase()}-${(scheduledDate || today).slice(0, 10)}.txt`;
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // 3. Toast confirmation
+    if (copied) {
+      toast.success("Notes copied + downloaded", {
+        description: `${fname} — also on your clipboard`,
+      });
+    } else {
+      toast.success("Notes downloaded", {
+        description: `${fname} (clipboard unavailable)`,
+      });
+    }
   };
 
   // Calendar grid
