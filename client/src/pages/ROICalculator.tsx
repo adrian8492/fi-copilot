@@ -38,12 +38,28 @@ export default function ROICalculator() {
   const projectedPVR = currentPVR + pvrLift;
   const monthlyRevenueIncrease = pvrLift * dealVolume;
   const annualRevenueIncrease = monthlyRevenueIncrease * 12;
-  const roiMultiplier = coachingCost > 0 ? annualRevenueIncrease / (coachingCost * 12) : 0;
-  const paybackPeriod = monthlyRevenueIncrease > 0 ? coachingCost / monthlyRevenueIncrease : 0;
+  const annualCoachingCost = coachingCost * 12;
+  const roiMultiplier =
+    annualCoachingCost > 0 ? annualRevenueIncrease / annualCoachingCost : 0;
+  // Payback: how many months of coaching investment does the monthly revenue lift cover?
+  const paybackPeriod =
+    monthlyRevenueIncrease > 0 ? coachingCost / monthlyRevenueIncrease : 0;
 
-  const projectedPenetration = Math.min(currentPenetration + 15, 100);
-  const currentProductsPerDeal = +(currentPenetration / 25).toFixed(1);
-  const projectedProductsPerDeal = +(projectedPenetration / 25).toFixed(1);
+  // Realistic penetration lift scales with your starting point
+  // (lower baselines get bigger lifts, higher baselines are harder to move)
+  const penetrationLift =
+    currentPenetration < 40
+      ? 20
+      : currentPenetration < 60
+        ? 15
+        : currentPenetration < 75
+          ? 10
+          : 6;
+  const projectedPenetration = Math.min(currentPenetration + penetrationLift, 100);
+
+  // Products per deal = penetration % × 3 core protections on the menu
+  const currentProductsPerDeal = +((currentPenetration / 100) * 3).toFixed(1);
+  const projectedProductsPerDeal = +((projectedPenetration / 100) * 3).toFixed(1);
 
   const currentMonthlyRevenue = currentPVR * dealVolume;
   const projectedMonthlyRevenue = projectedPVR * dealVolume;
@@ -174,6 +190,20 @@ export default function ROICalculator() {
                   className={inputClass}
                 />
               </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  Expected PVR Lift ($) — ASURA baseline $759
+                </label>
+                <input
+                  type="number"
+                  value={pvrLift}
+                  onChange={(e) => setPvrLift(Number(e.target.value))}
+                  className={inputClass}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Conservative: $500 · Baseline: $759 · Top-tier coached: $1,200+
+                </p>
+              </div>
             </div>
           </Card>
 
@@ -211,7 +241,13 @@ export default function ROICalculator() {
                 <div className="flex items-center gap-2 text-muted-foreground text-xs">
                   <Zap className="w-4 h-4" /> Payback Period
                 </div>
-                <p className="text-xl font-bold text-foreground">{paybackPeriod.toFixed(1)} months</p>
+                <p className="text-xl font-bold text-foreground">
+                  {paybackPeriod < 1
+                    ? `${Math.max(1, Math.round(paybackPeriod * 30))} days`
+                    : paybackPeriod < 2
+                      ? `${paybackPeriod.toFixed(1)} month`
+                      : `${paybackPeriod.toFixed(1)} months`}
+                </p>
               </div>
             </div>
           </Card>
