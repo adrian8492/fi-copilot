@@ -160,16 +160,19 @@ const NavItem = memo(function NavItem({
   item,
   isActive,
   onNavigate,
+  nested = false,
 }: {
   item: { path: string; label: string; icon: React.ComponentType<{ className?: string }>; highlight?: boolean };
   isActive: boolean;
   onNavigate: () => void;
+  nested?: boolean;
 }) {
   return (
     <Link href={item.path}>
       <div
         className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+          "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+          nested ? "px-3 py-2 ml-2" : "px-3 py-2.5",
           isActive
             ? "bg-primary/15 text-primary border border-primary/20"
             : "text-muted-foreground hover:text-foreground hover:bg-accent",
@@ -187,6 +190,87 @@ const NavItem = memo(function NavItem({
     </Link>
   );
 });
+
+// Collapsible nav section with localStorage persistence
+function NavSection({
+  label,
+  items,
+  defaultOpen = false,
+  isItemActive,
+  onNavigate,
+  storageKey,
+}: {
+  label: string;
+  items: { path: string; label: string; icon: React.ComponentType<{ className?: string }>; highlight?: boolean }[];
+  defaultOpen?: boolean;
+  isItemActive: (path: string) => boolean;
+  onNavigate: () => void;
+  storageKey: string;
+}) {
+  // Auto-open if any child is currently active
+  const hasActiveChild = items.some((i) => isItemActive(i.path));
+  const [isOpen, setIsOpen] = useState(() => {
+    if (hasActiveChild) return true;
+    if (typeof window === "undefined") return defaultOpen;
+    const saved = window.localStorage.getItem(`nav-section-${storageKey}`);
+    return saved === null ? defaultOpen : saved === "1";
+  });
+
+  // Keep open if a child becomes active
+  useEffect(() => {
+    if (hasActiveChild && !isOpen) setIsOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasActiveChild]);
+
+  const toggle = () => {
+    const next = !isOpen;
+    setIsOpen(next);
+    try {
+      window.localStorage.setItem(`nav-section-${storageKey}`, next ? "1" : "0");
+    } catch {
+      // ignore storage errors (e.g., private browsing)
+    }
+  };
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="space-y-0.5">
+      <button
+        type="button"
+        onClick={toggle}
+        className={cn(
+          "flex items-center gap-2 w-full px-3 py-1.5 rounded-md",
+          "text-[10px] font-semibold uppercase tracking-wider",
+          "text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors",
+          hasActiveChild && "text-primary/80"
+        )}
+      >
+        <ChevronRight
+          className={cn("w-3 h-3 transition-transform", isOpen && "rotate-90")}
+        />
+        <span className="flex-1 text-left">{label}</span>
+        {hasActiveChild && !isOpen && (
+          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+        )}
+        <span className="text-[9px] opacity-60 tabular-nums">{items.length}</span>
+      </button>
+      {isOpen && (
+        <div className="space-y-0.5 pb-1">
+          {items.map((item) => (
+            <NavItem
+              key={item.path}
+              item={item}
+              isActive={isItemActive(item.path)}
+              onNavigate={onNavigate}
+              nested
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ThemeToggleButton() {
   const { theme, toggleTheme } = useTheme();
@@ -264,49 +348,52 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
           <DealershipSwitcher />
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
-            {NAV_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-              <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-            ))}
-
-            <div className="pt-4">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Performance</p>
-              {PERFORMANCE_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+          <nav className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
+            {/* Main — always expanded, most-used daily pages */}
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
+              {NAV_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                 <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
               ))}
             </div>
 
-            <div className="pt-4">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Coaching</p>
-              {COACHING_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-                <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-              ))}
-            </div>
-
-            <div className="pt-4">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Operations</p>
-              {OPERATIONS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-                <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-              ))}
-            </div>
-
-            <div className="pt-4">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Business</p>
-              {BUSINESS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-                <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-              ))}
-            </div>
-
+            {/* Collapsible sections — state persists in localStorage */}
+            <NavSection
+              label="Performance"
+              storageKey="performance"
+              items={PERFORMANCE_ITEMS.filter((item) => canAccess(item.path))}
+              isItemActive={isItemActive}
+              onNavigate={closeSidebar}
+            />
+            <NavSection
+              label="Coaching"
+              storageKey="coaching"
+              items={COACHING_ITEMS.filter((item) => canAccess(item.path))}
+              isItemActive={isItemActive}
+              onNavigate={closeSidebar}
+            />
+            <NavSection
+              label="Operations"
+              storageKey="operations"
+              items={OPERATIONS_ITEMS.filter((item) => canAccess(item.path))}
+              isItemActive={isItemActive}
+              onNavigate={closeSidebar}
+            />
+            <NavSection
+              label="Business"
+              storageKey="business"
+              items={BUSINESS_ITEMS.filter((item) => canAccess(item.path))}
+              isItemActive={isItemActive}
+              onNavigate={closeSidebar}
+            />
             {role === "admin" && (
-              <>
-                <div className="pt-4">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Admin</p>
-                  {ADMIN_ITEMS.map((item) => (
-                    <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-                  ))}
-                </div>
-              </>
+              <NavSection
+                label="Admin"
+                storageKey="admin"
+                items={ADMIN_ITEMS}
+                isItemActive={isItemActive}
+                onNavigate={closeSidebar}
+              />
             )}
           </nav>
 
@@ -371,49 +458,49 @@ export default function AppLayout({ children, title, subtitle }: AppLayoutProps)
               <DealershipSwitcher />
 
               {/* Navigation */}
-              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
-                {NAV_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-                  <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-                ))}
-
-                <div className="pt-4">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Performance</p>
-                  {PERFORMANCE_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
+              <nav className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Main</p>
+                  {NAV_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
                     <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
                   ))}
                 </div>
-
-                <div className="pt-4">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Coaching</p>
-                  {COACHING_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-                    <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-                  ))}
-                </div>
-
-                <div className="pt-4">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Operations</p>
-                  {OPERATIONS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-                    <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-                  ))}
-                </div>
-
-                <div className="pt-4">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Business</p>
-                  {BUSINESS_ITEMS.filter((item) => canAccess(item.path)).map((item) => (
-                    <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-                  ))}
-                </div>
-
+                <NavSection
+                  label="Performance"
+                  storageKey="performance"
+                  items={PERFORMANCE_ITEMS.filter((item) => canAccess(item.path))}
+                  isItemActive={isItemActive}
+                  onNavigate={closeSidebar}
+                />
+                <NavSection
+                  label="Coaching"
+                  storageKey="coaching"
+                  items={COACHING_ITEMS.filter((item) => canAccess(item.path))}
+                  isItemActive={isItemActive}
+                  onNavigate={closeSidebar}
+                />
+                <NavSection
+                  label="Operations"
+                  storageKey="operations"
+                  items={OPERATIONS_ITEMS.filter((item) => canAccess(item.path))}
+                  isItemActive={isItemActive}
+                  onNavigate={closeSidebar}
+                />
+                <NavSection
+                  label="Business"
+                  storageKey="business"
+                  items={BUSINESS_ITEMS.filter((item) => canAccess(item.path))}
+                  isItemActive={isItemActive}
+                  onNavigate={closeSidebar}
+                />
                 {role === "admin" && (
-                  <>
-                    <div className="pt-4">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Admin</p>
-                      {ADMIN_ITEMS.map((item) => (
-                        <NavItem key={item.path} item={item} isActive={isItemActive(item.path)} onNavigate={closeSidebar} />
-                      ))}
-                    </div>
-                  </>
+                  <NavSection
+                    label="Admin"
+                    storageKey="admin"
+                    items={ADMIN_ITEMS}
+                    isItemActive={isItemActive}
+                    onNavigate={closeSidebar}
+                  />
                 )}
               </nav>
 
