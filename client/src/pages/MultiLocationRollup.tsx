@@ -216,22 +216,64 @@ export default function MultiLocationRollup() {
             <CardTitle className="text-sm font-semibold">Combined Grade Trend — Last 12 Weeks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[350px]">
+            <div className="h-[380px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData}>
+                <LineChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="week" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis domain={[40, 100]} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      // Sort stores by score descending so the top performer is always on top
+                      const sorted = [...payload].sort(
+                        (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0),
+                      );
+                      return (
+                        <div className="rounded-lg border border-border bg-card/95 backdrop-blur px-3 py-2 shadow-xl min-w-[220px]">
+                          <div className="text-[11px] font-semibold text-muted-foreground mb-2 pb-1.5 border-b border-border">
+                            {label} · Grade by Store
+                          </div>
+                          <div className="space-y-1">
+                            {sorted.map((entry) => (
+                              <div
+                                key={String(entry.dataKey)}
+                                className="flex items-center justify-between gap-3 text-[12px]"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className="h-2 w-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: entry.color }}
+                                  />
+                                  <span className="text-foreground truncate">{entry.name}</span>
+                                </div>
+                                <span
+                                  className="font-bold tabular-nums"
+                                  style={{ color: entry.color }}
+                                >
+                                  {entry.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 11, paddingTop: 10 }}
+                    iconType="circle"
+                    iconSize={8}
+                  />
                   {DEMO_LOCATIONS.map((loc, i) => (
                     <Line
                       key={loc.id}
                       type="monotone"
                       dataKey={loc.name}
                       stroke={LOCATION_COLORS[i % LOCATION_COLORS.length]}
-                      strokeWidth={2}
+                      strokeWidth={2.5}
                       dot={false}
+                      activeDot={{ r: 5, strokeWidth: 2, stroke: "hsl(var(--background))" }}
                     />
                   ))}
                 </LineChart>
