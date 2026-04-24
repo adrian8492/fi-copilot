@@ -379,6 +379,33 @@ export default function DemoMode() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
+  // Sticky-scroll: only auto-scroll if user is already near the bottom. If they
+  // scrolled up to read, respect their position.
+  const isAtBottomRef = useRef<boolean>(true);
+
+  // Attach scroll listener to the ScrollArea viewport once it mounts
+  useEffect(() => {
+    const viewport = transcriptScrollRef.current?.querySelector<HTMLDivElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!viewport) return;
+    const handleScroll = () => {
+      const threshold = 80; // px from bottom counts as "at bottom"
+      const distanceFromBottom =
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      isAtBottomRef.current = distanceFromBottom < threshold;
+    };
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Replace the direct scrollIntoView calls below with this helper
+  const scrollTranscriptToBottomIfAtBottom = () => {
+    if (isAtBottomRef.current) {
+      transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   const TOTAL_DURATION = DEMO_TRANSCRIPT[DEMO_TRANSCRIPT.length - 1].delay + 3000;
 
@@ -402,7 +429,7 @@ export default function DemoMode() {
         const t = setTimeout(() => {
           setTranscript(prev => [...prev, { speaker: line.speaker, text: line.text, timestamp: line.delay, stage: line.stage }]);
           if (line.stage) setCurrentStage(line.stage);
-          setTimeout(() => transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+          setTimeout(scrollTranscriptToBottomIfAtBottom, 50);
         }, remaining);
         timersRef.current.push(t);
       }
@@ -703,7 +730,7 @@ export default function DemoMode() {
                 </div>
               </CardHeader>
               <CardContent className="flex-1 px-4 pb-4 overflow-hidden">
-                <ScrollArea className="h-[520px] pr-2">
+                <ScrollArea className="h-[520px] pr-2" ref={transcriptScrollRef}>
                   {transcript.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-40 text-center">
                       <Play className="h-8 w-8 text-muted-foreground/30 mb-3" />
