@@ -78,6 +78,10 @@ const ContractChecklist = lazy(() => import("./pages/ContractChecklist"));
 const ManagerReportCard = lazy(() => import("./pages/ManagerReportCard"));
 const FundingQueue = lazy(() => import("./pages/FundingQueue"));
 const GpuTracker = lazy(() => import("./pages/GpuTracker"));
+const ChargebackTracker = lazy(() => import("./pages/ChargebackTracker"));
+const TrainerModePage = lazy(() => import("./pages/TrainerMode"));
+const MonthlyDashboard = lazy(() => import("./pages/MonthlyDashboard"));
+const DealStructure = lazy(() => import("./pages/DealStructure"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -158,6 +162,10 @@ function Router() {
         <Route path="/report-card" component={ManagerReportCard} />
         <Route path="/funding-queue" component={FundingQueue} />
         <Route path="/gpu-tracker" component={GpuTracker} />
+        <Route path="/chargeback-tracker" component={ChargebackTracker} />
+        <Route path="/trainer-mode" component={TrainerModePage} />
+        <Route path="/monthly-dashboard" component={MonthlyDashboard} />
+        <Route path="/deal-structure" component={DealStructure} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

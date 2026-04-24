@@ -190,7 +190,7 @@ Target: 870+ tests passing (up from 818)
 - `pnpm check` ✅
 - `pnpm test` ✅ except for the known pre-existing `server/deepgram.test.ts` env-var failure
 
-### What’s next:
+### What's next:
 - Deploy the latest `main` build to Manus
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 
@@ -212,7 +212,7 @@ Target: 870+ tests passing (up from 818)
 - Latest commit on `main` at verification time: `bbaf9b6 docs: update nightly task verification and deploy prompt for April 8`
 - `manus-deploy-prompt.md` reviewed and remains accurate for deployment
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav behavior on a narrow viewport in Manus after deploy
@@ -226,9 +226,9 @@ Target: 870+ tests passing (up from 818)
 - `pnpm check` ✅ — 0 TypeScript errors
 - `pnpm test` ⚠️ — 897/898 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
 - `git status` ✅ — only documentation updates for this verification run
-- Latest commit on `main` before tonight’s doc update: `bbaf9b6 docs: update nightly task verification and deploy prompt for April 8`
+- Latest commit on `main` before tonight's doc update: `bbaf9b6 docs: update nightly task verification and deploy prompt for April 8`
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
@@ -356,3 +356,181 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/contract-checklist`, `/report-card`, `/funding-queue`, and `/gpu-tracker`
 - Verify sidebar placement and mobile More drawer categorization for the new pages
 - Verify Funding Queue bulk actions and detail slide-out behavior in Manus
+
+## Nightly Build — April 21, 2026
+
+### Tonight's New Features (4 pages + test expansion)
+
+#### 1. Chargeback Tracker (`/chargeback-tracker`) — HIGH
+New page `ChargebackTracker.tsx`:
+- Track cancelled products, chargeback amounts, and impact on F&I net income
+- KPI bar: Total Chargebacks (count), Total Chargeback Amount ($), Net F&I After Chargebacks ($), Chargeback Rate (% of deals), Avg Chargeback Amount ($)
+- Chargeback table: Deal #, Customer, Product Cancelled, Original Price ($), Chargeback Amount ($), Date Cancelled, Days Since Close, Manager, Status (Received / Pending / Disputed)
+- Filters: date range, manager, product type, status
+- Reason breakdown: PieChart — voluntary cancellation, lender repossession, customer complaint, early payoff
+- Monthly trend: LineChart — chargebacks vs gross earned (12 months)
+- Manager impact table: Manager Name, Deals Sold, Chargebacks Received, Net Retention Rate %, Net Income After Chargebacks
+- At-risk deals panel: deals closed in last 90 days most likely to chargeback (low score, high rate, short term)
+- Chargeback reserve calculator: input monthly gross + estimated chargeback rate → recommended reserve amount
+- Hard-coded demo data: 25 chargebacks, 6 managers, 10 products, 12 months
+- Add to sidebar under Business section (after GPU Tracker)
+- Lazy-loaded route at `/chargeback-tracker`
+
+#### 2. F&I Trainer Mode (`/trainer-mode`) — HIGH
+New page `TrainerMode.tsx`:
+- Simulated training environment — role-play scenarios for new F&I managers
+- Scenario selector: credit-challenged buyer, lease return, first-time buyer, cash deal, high-PVR target, objection gauntlet (6 scenarios)
+- Customer profile card: Credit Score, Trade-In, Down Payment, Monthly Budget, Attitude/Resistance Level, Deal Type
+- "What would you do?" interactive Q&A: present 3-4 multiple choice options at each stage (greeting, needs discovery, menu presentation, objection handling, close)
+- Scoring system: each choice earns points for ASURA OPS pillar alignment (Menu Order, Upgrade Architecture, Objection Prevention, Coaching Cadence) — show running score
+- Live feedback panel: after each choice, show why it was right/wrong using ASURA OPS principles
+- "Show Me the Word Track" button: pull relevant entry from Word Track Library for each stage
+- End of scenario summary: total score, pillar breakdown, top 3 recommendations, comparison to Top 1% benchmark
+- Trainer notes panel: (read-only) coaching tips per scenario for trainers using this with new hires
+- Progress tracker: localStorage-saved scenario completion + high scores
+- Add to sidebar under Coaching section (after Coaching Session Planner)
+- Lazy-loaded route at `/trainer-mode`
+
+#### 3. Monthly Performance Dashboard (`/monthly-dashboard`) — HIGH
+New page `MonthlyDashboard.tsx`:
+- Consolidated monthly view — one-stop command center for the month in progress
+- Month/year selector (default: current month)
+- Header KPIs: Total Deals, Total F&I Revenue, Avg PVR, PVR vs Same Month Last Year (delta), Product Penetration %, Reserve Income, Product Income, Total Back Gross
+- Daily pacing chart: recharts ComposedChart — daily cumulative F&I revenue vs pace-to-goal line (based on working days remaining)
+- Month-at-a-glance calendar: each day shows deal count + avg PVR (color-coded: green = above target, yellow = near, red = below)
+- Manager performance table: Manager, Deals, PVR, Penetration %, Compliance Score, MTD Revenue, vs Goal
+- Product mix treemap (recharts Treemap): cell size = revenue, color = margin %, labels = product name + units
+- "Month Summary" narrative card: auto-generated 3-line summary (e.g. "On pace for $187K F&I revenue. GAP penetration up 6%. Watch VSC — 4 managers below 35%.")
+- Goal progress bars: user-set monthly goals (PVR target, penetration target, revenue target) with % complete indicators
+- Comparison panel: this month vs last month vs same month last year (3 columns, 6 metrics each)
+- Add to sidebar under Performance section (after F&I Snapshot)
+- Lazy-loaded route at `/monthly-dashboard`
+
+#### 4. Deal Structuring Calculator (`/deal-structure`) — HIGH
+New page `DealStructure.tsx`:
+- Help F&I managers structure deals to hit PVR and payment targets simultaneously
+- Input panel: Vehicle Sale Price ($), Down Payment ($), Trade-In Equity ($), Credit Score, Desired Term (months), Target Monthly Payment ($), Target PVR ($)
+- Output panel: Recommended Amount Financed, Buy Rate (from lender matrix by score), Sell Rate, Reserve Amount ($), Products Needed to Hit PVR (gap between current back gross and target)
+- Payment breakdown table: show payment impact at 3 sell rates (buy rate, mid-point, cap) and 3 terms (48/60/72 months) — 3×3 grid of monthly payments
+- "Product Affordability" tool: given payment budget, show which products fit (what can be added without exceeding payment target)
+- Structure optimizer: auto-suggest best combination of rate + term + products to hit both payment and PVR targets
+- Lender recommendation: based on credit score + amount financed, show top 3 lenders from Lender Matrix
+- Reserve calculator: (sell rate - buy rate) × amount financed / 2400 (standard dealer participation formula)
+- Deal health indicator: color-coded score (Green = strong, Yellow = marginal, Red = at-risk) based on rate headroom, payment buffer, product count
+- "Save Structure" button: localStorage-saved deal structures (last 10)
+- Add to sidebar under Operations section (after Lender Matrix)
+- Lazy-loaded route at `/deal-structure`
+
+#### 5. Expand Test Suite to 1,240+ (MEDIUM)
+Add `server/nightly-april21.test.ts` with tests for:
+- Chargeback rate calculation (chargebacks / total deals × 100)
+- Net retention rate per manager (net income / gross income × 100)
+- Chargeback reserve calculator (monthly gross × chargeback rate)
+- At-risk deal identification (days since close < 90 AND score < threshold)
+- Monthly chargeback trend aggregation
+- Chargeback reason breakdown percentage
+- Trainer scenario scoring by ASURA OPS pillar
+- Score accumulation across multiple scenario choices
+- Scenario completion percentage (localStorage mock)
+- Top-1% benchmark comparison (score ≥ 85%)
+- Word track retrieval by scenario stage
+- Monthly pacing calculation (revenue to date / working days elapsed × total working days)
+- Days remaining in month calculation
+- Daily avg PVR for calendar view
+- Goal progress percentage (actual / target × 100)
+- Month vs prior month delta calculation
+- Same-month-last-year comparison
+- Product mix revenue share percentage
+- Deal amount financed calculation (sale price - down - trade equity)
+- Monthly payment amortization (standard formula)
+- Reserve calculation (sell rate - buy rate) × amount financed / 2400
+- Product affordability check (base payment + product payment ≤ target)
+- Structure optimizer: find best rate+term combo for dual PVR+payment targets
+- Lender match by credit score from matrix
+- Deal health score classification (green/yellow/red)
+- Sell rate cap compliance per lender
+- Payment grid generation (3 rates × 3 terms = 9 cells)
+- LocalStorage save structure (max 10 items)
+Target: 1,240+ tests passing (up from 1,180)
+
+## Technical Notes (April 21)
+- No build step for dev — Vite dev server, vanilla tRPC
+- Tests: pnpm test (target: 1,240+/1,241+)
+- TypeScript: pnpm check (target: 0 errors)
+- The 1 deepgram.test.ts failure is pre-existing and acceptable
+- Use recharts for all charts (already installed)
+- New pages must be lazy-loaded in App.tsx with React.Suspense
+- New pages use existing AppLayout sidebar
+- Chargeback Tracker → Business section (after GPU Tracker)
+- Trainer Mode → Coaching section (after Coaching Session Planner)
+- Monthly Dashboard → Performance section (after F&I Snapshot)
+- Deal Structure → Operations section (after Lender Matrix)
+- All new pages use hard-coded demo data (no backend mutations needed)
+- Deal Structuring Calculator and Trainer Mode use localStorage for persistence
+- ASURA coaching lift = $759 PVR (Adrian's real track record)
+- Trainer scenarios aligned to 4 ASURA OPS pillars
+
+## Definition of Done (April 21)
+- [x] Chargeback Tracker at /chargeback-tracker with KPI bar, chargeback table, reason PieChart, monthly trend, manager impact table, reserve calculator
+- [x] Trainer Mode at /trainer-mode with 6 scenarios, Q&A flow, ASURA pillar scoring, live feedback, word track integration, localStorage progress
+- [x] Monthly Performance Dashboard at /monthly-dashboard with KPI bar, daily pacing chart, calendar heatmap, manager table, product treemap, goal progress
+- [x] Deal Structuring Calculator at /deal-structure with payment grid, product affordability, structure optimizer, lender recommendation, deal health indicator
+- [x] 1,274/1,275 tests passing (1,240+ target exceeded, 1 pre-existing deepgram failure)
+- [x] 0 TypeScript errors
+- [x] Git commit + push
+
+## When Done (April 21)
+1. Git add, commit: "feat: chargeback tracker, trainer mode, monthly dashboard, deal structure calculator, expand tests to 1240+"
+2. Push to origin main
+3. Update this file with completion notes
+4. Write/update manus-deploy-prompt.md
+
+## Completion Notes — April 22, 2026
+**Completed by**: Henry (Claude Code kickoff + manual verification/finalization)
+
+### What was completed tonight
+- Built **Monthly Performance Dashboard** at `/monthly-dashboard`
+- Built **Deal Structuring Calculator** at `/deal-structure`
+- Added lazy-loaded page routes for both in `client/src/App.tsx`
+- Added sidebar placement for Monthly Dashboard under **Performance** and Deal Structure under **Operations** in `client/src/components/AppLayout.tsx`
+- Added `server/nightly-april21.test.ts` with expanded coverage for April 21 financial/planning logic
+
+### What is still next
+- Build **Chargeback Tracker** at `/chargeback-tracker`
+- Build **Trainer Mode** at `/trainer-mode`
+- Wire those remaining routes and nav entries
+- Resolve failing `server/http-stream.test.ts` lifecycle test
+- Re-run `pnpm test` and get back to expected baseline of only the pre-existing Deepgram env failure
+- Re-run `pnpm check`
+- Commit and push once the April 21 build is actually complete
+
+### Verification notes
+- `pnpm test` currently returns **1273/1275 passing**
+- Known pre-existing failure remains: `server/deepgram.test.ts` because `DEEPGRAM_API_KEY` is not set
+- New blocking failure found: `server/http-stream.test.ts` full lifecycle test (`socket hang up`)
+- `TrainerMode.tsx` is not present yet
+- `ChargebackTracker.tsx`, `MonthlyDashboard.tsx`, `DealStructure.tsx`, and `server/nightly-april21.test.ts` exist in working tree but are not committed yet
+
+## Completion — April 23, 2026
+**Completed by**: Henry (Claude Code)
+**Tests**: 1274/1275 passing (99 tests in nightly-april21.test.ts; 1 pre-existing deepgram env failure)
+**TypeScript**: 0 errors
+
+### What was completed:
+1. **Chargeback Tracker** (`/chargeback-tracker`) — 25 chargebacks, 6 managers, 10 products, KPI bar, chargeback table with filters (date/manager/product/status), reason PieChart, monthly trend LineChart, manager impact table, at-risk deals panel, and reserve calculator
+2. **F&I Trainer Mode** (`/trainer-mode`) — 6 interactive scenarios (credit-challenged buyer, lease return, first-time buyer, cash deal, high-PVR target, objection gauntlet), multi-stage Q&A with 3-4 choices per stage, ASURA OPS pillar scoring (Menu Order, Upgrade Architecture, Objection Prevention, Coaching Cadence), live feedback panel, word track integration, end-of-scenario summary with Top 1% benchmark, and localStorage-persisted progress/high scores
+3. **Monthly Performance Dashboard** (`/monthly-dashboard`) — month/year selector, 8 header KPIs with YoY delta, daily pacing ComposedChart, calendar heatmap, manager table, product mix Treemap, goal progress bars, month-over-month comparison panel
+4. **Deal Structuring Calculator** (`/deal-structure`) — input panel, payment grid (3 rates x 3 terms), product affordability tool, structure optimizer, lender recommendations by credit score, reserve calculator, deal health indicator, localStorage-saved structures (max 10)
+5. **Test Suite** — `server/nightly-april21.test.ts` with 99 tests covering chargeback calculations, trainer scoring, monthly dashboard metrics, and deal structure math
+
+### Sidebar/navigation updates:
+- **Performance**: added Monthly Dashboard (after F&I Snapshot)
+- **Coaching**: added Trainer Mode (after Word Tracks)
+- **Operations**: added Deal Structure (after Lender Matrix)
+- **Business**: added Chargeback Tracker (after GPU Tracker)
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
+- Verify Trainer Mode scenario flow and localStorage persistence
+- Verify mobile More drawer shows new pages in correct sections

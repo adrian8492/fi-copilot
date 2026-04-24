@@ -104,6 +104,7 @@ const PERFORMANCE_ITEMS = [
   { path: "/benchmarks", label: "F&I Benchmarks", icon: BarChart3 },
   { path: "/heat-sheet", label: "Heat Sheet", icon: Flame },
   { path: "/fi-snapshot", label: "F&I Snapshot", icon: Camera },
+  { path: "/monthly-dashboard", label: "Monthly Dashboard", icon: CalendarDays },
   { path: "/coaching-planner", label: "Coaching Planner", icon: ClipboardPenLine },
   { path: "/fi-health", label: "F&I Health Score", icon: Activity },
   { path: "/report-card", label: "Manager Report Card", icon: Award },
@@ -116,6 +117,7 @@ const COACHING_ITEMS = [
   { path: "/schedule", label: "Manager Schedule", icon: Calendar },
   { path: "/objection-library", label: "Objection Library", icon: BookOpen },
   { path: "/word-tracks", label: "Word Tracks", icon: ScrollText },
+  { path: "/trainer-mode", label: "Trainer Mode", icon: GraduationCap },
 ];
 
 const OPERATIONS_ITEMS = [
@@ -123,6 +125,7 @@ const OPERATIONS_ITEMS = [
   { path: "/profit-analysis", label: "Profit Analysis", icon: TrendingUp },
   { path: "/payoff-tracker", label: "Payoff Tracker", icon: ReceiptText },
   { path: "/lender-matrix", label: "Lender Matrix", icon: Grid3X3 },
+  { path: "/deal-structure", label: "Deal Structure", icon: Calculator },
   { path: "/stip-tracker", label: "Stip Tracker", icon: FileSearch },
   { path: "/funding-tracker", label: "Deal Funding Tracker", icon: ClipboardCheck },
   { path: "/desk-log", label: "Desk Log", icon: ClipboardPenLine },
@@ -139,6 +142,7 @@ const BUSINESS_ITEMS = [
   { path: "/product-profit", label: "Product Profitability", icon: TrendingUp },
   { path: "/deal-profit", label: "Deal Profit Breakdown", icon: BarChart3 },
   { path: "/gpu-tracker", label: "GPU Tracker", icon: TrendingUp },
+  { path: "/chargeback-tracker", label: "Chargeback Tracker", icon: AlertTriangle },
 ];
 
 const ADMIN_ITEMS = [
