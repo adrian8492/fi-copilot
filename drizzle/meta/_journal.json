@@ -141,6 +141,20 @@
       "when": 1776664090478,
       "tag": "0019_far_squadron_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1777095380805,
+      "tag": "0020_multi_tenant_pilot",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1777099351988,
+      "tag": "0021_onboarding_profile_baseline_cadence",
+      "breakpoints": true
     }
   ]
 }

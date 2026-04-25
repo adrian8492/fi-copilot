@@ -297,6 +297,21 @@ export async function resolveFlag(flagId: number, resolvedBy: number) {
   await db.update(complianceFlags).set({ resolved: true, resolvedBy, resolvedAt: new Date() }).where(eq(complianceFlags.id, flagId));
 }
 
+export async function getComplianceFlagById(flagId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(complianceFlags).where(eq(complianceFlags.id, flagId)).limit(1);
+  const row = result[0] ?? null;
+  return row ? decryptFields(row, ["excerpt"]) : null;
+}
+
+export async function getComplianceRuleById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(complianceRules).where(eq(complianceRules.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
 // ─── Performance Grades ───────────────────────────────────────────────────────
 export async function upsertGrade(data: {
   sessionId: number;
@@ -414,6 +429,7 @@ export async function getReportsByUser(userId: number, limit = 20) {
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 export async function insertAuditLog(data: {
   userId?: number;
+  dealershipId?: number | null;
   action: string;
   resourceType?: string;
   resourceId?: string;
@@ -423,7 +439,20 @@ export async function insertAuditLog(data: {
 }) {
   const db = await getDb();
   if (!db) return;
-  await db.insert(auditLogs).values(data);
+  // Auto-stamp dealershipId from the actor's user record when the caller
+  // didn't pass one. Avoids retrofitting 40+ insertAuditLog call sites in
+  // routers.ts; the audit log inherits tenant scope from the user even if
+  // a caller forgets to attach it explicitly.
+  let dealershipId = data.dealershipId;
+  if (dealershipId === undefined && data.userId !== undefined) {
+    try {
+      const u = await db.select({ d: users.dealershipId }).from(users).where(eq(users.id, data.userId)).limit(1);
+      dealershipId = u[0]?.d ?? null;
+    } catch {
+      dealershipId = null;
+    }
+  }
+  await db.insert(auditLogs).values({ ...data, dealershipId: dealershipId ?? null });
 }
 
 export async function getAuditLogs(limit = 100, offset = 0, userIds?: number[] | null) {
@@ -497,6 +526,87 @@ export async function getAnalyticsSummary(userId?: number, dealershipId?: number
     totalSessions, completedSessions, avgScore, avgPvr, avgPpd,
     scriptFidelityAvg, wordTrackUtilizationRate,
     criticalFlags, totalGrades: gradeList.length,
+  };
+}
+
+// ─── Dealership digest (Phase 3 — /yesterday-recap source) ────────────────────
+/**
+ * Aggregate everything a DP wants in a morning recap for one dealership over
+ * a date range. Used by `recaps.yesterday` (range = yesterday 00:00 → today 00:00).
+ *
+ * Source-of-truth note: penetration percentages, front/back gross, and CIT
+ * aging will be backfilled from StoneEagle nightly imports starting Tue
+ * Apr 28. Until then this returns whatever the live `sessions` /
+ * `performance_grades` / `compliance_flags` rows can support and zeros out
+ * the rest.
+ */
+export async function getDealershipDigest(
+  dealershipId: number,
+  fromDate: Date,
+  toDate: Date
+) {
+  const db = await getDb();
+  if (!db) {
+    return {
+      sessions: [],
+      grades: [],
+      flags: [],
+      managers: [],
+    };
+  }
+
+  const sessionRows = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.dealershipId, dealershipId),
+        gte(sessions.startedAt, fromDate),
+        lte(sessions.startedAt, toDate)
+      )
+    );
+
+  const sessionIds = sessionRows.map((s) => s.id);
+  const userIds = Array.from(new Set(sessionRows.map((s) => s.userId)));
+
+  const gradeRows = sessionIds.length > 0
+    ? await db.select().from(performanceGrades).where(inArray(performanceGrades.sessionId, sessionIds))
+    : [];
+
+  const flagRows = sessionIds.length > 0
+    ? await db.select().from(complianceFlags).where(inArray(complianceFlags.sessionId, sessionIds))
+    : [];
+
+  const managerRows = userIds.length > 0
+    ? await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, userIds))
+    : [];
+
+  // Per-manager rollup: session count + avg PRU.
+  const perManager = managerRows.map((m) => {
+    const mgrSessions = sessionRows.filter((s) => s.userId === m.id);
+    const mgrSessionIds = mgrSessions.map((s) => s.id);
+    const mgrGrades = gradeRows.filter((g) => mgrSessionIds.includes(g.sessionId));
+    const avgPru = mgrGrades.length > 0
+      ? mgrGrades.reduce((sum, g) => sum + (g.pvr ?? 0), 0) / mgrGrades.length
+      : 0;
+    const avgScore = mgrGrades.length > 0
+      ? mgrGrades.reduce((sum, g) => sum + (g.overallScore ?? 0), 0) / mgrGrades.length
+      : 0;
+    return {
+      userId: m.id,
+      name: m.name ?? "(unnamed)",
+      email: m.email,
+      sessionCount: mgrSessions.length,
+      avgPru: Math.round(avgPru),
+      avgScore: Math.round(avgScore),
+    };
+  }).sort((a, b) => b.avgPru - a.avgPru);
+
+  return {
+    sessions: sessionRows,
+    grades: gradeRows,
+    flags: flagRows,
+    managers: perManager,
   };
 }
 
@@ -827,6 +937,7 @@ export async function getActiveComplianceRules() {
 
 export async function insertComplianceRule(data: {
   createdBy: number;
+  dealershipId?: number | null;
   title: string;
   description?: string;
   category: "federal_tila" | "federal_ecoa" | "federal_udap" | "federal_cla" | "contract_element" | "fi_product_disclosure" | "process_step" | "custom";
@@ -1017,6 +1128,30 @@ export async function createDealership(data: { name: string; slug: string; plan?
   await db.insert(dealerships).values({ ...data, isActive: true });
   const result = await db.select().from(dealerships).where(eq(dealerships.slug, data.slug)).limit(1);
   return result[0] ?? null;
+}
+
+export async function getDealershipById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(dealerships).where(eq(dealerships.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function updateDealershipOnboarding(
+  id: number,
+  data: Partial<{
+    location: string | null;
+    brandMix: string[] | null;
+    unitVolumeMonthly: number | null;
+    pruBaseline: number | null;
+    pruTarget: number | null;
+    onboardingStep: number;
+    onboardingComplete: boolean;
+  }>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(dealerships).set(data).where(eq(dealerships.id, id));
 }
 
 export async function updateDealership(id: number, data: Partial<{ name: string; plan: "trial" | "beta" | "pro" | "enterprise"; isActive: boolean; groupId: number | null }>) {
@@ -1713,6 +1848,17 @@ export async function upsertDealershipSettings(
     requireCustomerName?: boolean;
     requireDealNumber?: boolean;
     consentMethod?: "verbal" | "written" | "electronic";
+    // Onboarding step 4 — baseline metrics (Phase 2):
+    vsaPenBaseline?: number;
+    gapPenBaseline?: number;
+    appearancePenBaseline?: number;
+    chargebackRateBaseline?: number;
+    citAgingBaseline?: number;
+    // Onboarding step 5 — coaching cadence (Phase 2):
+    coachingCadenceDay?: string;
+    coachingCadenceTime?: string;
+    coachingRunBy?: "fi_director" | "asura_coach" | "dp" | "other";
+    pru90DayTarget?: number;
   }
 ) {
   const db = await getDb();
@@ -1874,6 +2020,27 @@ export async function getCustomerCountByDealership(dealershipId: number): Promis
   return result[0]?.count ?? 0;
 }
 
+/**
+ * Look up a session by its dealNumber within a single dealership scope.
+ * Used by the StoneEagle nightly ingest to dedupe deals that have already
+ * been imported (idempotency).
+ */
+export async function findSessionByDealNumber(dealershipId: number, dealNumber: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.dealershipId, dealershipId),
+        eq(sessions.dealNumber, dealNumber)
+      )
+    )
+    .limit(1);
+  return result[0] ?? null;
+}
+
 export async function getSessionsByCustomerId(customerId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -1923,6 +2090,13 @@ export async function deleteProductMenuItem(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   await db.delete(productMenu).where(eq(productMenu.id, id));
+}
+
+export async function getProductMenuItemById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(productMenu).where(eq(productMenu.id, id)).limit(1);
+  return result[0] ?? null;
 }
 
 // ─── Product Intelligence ─────────────────────────────────────────────────────
@@ -2023,6 +2197,13 @@ export async function updateDealRecoveryStatus(id: number, status: string, actua
   if (actualRevenue !== undefined) updates.actualRevenue = actualRevenue;
   await db.update(dealRecovery).set(updates).where(eq(dealRecovery.id, id));
   return { success: true };
+}
+
+export async function getDealRecoveryById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(dealRecovery).where(eq(dealRecovery.id, id)).limit(1);
+  return result[0] ?? null;
 }
 
 export async function getDealRecoveryStats(userId: number) {

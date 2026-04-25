@@ -1,0 +1,24 @@
+ALTER TABLE `asura_scorecards` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `audio_recordings` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `audit_logs` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `coaching_reports` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `compliance_flags` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `compliance_rules` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `copilot_suggestions` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `deal_recovery` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `objection_logs` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `performance_grades` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `session_checklists` ADD `dealershipId` int;--> statement-breakpoint
+ALTER TABLE `transcripts` ADD `dealershipId` int;--> statement-breakpoint
+CREATE INDEX `ix_asura_scorecards_dealership_id` ON `asura_scorecards` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_audio_recordings_dealership_id` ON `audio_recordings` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_audit_logs_dealership_id` ON `audit_logs` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_coaching_reports_dealership_id` ON `coaching_reports` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_compliance_flags_dealership_id` ON `compliance_flags` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_compliance_rules_dealership_id` ON `compliance_rules` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_copilot_suggestions_dealership_id` ON `copilot_suggestions` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_deal_recovery_dealership_id` ON `deal_recovery` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_objection_logs_dealership_id` ON `objection_logs` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_performance_grades_dealership_id` ON `performance_grades` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_session_checklists_dealership_id` ON `session_checklists` (`dealershipId`);--> statement-breakpoint
+CREATE INDEX `ix_transcripts_dealership_id` ON `transcripts` (`dealershipId`);
