@@ -115,6 +115,9 @@ import {
   createDealRecovery,
   updateDealRecoveryStatus,
   getDealRecoveryStats,
+  getDealRecoveryById,
+  getProductMenuItemById,
+  getComplianceFlagById,
   upsertScorecard,
   getScorecardBySession,
   getScorecardsByUser,
@@ -825,9 +828,10 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const session = await getSessionById(input.sessionId);
         if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
-        if (ctx.user.role !== "admin" && !ctx.user.isSuperAdmin && session.userId !== ctx.user.id) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to delete this session" });
-        }
+        // Tenant + role check (super admin, group admin in scope, admin in
+        // matching dealership, or the session owner). Replaces an earlier
+        // check that allowed any admin to delete cross-tenant sessions.
+        await assertSessionAccess(ctx, session);
 
         const deletionSummary = await deleteSessionData(input.sessionId);
 
@@ -1186,6 +1190,14 @@ If no products were declined, return an empty array [].`;
     resolveFlag: protectedProcedure
       .input(z.object({ flagId: z.number() }))
       .mutation(async ({ ctx, input }) => {
+        // Verify the flag belongs to a session the caller can access. Without
+        // this, any authenticated user could mark another tenant's compliance
+        // flags resolved (a CFPB audit trail integrity bug).
+        const flag = await getComplianceFlagById(input.flagId);
+        if (!flag) throw new TRPCError({ code: "NOT_FOUND", message: "Flag not found" });
+        const session = await getSessionById(flag.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Parent session not found" });
+        await assertSessionAccess(ctx, session);
         await resolveFlag(input.flagId, ctx.user.id);
         return { success: true };
       }),
@@ -2065,7 +2077,14 @@ If no products were declined, return an empty array [].`;
         const { id, ...data } = input;
         const existing = await getCustomerById(id);
         if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
-        if (existing.dealershipId !== ctx.user.dealershipId && !ctx.user.isSuperAdmin) {
+        // Match the read-side check in customers.get — group admins update
+        // sister-store customers; previous version forgot the isGroupAdmin
+        // branch and was inconsistent with the read path.
+        if (
+          existing.dealershipId !== ctx.user.dealershipId &&
+          !ctx.user.isSuperAdmin &&
+          !ctx.user.isGroupAdmin
+        ) {
           throw new TRPCError({ code: "FORBIDDEN" });
         }
         await updateCustomer(id, data);
@@ -2112,6 +2131,16 @@ If no products were declined, return an empty array [].`;
       .mutation(async ({ ctx, input }) => {
         const dealershipId = ctx.user.dealershipId;
         if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        // When updating an existing item, verify it belongs to the caller's
+        // dealership. Without this, a Korum user could pass a Paragon item
+        // id and the update would silently rewrite the row's dealership.
+        if (input.id) {
+          const existing = await getProductMenuItemById(input.id);
+          if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Product menu item not found" });
+          if (existing.dealershipId !== dealershipId && !ctx.user.isSuperAdmin) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Item belongs to a different dealership" });
+          }
+        }
         await upsertProductMenuItem({ ...input, dealershipId });
         await insertAuditLog({ userId: ctx.user.id, action: input.id ? "productMenu.update" : "productMenu.create", resourceType: "productMenu", resourceId: String(input.id ?? 0), details: { name: input.displayName } });
         return { success: true };
@@ -2120,6 +2149,13 @@ If no products were declined, return an empty array [].`;
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ ctx, input }) => {
+        // Without this load+check, any authenticated user could delete any
+        // product menu item across tenants by guessing/iterating IDs.
+        const existing = await getProductMenuItemById(input.id);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Product menu item not found" });
+        if (existing.dealershipId !== ctx.user.dealershipId && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Item belongs to a different dealership" });
+        }
         await deleteProductMenuItem(input.id);
         await insertAuditLog({ userId: ctx.user.id, action: "productMenu.delete", resourceType: "productMenu", resourceId: String(input.id), details: {} });
         return { success: true };
@@ -2150,6 +2186,13 @@ If no products were declined, return an empty array [].`;
         actualRevenue: z.number().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
+        // Verify the recovery row belongs to a session the caller can access
+        // (its parent session's dealership must match the caller's scope).
+        const existing = await getDealRecoveryById(input.id);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Deal recovery not found" });
+        const session = await getSessionById(existing.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Parent session not found" });
+        await assertSessionAccess(ctx, session);
         await updateDealRecoveryStatus(input.id, input.status, input.actualRevenue);
         await insertAuditLog({ userId: ctx.user.id, action: "dealRecovery.updateStatus", resourceType: "dealRecovery", resourceId: String(input.id), details: { status: input.status } });
         return { success: true };

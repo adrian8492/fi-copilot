@@ -54,6 +54,11 @@ vi.mock("./db", () => ({
   getDealRecoveriesBySession: vi.fn().mockResolvedValue([]),
   getScorecardBySession: vi.fn().mockResolvedValue(null),
 
+  // *ById helpers added for Phase 1.5 cross-tenant write hardening:
+  getProductMenuItemById: vi.fn(),
+  getDealRecoveryById: vi.fn(),
+  getComplianceFlagById: vi.fn(),
+
   // Mutations + writes that may be called transitively:
   insertTranscript: vi.fn().mockResolvedValue(true),
   insertCopilotSuggestion: vi.fn().mockResolvedValue(undefined),
@@ -558,6 +563,226 @@ describe("tRPC isolation: sessions.getWithDetails cross-tenant", () => {
     expect(db.getGradeBySession).not.toHaveBeenCalled();
     expect(db.getReportBySession).not.toHaveBeenCalled();
     expect(db.getRecordingsBySession).not.toHaveBeenCalled();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// F. Phase 1.5 — cross-tenant write hardening
+//    These prove that mutation routes that previously had no tenant check
+//    (or a permissive role-only check) now reject cross-tenant attempts.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 1.5: sessions.delete cross-tenant admin", () => {
+  it("Korum admin cannot delete a Paragon session even though they have admin role", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce({
+      id: 50,
+      userId: 999,
+      dealershipId: STORE_B,
+      customerName: null, dealNumber: null,
+      vehicleType: "new", dealType: "retail_finance",
+      status: "completed", consentObtained: true,
+      consentMethod: "verbal", consentTimestamp: new Date(),
+      startedAt: new Date(), endedAt: null, durationSeconds: null,
+      notes: null,
+      vehicleYear: null, vehicleMake: null, vehicleModel: null, vin: null,
+      salePrice: null, tradeValue: null, amountFinanced: null,
+      lenderName: null, apr: null, termMonths: null, monthlyPayment: null,
+    } as never);
+
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+
+    await expect(
+      caller.sessions.delete({ sessionId: 50, reason: "test" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.deleteSessionData).not.toHaveBeenCalled();
+  });
+});
+
+describe("Phase 1.5: productMenu.delete cross-tenant", () => {
+  it("Korum user cannot delete a Paragon product menu item by ID", async () => {
+    vi.mocked(db.getProductMenuItemById).mockResolvedValueOnce({
+      id: 7,
+      dealershipId: STORE_B,
+      productType: "gap_insurance",
+      displayName: "GAP",
+      providerName: null, description: null,
+      costToDealer: null, retailPrice: null,
+      termMonths: null, maxMileage: null,
+      isActive: true, sortOrder: 0,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as never);
+
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+
+    await expect(
+      caller.productMenu.delete({ id: 7 })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.deleteProductMenuItem).not.toHaveBeenCalled();
+  });
+
+  it("404 (not FORBIDDEN) when the product menu item does not exist", async () => {
+    vi.mocked(db.getProductMenuItemById).mockResolvedValueOnce(null);
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    await expect(
+      caller.productMenu.delete({ id: 99 })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("Phase 1.5: productMenu.upsert cross-tenant id smuggling", () => {
+  it("Korum user cannot rewrite a Paragon item by passing its ID with their dealershipId", async () => {
+    vi.mocked(db.getProductMenuItemById).mockResolvedValueOnce({
+      id: 12,
+      dealershipId: STORE_B,
+      productType: "gap_insurance",
+      displayName: "GAP",
+      providerName: null, description: null,
+      costToDealer: null, retailPrice: null,
+      termMonths: null, maxMileage: null,
+      isActive: true, sortOrder: 0,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as never);
+
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+
+    await expect(
+      caller.productMenu.upsert({
+        id: 12,
+        productType: "gap_insurance",
+        displayName: "Pwned",
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.upsertProductMenuItem).not.toHaveBeenCalled();
+  });
+});
+
+describe("Phase 1.5: dealRecovery.updateStatus cross-tenant", () => {
+  it("Korum user cannot update a Paragon recovery row's status", async () => {
+    vi.mocked(db.getDealRecoveryById).mockResolvedValueOnce({
+      id: 33,
+      sessionId: 999,
+      dealershipId: STORE_B,
+      productType: "gap_insurance",
+      declineReason: null,
+      recoveryScript: null,
+      recoveryStatus: "pending",
+      potentialRevenue: null,
+      actualRevenue: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    vi.mocked(db.getSessionById).mockResolvedValueOnce({
+      id: 999,
+      userId: 999,
+      dealershipId: STORE_B,
+      customerName: null, dealNumber: null,
+      vehicleType: "new", dealType: "retail_finance",
+      status: "completed", consentObtained: true,
+      consentMethod: "verbal", consentTimestamp: new Date(),
+      startedAt: new Date(), endedAt: null, durationSeconds: null,
+      notes: null,
+      vehicleYear: null, vehicleMake: null, vehicleModel: null, vin: null,
+      salePrice: null, tradeValue: null, amountFinanced: null,
+      lenderName: null, apr: null, termMonths: null, monthlyPayment: null,
+    } as never);
+
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+
+    await expect(
+      caller.dealRecovery.updateStatus({ id: 33, status: "recovered" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.updateDealRecoveryStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe("Phase 1.5: customers.update cross-tenant", () => {
+  it("Korum user cannot update a Paragon customer record", async () => {
+    vi.mocked(db.getCustomerById).mockResolvedValueOnce({
+      id: 88,
+      dealershipId: STORE_B,
+      firstName: "Jane",
+      lastName: "Doe",
+      email: null, phone: null, address: null, notes: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+
+    await expect(
+      caller.customers.update({ id: 88, firstName: "Pwned" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.updateCustomer).not.toHaveBeenCalled();
+  });
+
+  it("group admin (sister-store access) CAN update customer in their group", async () => {
+    vi.mocked(db.getCustomerById).mockResolvedValueOnce({
+      id: 88,
+      dealershipId: STORE_B,
+      firstName: "Jane",
+      lastName: "Doe",
+      email: null, phone: null, address: null, notes: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+
+    const groupAdmin = makeUser({
+      id: 5,
+      dealershipId: STORE_A,
+      isGroupAdmin: true,
+    });
+    const caller = appRouter.createCaller(makeCtx(groupAdmin));
+
+    const result = await caller.customers.update({ id: 88, firstName: "Updated" });
+    expect(result.success).toBe(true);
+    expect(db.updateCustomer).toHaveBeenCalledWith(88, { firstName: "Updated" });
+  });
+});
+
+describe("Phase 1.5: compliance.resolveFlag cross-tenant", () => {
+  it("Korum user cannot resolve a Paragon compliance flag", async () => {
+    vi.mocked(db.getComplianceFlagById).mockResolvedValueOnce({
+      id: 100,
+      sessionId: 999,
+      dealershipId: STORE_B,
+      severity: "warning",
+      rule: "test",
+      description: "test",
+      excerpt: null,
+      timestamp: null,
+      resolved: false,
+      resolvedBy: null,
+      resolvedAt: null,
+      createdAt: new Date(),
+    } as never);
+    vi.mocked(db.getSessionById).mockResolvedValueOnce({
+      id: 999,
+      userId: 999,
+      dealershipId: STORE_B,
+      customerName: null, dealNumber: null,
+      vehicleType: "new", dealType: "retail_finance",
+      status: "completed", consentObtained: true,
+      consentMethod: "verbal", consentTimestamp: new Date(),
+      startedAt: new Date(), endedAt: null, durationSeconds: null,
+      notes: null,
+      vehicleYear: null, vehicleMake: null, vehicleModel: null, vin: null,
+      salePrice: null, tradeValue: null, amountFinanced: null,
+      lenderName: null, apr: null, termMonths: null, monthlyPayment: null,
+    } as never);
+
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+
+    await expect(
+      caller.compliance.resolveFlag({ flagId: 100 })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.resolveFlag).not.toHaveBeenCalled();
   });
 });
 

@@ -297,6 +297,14 @@ export async function resolveFlag(flagId: number, resolvedBy: number) {
   await db.update(complianceFlags).set({ resolved: true, resolvedBy, resolvedAt: new Date() }).where(eq(complianceFlags.id, flagId));
 }
 
+export async function getComplianceFlagById(flagId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(complianceFlags).where(eq(complianceFlags.id, flagId)).limit(1);
+  const row = result[0] ?? null;
+  return row ? decryptFields(row, ["excerpt"]) : null;
+}
+
 // ─── Performance Grades ───────────────────────────────────────────────────────
 export async function upsertGrade(data: {
   sessionId: number;
@@ -1925,6 +1933,13 @@ export async function deleteProductMenuItem(id: number) {
   await db.delete(productMenu).where(eq(productMenu.id, id));
 }
 
+export async function getProductMenuItemById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(productMenu).where(eq(productMenu.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
 // ─── Product Intelligence ─────────────────────────────────────────────────────
 
 function parseJsonFields(row: any) {
@@ -2023,6 +2038,13 @@ export async function updateDealRecoveryStatus(id: number, status: string, actua
   if (actualRevenue !== undefined) updates.actualRevenue = actualRevenue;
   await db.update(dealRecovery).set(updates).where(eq(dealRecovery.id, id));
   return { success: true };
+}
+
+export async function getDealRecoveryById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(dealRecovery).where(eq(dealRecovery.id, id)).limit(1);
+  return result[0] ?? null;
 }
 
 export async function getDealRecoveryStats(userId: number) {
