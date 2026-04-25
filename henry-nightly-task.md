@@ -534,3 +534,20 @@ Target: 1,240+ tests passing (up from 1,180)
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
+
+## Re-verification — April 24, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all April 21 features present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
+- Confirmed sidebar entries in `AppLayout.tsx` for all 4 new pages in correct sections
+- Confirmed `server/nightly-april21.test.ts` present with 99 tests
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ — only documentation update for this verification run
+- Latest commit on `main` before tonight's update: `fbb6adf fix(roi-calculator): accurate payback period + editable PVR lift + realistic penetration scaling`
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
+- Verify Trainer Mode scenario flow and localStorage persistence
+- Verify mobile More drawer shows new pages in correct sections

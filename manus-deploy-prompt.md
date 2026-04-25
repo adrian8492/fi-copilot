@@ -4,7 +4,7 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **ready for April 23 deployment**.
+This repo is **ready for April 24 deployment**.
 
 ### What was built (April 21 nightly, completed April 23)
 - `/chargeback-tracker` — Chargeback Tracker with KPI bar, 25-record chargeback table, reason PieChart, monthly trend, manager impact, at-risk deals, reserve calculator
