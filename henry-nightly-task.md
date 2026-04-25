@@ -551,3 +551,26 @@ Target: 1,240+ tests passing (up from 1,180)
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
+
+## Re-verification — April 25, 2026
+**Verified by**: Henry (manual verification after Claude Code hang)
+- Attempted to run Claude Code for tonight’s build, but the CLI hung without producing output; no code changes were made by the agent
+- Re-verified the repo state directly in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all April 21 features remain present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
+- Confirmed sidebar entries remain in `client/src/components/AppLayout.tsx` and the route/test artifacts are still in place
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ baseline unchanged — 1274/1275 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
+- `git status` ✅ — clean working tree before tonight’s documentation refresh
+- Latest commit on `main` before this update: `7f88ff7 docs: refresh nightly verification for april 24`
+
+### What was completed tonight:
+- Re-verified current `main` build health
+- Refreshed this task file with tonight’s verification status
+- Refreshed `manus-deploy-prompt.md` for tonight’s deployment handoff
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
+- Verify Trainer Mode scenario flow and localStorage persistence
+- Verify mobile More drawer shows new pages in correct sections
+- Optional follow-up: diagnose why Claude Code stalled before output on tonight’s run

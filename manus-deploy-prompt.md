@@ -4,7 +4,7 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **ready for April 24 deployment**.
+This repo is **ready for April 25 deployment**.
 
 ### What was built (April 21 nightly, completed April 23)
 - `/chargeback-tracker` — Chargeback Tracker with KPI bar, 25-record chargeback table, reason PieChart, monthly trend, manager impact, at-risk deals, reserve calculator
@@ -12,11 +12,13 @@ This repo is **ready for April 24 deployment**.
 - `/monthly-dashboard` — Monthly Performance Dashboard with KPI bar, daily pacing chart, calendar heatmap, manager table, product treemap, goal progress, comparison panel
 - `/deal-structure` — Deal Structuring Calculator with payment grid, product affordability, structure optimizer, lender recommendation, deal health indicator, localStorage save
 
-### Verification
+### Verification (April 25)
+- Claude Code was attempted for the nightly build but hung without emitting output; repo was verified manually afterward
 - `pnpm check` — 0 TypeScript errors
 - `pnpm test` — 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
-- All 4 new pages lazy-loaded in `App.tsx`
-- Sidebar entries added: Monthly Dashboard (Performance), Trainer Mode (Coaching), Deal Structure (Operations), Chargeback Tracker (Business)
+- Working tree is clean after docs refresh and commit
+- All 4 pages remain lazy-loaded in `App.tsx`
+- Sidebar entries remain in place: Monthly Dashboard (Performance), Trainer Mode (Coaching), Deal Structure (Operations), Chargeback Tracker (Business)
 
 ## Smoke-test these routes
 - `/monthly-dashboard`
@@ -32,7 +34,11 @@ This repo is **ready for April 24 deployment**.
 - Chargeback filters, KPI math, trend chart, reserve calculator
 - Trainer Mode scenario flow, scoring, word track retrieval, and localStorage progress
 
-## All pages in the app (46 pages)
+## Notes
+- Expected test baseline still includes the single pre-existing Deepgram env-var failure until `DEEPGRAM_API_KEY` is configured in the test environment
+- Optional follow-up after deploy: investigate the Claude Code CLI stall from tonight’s run
+
+## All pages in the app (46+ pages)
 Dashboard, Live Session, Session History, Session Detail, Eagle Eye View, Objection Analysis,
 Admin Panel, Analytics, Batch Upload, Compliance Rules, Customers, Customer Detail, Product Menu,
 Deal Recovery, Dealership Settings, Pipeline Diagnostics, Manager Scorecard, Demo Mode, Session Comparison,
