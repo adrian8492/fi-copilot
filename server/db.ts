@@ -429,6 +429,7 @@ export async function getReportsByUser(userId: number, limit = 20) {
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 export async function insertAuditLog(data: {
   userId?: number;
+  dealershipId?: number | null;
   action: string;
   resourceType?: string;
   resourceId?: string;
@@ -438,7 +439,20 @@ export async function insertAuditLog(data: {
 }) {
   const db = await getDb();
   if (!db) return;
-  await db.insert(auditLogs).values(data);
+  // Auto-stamp dealershipId from the actor's user record when the caller
+  // didn't pass one. Avoids retrofitting 40+ insertAuditLog call sites in
+  // routers.ts; the audit log inherits tenant scope from the user even if
+  // a caller forgets to attach it explicitly.
+  let dealershipId = data.dealershipId;
+  if (dealershipId === undefined && data.userId !== undefined) {
+    try {
+      const u = await db.select({ d: users.dealershipId }).from(users).where(eq(users.id, data.userId)).limit(1);
+      dealershipId = u[0]?.d ?? null;
+    } catch {
+      dealershipId = null;
+    }
+  }
+  await db.insert(auditLogs).values({ ...data, dealershipId: dealershipId ?? null });
 }
 
 export async function getAuditLogs(limit = 100, offset = 0, userIds?: number[] | null) {
