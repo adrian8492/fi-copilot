@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-04-25 (live; updated continuously by autonomous Claude Code session)
 **Branch:** `feature/multi-tenant-pilot`
-**Last commit:** `4efe736` (Phase 3 polish — today's decisions + auto-refresh)
+**Last commit:** `e264616` (audit-log auto-stamp dealershipId)
 
 ## Where we are
 
@@ -72,17 +72,18 @@ These are real but non-blocking for the Mon Apr 27 install. Ranked by leak sever
 
 1. ~~`getAllUsers` returns all users globally~~ ✅ fixed in `938f491`.
 2. ~~`compliance.createRule/updateRule/deleteRule` cross-tenant~~ ✅ fixed in `e640697`.
-3. **`auditLogs` not auto-stamped with dealershipId** (low risk — audit-only). The schema column exists (Phase 1) but `insertAuditLog` callers don't pass dealershipId. Mostly mechanical, ~15 min. Note: audit-log access is already user-scoped in the read path, so this is pure defense-in-depth.
-4. **Defense-in-depth: auto-stamp `dealershipId` on session-scoped child inserts** (low risk — reads still go through assertSessionAccess). transcripts, copilotSuggestions, complianceFlags, performanceGrades, audioRecordings, coachingReports, sessionChecklists, objectionLogs, dealRecovery, asuraScorecards, complianceRules. Fix: extend each insert helper + update call sites in routers.ts and websocket.ts. Substantial — ~2 hr. Read-side isolation already correct via assertSessionAccess; this guards against future bugs that forget the access check.
+3. ~~`auditLogs` not auto-stamped with dealershipId~~ ✅ shipped in `e264616`. Auto-derives from `users.dealershipId` via the actor's `userId`, so existing 40+ call sites in routers.ts didn't need touching.
+4. **Defense-in-depth: auto-stamp `dealershipId` on session-scoped child inserts** — **deliberately left unshipped after analysis.** Reasoning: the current NULL state is actually fail-closed. A future query that filters `WHERE transcripts.dealership_id = ?` without joining sessions returns no rows (safe). Auto-stamping would let such lazy queries succeed, which is *less* safe long-term — it permits queries that bypass the session-ownership join. The correct read pattern stays "JOIN sessions, filter on `sessions.dealership_id`" (which `assertSessionAccess` already enforces). If Adrian wants this changed post-pilot, a separate audit + ADR is the right home — there's a real architectural call to make about which query path is canonical.
 5. ~~Resend email for invite delivery~~ ✅ shipped in `b98c961`.
 6. ~~`/yesterday-recap` polish~~ ✅ today's 3 decisions + auto-refresh shipped in `4efe736`. Multi-TZ day boundary still deferred — post-pilot scaling concern.
 
 ## Useful state for next session
 
-- Branch is on `feature/multi-tenant-pilot` at `4efe736`. PR-able when Adrian wants.
-- 16 commits in autonomous session. Test count `1274/1275 → 1376/1377` (+102 net new tests).
-- All Phase 1-4 backend work + the high-value Phase 1.5 follow-ups are shipped.
-- Remaining deferred items are pure defense-in-depth (#3, #4) or post-pilot multi-TZ — none block the Mon Apr 27 Korum install.
+- Branch is on `feature/multi-tenant-pilot` at `e264616`. PR-able when Adrian wants.
+- 17 commits in autonomous session. Test count `1274/1275 → 1376/1377` (+102 net new tests, 32/32 files green, 0 failed, 1 skipped Deepgram-env-only).
+- All Phase 1-4 backend work + 5 of 6 high-value follow-up items are shipped.
+- Only deferred item left is #4 (session-child auto-stamp) and that's a deliberate skip with an ADR-style rationale logged above (the current NULL state is fail-closed; auto-stamping would weaken that invariant).
+- Multi-TZ day boundary in /yesterday-recap is the only remaining polish item — purely a post-pilot scaling concern.
 - Manus deploy + mobile smoke + Korum install on Mon Apr 27 are Adrian's hands.
 
 ## Critical context to preserve across compactions
