@@ -14,15 +14,17 @@
 | Phase 2 frontend — Onboarding.tsx 5-step wizard | ✅ shipped | `df81004` |
 | Phase 3a — /yesterday-recap backend (recaps router) + frontend | ✅ shipped | `fc5a5ea` |
 | Phase 3b — StoneEagle ingest pipeline (TypeScript, in-repo) | ✅ shipped | `c5d49fe` |
-| Phase 3c — Deepgram verify + clean up env-gated test fail | ✅ shipped | (next commit) |
-| Phase 4 — QA + production deploy | ⏳ pending | — |
+| Phase 3c — Deepgram verify + clean up env-gated test fail | ✅ shipped | `768ea04` |
+| Phase 4a — load-test seed (1000 deals × 5 tenants) + 13 unit tests | 🟡 in progress | — |
+| Phase 4b — operator runbook (docs/ADDING_NEW_DEALERSHIP.md) | 🟡 in progress | — |
+| Phase 4c — Manus deploy + mobile smoke test | ⏳ Adrian's hands | — |
 
 ## Test baseline
 
 - `pnpm check`: 0 TypeScript errors
-- `pnpm test`: **31/31 test files green. 1345 passed | 1 skipped | 0 failed** (out of 1346)
+- `pnpm test`: **32/32 test files green. 1358 passed | 1 skipped | 0 failed** (out of 1359)
 - The deepgram-key env check is now `it.skipIf(!process.env.DEEPGRAM_API_KEY)` — passes against a real boxed env, skips cleanly in CI/sandbox
-- Phase 4 must keep tests at or above 1345 passing with 0 failing test files
+- Phase 4c (deploy) must keep tests at or above 1358 passing with 0 failing test files
 
 ## Decisions made this session
 
