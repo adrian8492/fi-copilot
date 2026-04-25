@@ -82,6 +82,7 @@ const ChargebackTracker = lazy(() => import("./pages/ChargebackTracker"));
 const TrainerModePage = lazy(() => import("./pages/TrainerMode"));
 const MonthlyDashboard = lazy(() => import("./pages/MonthlyDashboard"));
 const DealStructure = lazy(() => import("./pages/DealStructure"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -166,6 +167,7 @@ function Router() {
         <Route path="/trainer-mode" component={TrainerModePage} />
         <Route path="/monthly-dashboard" component={MonthlyDashboard} />
         <Route path="/deal-structure" component={DealStructure} />
+        <Route path="/onboarding" component={Onboarding} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

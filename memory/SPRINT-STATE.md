@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-04-25 (live; updated continuously by autonomous Claude Code session)
 **Branch:** `feature/multi-tenant-pilot`
-**Last commit:** `c896d02` (Phase 1.5 — cross-tenant write hardening)
+**Last commit:** `5f1bac9` (Phase 2 backend) — frontend follows in next commit
 
 ## Where we are
 
@@ -10,15 +10,16 @@
 |---|---|---|
 | Phase 1 — Multi-tenant query enforcement layer + 25 isolation tests | ✅ shipped | `213e3a4` |
 | Phase 1.5 — Cross-tenant write hardening (6 mutation routes) | ✅ shipped | `c896d02` |
-| Phase 2 — Onboarding wizard + invite flow | 🟡 in progress | — |
+| Phase 2 backend — Onboarding tRPC router + 11 tests | ✅ shipped | `5f1bac9` |
+| Phase 2 frontend — Onboarding.tsx 5-step wizard | 🟡 in progress | — |
 | Phase 3 — StoneEagle ingest + /yesterday-recap + Deepgram | ⏳ pending | — |
 | Phase 4 — QA + production deploy | ⏳ pending | — |
 
 ## Test baseline
 
 - `pnpm check`: 0 TypeScript errors
-- `pnpm test`: 1307 / 1308 passing (1 fail is pre-existing deepgram env, documented)
-- Phase 2 must keep tests at or above 1308 - 1 = 1307 passing
+- `pnpm test`: 1318 / 1319 passing (1 fail is pre-existing deepgram env, documented)
+- Phase 3 must keep tests at or above 1318 passing
 
 ## Decisions made this session
 
