@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import {
   Mic,
   TrendingUp,
@@ -190,10 +191,28 @@ function ASURAScorecardWidget() {
 export default function Dashboard() {
   useEffect(() => { document.title = "Dashboard | F&I Co-Pilot by ASURA Group"; }, []);
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const { data: summary } = trpc.analytics.summary.useQuery();
   const { data: sessionsData } = trpc.sessions.list.useQuery({ limit: 5, offset: 0 });
   const sessions = sessionsData?.rows;
   const { data: grades } = trpc.grades.myHistory.useQuery({ limit: 5 });
+
+  // Auto-redirect dealership admins to /onboarding when their store hasn't
+  // finished the 5-step setup. Non-admin F&I managers stay on the dashboard
+  // (they can't run onboarding anyway and shouldn't be bounced).
+  const onboardingStatus = trpc.onboarding.getStatus.useQuery(undefined, {
+    // only run once we know the user's role; spares one round-trip for guests
+    enabled: !!user,
+  });
+  useEffect(() => {
+    if (!user || !onboardingStatus.data) return;
+    const u = user as { role?: string; isSuperAdmin?: boolean; isGroupAdmin?: boolean };
+    const isAdmin = u.role === "admin" || u.isSuperAdmin || u.isGroupAdmin;
+    if (!isAdmin) return;
+    if (onboardingStatus.data.hasDealership && !onboardingStatus.data.dealership.onboardingComplete) {
+      navigate("/onboarding");
+    }
+  }, [user, onboardingStatus.data, navigate]);
 
   const avgScore = grades && grades.length > 0
     ? Math.round(grades.reduce((a, g) => a + (g.overallScore ?? 0), 0) / grades.length)
