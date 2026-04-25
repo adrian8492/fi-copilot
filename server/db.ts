@@ -1151,6 +1151,9 @@ export async function updateDealershipOnboarding(
     pruTarget: number | null;
     onboardingStep: number;
     onboardingComplete: boolean;
+    dpaSignedAt: Date | null;
+    dpaVersion: string | null;
+    dpaSignedBy: number | null;
   }>
 ) {
   const db = await getDb();

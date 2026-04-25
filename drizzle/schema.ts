@@ -41,6 +41,10 @@ export const dealerships = mysqlTable("dealerships", {
   // Onboarding state machine: 0 = profile pending, 5 = all complete.
   onboardingStep: int("onboardingStep").notNull().default(0),
   onboardingComplete: boolean("onboardingComplete").notNull().default(false),
+  // Phase 5c: Data Processing Addendum (FTC Safeguards + customer-facing trust).
+  dpaSignedAt: timestamp("dpaSignedAt"),
+  dpaVersion: varchar("dpaVersion", { length: 32 }),
+  dpaSignedBy: int("dpaSignedBy"),
 });
 
 // ─── Users ────────────────────────────────────────────────────────────────────

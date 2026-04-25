@@ -870,12 +870,15 @@ describe("Phase 2: onboarding.saveProfile", () => {
       unitVolumeMonthly: 200,
       pruBaseline: 1700,
       pruTarget: 2200,
+      dpaAccepted: true as const,
+      dpaVersion: "v1",
     });
     expect(result).toEqual({ success: true, step: 1 });
     expect(db.updateDealershipOnboarding).toHaveBeenCalledWith(STORE_A, expect.objectContaining({
       location: "Puyallup, WA",
       brandMix: ["Toyota", "Honda", "Subaru"],
       onboardingStep: 1,
+      dpaVersion: "v1",
     }));
   });
 
@@ -888,6 +891,8 @@ describe("Phase 2: onboarding.saveProfile", () => {
         brandMix: ["Toyota"],
         unitVolumeMonthly: 200,
         pruBaseline: 1700,
+        dpaAccepted: true as const,
+        dpaVersion: "v1",
       })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(db.updateDealershipOnboarding).not.toHaveBeenCalled();
@@ -902,6 +907,8 @@ describe("Phase 2: onboarding.saveProfile", () => {
         brandMix: ["Toyota"],
         unitVolumeMonthly: 100,
         pruBaseline: 1500,
+        dpaAccepted: true as const,
+        dpaVersion: "v1",
       })
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
@@ -1906,5 +1913,58 @@ describe("Phase 5b: admin.auditTrailForCustomer cross-tenant", () => {
     await expect(caller.admin.auditTrailForCustomer({ customerId: 999 })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
+  });
+});
+
+// ─── Phase 5c: DPA Gate (onboarding cannot proceed without DPA acceptance) ───
+describe("Phase 5c: onboarding.saveProfile DPA gate", () => {
+  it("records dpaSignedAt + dpaVersion + dpaSignedBy on the dealership when accepted", async () => {
+    const admin = makeUser({ id: 7, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    await caller.onboarding.saveProfile({
+      location: "Puyallup, WA",
+      brandMix: ["Toyota"],
+      unitVolumeMonthly: 200,
+      pruBaseline: 1700,
+      dpaAccepted: true as const,
+      dpaVersion: "v1",
+    });
+    expect(db.updateDealershipOnboarding).toHaveBeenCalledWith(
+      STORE_A,
+      expect.objectContaining({
+        dpaSignedAt: expect.any(Date),
+        dpaVersion: "v1",
+        dpaSignedBy: 7,
+      })
+    );
+  });
+
+  it("rejects saveProfile when dpaAccepted is false (Zod literal-true requirement)", async () => {
+    const admin = makeUser({ id: 7, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    // @ts-expect-error — dpaAccepted is z.literal(true), passing false must reject
+    await expect(caller.onboarding.saveProfile({
+      location: "Puyallup, WA",
+      brandMix: ["Toyota"],
+      unitVolumeMonthly: 200,
+      pruBaseline: 1700,
+      dpaAccepted: false,
+      dpaVersion: "v1",
+    })).rejects.toThrow();
+    expect(db.updateDealershipOnboarding).not.toHaveBeenCalled();
+  });
+
+  it("rejects saveProfile when dpaVersion is missing/empty", async () => {
+    const admin = makeUser({ id: 7, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    await expect(caller.onboarding.saveProfile({
+      location: "Puyallup, WA",
+      brandMix: ["Toyota"],
+      unitVolumeMonthly: 200,
+      pruBaseline: 1700,
+      dpaAccepted: true as const,
+      dpaVersion: "",
+    })).rejects.toThrow();
+    expect(db.updateDealershipOnboarding).not.toHaveBeenCalled();
   });
 });

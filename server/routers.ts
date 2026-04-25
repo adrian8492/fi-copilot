@@ -771,7 +771,10 @@ export const appRouter = router({
       };
     }),
 
-    // Step 1 — dealership profile
+    // Step 1 — dealership profile + Phase 5c DPA acceptance gate.
+    // The pilot cannot proceed past Step 1 until the dealership confirms
+    // they have signed the ASURA Data Processing Addendum. Adrian/Oliver
+    // counter-sign offline; this is the in-app attestation that they have.
     saveProfile: protectedProcedure
       .input(z.object({
         location: z.string().min(1).max(255),
@@ -779,6 +782,8 @@ export const appRouter = router({
         unitVolumeMonthly: z.number().int().min(0).max(10000),
         pruBaseline: z.number().int().min(0).max(20000),
         pruTarget: z.number().int().min(0).max(20000).optional(),
+        dpaAccepted: z.literal(true, { message: "Data Processing Addendum acceptance is required to proceed" }),
+        dpaVersion: z.string().min(1).max(32),
       }))
       .mutation(async ({ ctx, input }) => {
         const dealershipId = ctx.user.dealershipId;
@@ -793,8 +798,17 @@ export const appRouter = router({
           pruBaseline: input.pruBaseline,
           pruTarget: input.pruTarget ?? null,
           onboardingStep: 1,
+          dpaSignedAt: new Date(),
+          dpaVersion: input.dpaVersion,
+          dpaSignedBy: ctx.user.id,
         });
-        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveProfile", resourceType: "dealership", resourceId: String(dealershipId), details: input });
+        await insertAuditLog({
+          userId: ctx.user.id,
+          action: "onboarding.saveProfile",
+          resourceType: "dealership",
+          resourceId: String(dealershipId),
+          details: { ...input, dpaAccepted: true, dpaVersion: input.dpaVersion },
+        });
         return { success: true, step: 1 };
       }),
 
