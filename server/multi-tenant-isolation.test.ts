@@ -1144,6 +1144,101 @@ describe("Phase 3: recaps.yesterday", () => {
   });
 });
 
+describe("Phase 3 polish: recaps.yesterday \"today's 3 decisions\"", () => {
+  it("returns no decisions when there are no problematic signals", async () => {
+    vi.mocked(db.getDealershipDigest).mockResolvedValueOnce({
+      sessions: [{ id: 1, userId: 1, dealershipId: STORE_A, status: "completed" } as never],
+      grades: [{ sessionId: 1, pvr: 1900, overallScore: 85, complianceScore: 90, menuSequenceScore: 88, objectionResponseScore: 85 } as never],
+      flags: [],
+      managers: [{ userId: 1, name: "Sarah", email: "s@k.com", sessionCount: 1, avgPru: 1900, avgScore: 85 }],
+    });
+    const user = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const recap = await caller.recaps.yesterday();
+    expect(recap.decisions).toEqual([]);
+  });
+
+  it("priority-1 critical flag decision deep-links to /compliance-audit", async () => {
+    vi.mocked(db.getDealershipDigest).mockResolvedValueOnce({
+      sessions: [{ id: 1, userId: 1, dealershipId: STORE_A, status: "completed" } as never],
+      grades: [],
+      flags: [
+        { id: 9, sessionId: 1, severity: "critical", resolved: false } as never,
+        { id: 10, sessionId: 1, severity: "critical", resolved: false } as never,
+      ],
+      managers: [{ userId: 1, name: "Sarah", email: "s@k.com", sessionCount: 1, avgPru: 1900, avgScore: 85 }],
+    });
+    const user = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const recap = await caller.recaps.yesterday();
+    expect(recap.decisions[0].id).toBe("critical-flags");
+    expect(recap.decisions[0].href).toBe("/compliance-audit");
+    expect(recap.decisions[0].text).toContain("2 critical compliance flags");
+  });
+
+  it("thin-deal decision deep-links to the worst session", async () => {
+    vi.mocked(db.getDealershipDigest).mockResolvedValueOnce({
+      sessions: [
+        { id: 41, userId: 1, dealershipId: STORE_A, status: "completed" } as never,
+        { id: 42, userId: 1, dealershipId: STORE_A, status: "completed" } as never,
+      ],
+      grades: [
+        { sessionId: 41, pvr: 1100, overallScore: 70, complianceScore: 80, menuSequenceScore: 75, objectionResponseScore: 75 } as never,
+        { sessionId: 42, pvr: 800, overallScore: 65, complianceScore: 75, menuSequenceScore: 70, objectionResponseScore: 70 } as never, // thinnest
+      ],
+      flags: [],
+      managers: [{ userId: 1, name: "Sarah", email: "s@k.com", sessionCount: 2, avgPru: 950, avgScore: 67 }],
+    });
+    const user = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const recap = await caller.recaps.yesterday();
+    const thinDecision = recap.decisions.find((d) => d.id.startsWith("thin-"));
+    expect(thinDecision).toBeDefined();
+    expect(thinDecision!.id).toBe("thin-42"); // session 42 had the lowest PRU
+    expect(thinDecision!.href).toBe("/session/42");
+  });
+
+  it("coaching decision targets the lowest-PRU manager when below $1,700", async () => {
+    vi.mocked(db.getDealershipDigest).mockResolvedValueOnce({
+      sessions: [{ id: 1, userId: 7, dealershipId: STORE_A, status: "completed" } as never],
+      grades: [],
+      flags: [],
+      managers: [
+        { userId: 1, name: "Top Sarah", email: "t@k.com", sessionCount: 3, avgPru: 2400, avgScore: 88 },
+        { userId: 7, name: "Struggling Mike", email: "m@k.com", sessionCount: 2, avgPru: 1100, avgScore: 65 },
+      ],
+    });
+    const user = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const recap = await caller.recaps.yesterday();
+    const coachDecision = recap.decisions.find((d) => d.id.startsWith("coach-"));
+    expect(coachDecision).toBeDefined();
+    expect(coachDecision!.id).toBe("coach-7");
+    expect(coachDecision!.href).toBe("/scorecard?userId=7");
+    expect(coachDecision!.text).toContain("Struggling Mike");
+  });
+
+  it("decisions are capped at 3 even when more signals are present", async () => {
+    vi.mocked(db.getDealershipDigest).mockResolvedValueOnce({
+      sessions: [
+        { id: 1, userId: 1, dealershipId: STORE_A, status: "completed" } as never,
+        { id: 2, userId: 1, dealershipId: STORE_A, status: "active" } as never,
+      ],
+      grades: [
+        { sessionId: 1, pvr: 800, overallScore: 65, complianceScore: 70, menuSequenceScore: 65, objectionResponseScore: 65 } as never,
+      ],
+      flags: [{ id: 9, sessionId: 1, severity: "critical", resolved: false } as never],
+      managers: [{ userId: 1, name: "Sarah", email: "s@k.com", sessionCount: 1, avgPru: 800, avgScore: 65 }],
+    });
+    const user = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const recap = await caller.recaps.yesterday();
+    expect(recap.decisions.length).toBeLessThanOrEqual(3);
+    // Critical flag is priority 1 -> always first when present.
+    expect(recap.decisions[0].id).toBe("critical-flags");
+  });
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 // I. Phase 1.5 follow-up — admin.listUsers must never fall back to
 //    getAllUsers() for non-super-admins. (Was a real cross-tenant leak

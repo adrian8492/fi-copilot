@@ -14,6 +14,7 @@ import {
   Coffee,
   ArrowRight,
   Clock,
+  Target,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -30,7 +31,12 @@ import { useLocation } from "wouter";
  */
 export default function YesterdayRecap() {
   const [, navigate] = useLocation();
-  const recap = trpc.recaps.yesterday.useQuery();
+  // Auto-refresh every 10 min so the page stays current through the morning.
+  // Brian opens this over coffee — we want fresh numbers when he checks back.
+  const recap = trpc.recaps.yesterday.useQuery(undefined, {
+    refetchInterval: 10 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
 
   const date = useMemo(() => {
     const yesterday = new Date();
@@ -97,6 +103,33 @@ export default function YesterdayRecap() {
             </p>
           </CardContent>
         </Card>
+
+        {/* 1.5 — Today's 3 decisions (auto-derived from yesterday's worst signals) */}
+        {data.decisions && data.decisions.length > 0 && (
+          <Card className="border-primary/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                Today's {data.decisions.length} decision{data.decisions.length === 1 ? "" : "s"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {data.decisions.map((d, idx) => (
+                <button
+                  key={d.id}
+                  onClick={() => navigate(d.href)}
+                  className="w-full text-left flex items-start gap-3 p-3 rounded-md border border-border bg-card hover:bg-muted/50 transition-colors"
+                >
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1 text-sm text-foreground leading-snug">{d.text}</span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* 2. The Numbers */}
         <div>

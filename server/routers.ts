@@ -984,6 +984,64 @@ export const appRouter = router({
           ? "No deals completed yesterday."
           : `${unitsDelivered} deal${unitsDelivered === 1 ? "" : "s"} written. Avg PRU $${avgPru.toLocaleString()}. ${criticalUnresolved} critical flag${criticalUnresolved === 1 ? "" : "s"} open.`;
 
+        // ─── Today's 3 decisions (data-derived, no LLM) ────────────────
+        // Spec calls for "specific, tap-to-action recommendations." We
+        // build them from the worst-signal items in yesterday's digest
+        // and deep-link each to the relevant Co-Pilot page.
+        type Decision = { id: string; text: string; href: string; priority: 1 | 2 | 3 };
+        const candidates: Decision[] = [];
+
+        if (criticalUnresolved > 0) {
+          candidates.push({
+            id: "critical-flags",
+            text: `Resolve ${criticalUnresolved} critical compliance flag${criticalUnresolved === 1 ? "" : "s"} from yesterday before today's first delivery`,
+            href: "/compliance-audit",
+            priority: 1,
+          });
+        }
+
+        const thinDealsList = allGrades
+          .filter((g) => (g.pvr ?? 0) > 0 && (g.pvr ?? 0) < 1200)
+          .sort((a, b) => (a.pvr ?? 0) - (b.pvr ?? 0));
+        if (thinDealsList.length > 0) {
+          const worst = thinDealsList[0];
+          const session = digest.sessions.find((s) => s.id === worst.sessionId);
+          const mgr = digest.managers.find((m) => m.userId === session?.userId);
+          candidates.push({
+            id: `thin-${worst.sessionId}`,
+            text: `Re-contact deal #${worst.sessionId} (PRU $${worst.pvr ?? 0}${mgr ? `, ${mgr.name}` : ""}) — thinnest of yesterday`,
+            href: `/session/${worst.sessionId}`,
+            priority: 2,
+          });
+        }
+
+        if (digest.managers.length > 0) {
+          const sortedManagers = [...digest.managers].sort((a, b) => a.avgPru - b.avgPru);
+          const lowest = sortedManagers[0];
+          if (lowest.sessionCount > 0 && lowest.avgPru < 1700) {
+            candidates.push({
+              id: `coach-${lowest.userId}`,
+              text: `Coach ${lowest.name} today — yesterday's avg PRU $${lowest.avgPru.toLocaleString()} on ${lowest.sessionCount} deal${lowest.sessionCount === 1 ? "" : "s"}`,
+              href: `/scorecard?userId=${lowest.userId}`,
+              priority: 2,
+            });
+          }
+        }
+
+        if (pendingSessions > 0) {
+          candidates.push({
+            id: "pending-sessions",
+            text: `${pendingSessions} session${pendingSessions === 1 ? "" : "s"} from yesterday still not completed — close them out before new deals start`,
+            href: "/history",
+            priority: 3,
+          });
+        }
+
+        // Stable order: priority then insertion order. Cap at 3.
+        const decisions = candidates
+          .sort((a, b) => a.priority - b.priority)
+          .slice(0, 3);
+
         return {
           dealershipId: targetDealershipId,
           window: { from: start.toISOString(), to: end.toISOString() },
@@ -1006,6 +1064,7 @@ export const appRouter = router({
           },
           managers: digest.managers,
           coachingMoments: coachingMoments.slice(0, 10),
+          decisions,
         };
       }),
   }),
