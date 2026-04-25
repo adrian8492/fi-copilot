@@ -120,6 +120,7 @@ import {
   getComplianceFlagById,
   getDealershipById,
   updateDealershipOnboarding,
+  getDealershipDigest,
   upsertScorecard,
   getScorecardBySession,
   getScorecardsByUser,
@@ -870,6 +871,95 @@ export const appRouter = router({
         });
         await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveCadence", resourceType: "dealership", resourceId: String(dealershipId), details: input });
         return { success: true, step: 5, complete: true };
+      }),
+  }),
+
+  // ─── Recaps (Phase 3 — Brian Benstock's #1 ask: /yesterday-recap) ──────────
+  // Returns a structured morning digest for the caller's dealership. Tenant
+  // safety: dealershipId comes from ctx, not input. Super admins can pass an
+  // explicit dealershipId to peek at any tenant.
+  recaps: router({
+    yesterday: protectedProcedure
+      .input(z.object({
+        dealershipId: z.number().optional(),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        // Resolve target dealership: super admin can override, others use their own.
+        let targetDealershipId: number | null;
+        if (ctx.user.isSuperAdmin && input?.dealershipId != null) {
+          targetDealershipId = input.dealershipId;
+        } else {
+          targetDealershipId = ctx.user.dealershipId ?? null;
+        }
+        if (!targetDealershipId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership context" });
+        }
+
+        // Yesterday in server local time. (Dealership-local TZ is a Phase 4
+        // refinement; for the pilot, server runs in PT or close enough.)
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+        const digest = await getDealershipDigest(targetDealershipId, start, end);
+
+        const unitsDelivered = digest.sessions.filter((s) => s.status === "completed").length;
+        const allGrades = digest.grades;
+        const avgPru = allGrades.length > 0
+          ? Math.round(allGrades.reduce((sum, g) => sum + (g.pvr ?? 0), 0) / allGrades.length)
+          : 0;
+        const avgScore = allGrades.length > 0
+          ? Math.round(allGrades.reduce((sum, g) => sum + (g.overallScore ?? 0), 0) / allGrades.length)
+          : 0;
+
+        const criticalUnresolved = digest.flags.filter((f) => f.severity === "critical" && !f.resolved).length;
+        const pendingSessions = digest.sessions.filter((s) => s.status !== "completed").length;
+        const thinDeals = allGrades.filter((g) => (g.pvr ?? 0) > 0 && (g.pvr ?? 0) < 1200).length;
+
+        // Coaching moments: surface low-scoring sub-areas from yesterday's grades.
+        const coachingMoments: { sessionId: number; manager: string; suggestion: string }[] = [];
+        for (const g of allGrades) {
+          const session = digest.sessions.find((s) => s.id === g.sessionId);
+          const mgr = digest.managers.find((m) => m.userId === session?.userId);
+          if (!session || !mgr) continue;
+          if ((g.complianceScore ?? 100) < 70) {
+            coachingMoments.push({ sessionId: g.sessionId, manager: mgr.name, suggestion: "Review TILA/ECOA disclosure pacing — compliance score below 70." });
+          }
+          if ((g.menuSequenceScore ?? 100) < 70) {
+            coachingMoments.push({ sessionId: g.sessionId, manager: mgr.name, suggestion: "Menu order broken — coach on the ASURA sequence." });
+          }
+          if ((g.objectionResponseScore ?? 100) < 70) {
+            coachingMoments.push({ sessionId: g.sessionId, manager: mgr.name, suggestion: "Objection prevented late — review upstream framing." });
+          }
+        }
+
+        const headline = unitsDelivered === 0
+          ? "No deals completed yesterday."
+          : `${unitsDelivered} deal${unitsDelivered === 1 ? "" : "s"} written. Avg PRU $${avgPru.toLocaleString()}. ${criticalUnresolved} critical flag${criticalUnresolved === 1 ? "" : "s"} open.`;
+
+        return {
+          dealershipId: targetDealershipId,
+          window: { from: start.toISOString(), to: end.toISOString() },
+          headline,
+          numbers: {
+            unitsDelivered,
+            avgPru,
+            avgScore,
+            pendingSessions,
+            thinDeals,
+            criticalUnresolvedFlags: criticalUnresolved,
+            // The following come online with StoneEagle ingest (Tue Apr 28+):
+            vsaPenetration: null as number | null,
+            gapPenetration: null as number | null,
+            appearancePenetration: null as number | null,
+            frontGrossAvg: null as number | null,
+            backGrossAvg: null as number | null,
+            citAlertsCount: null as number | null,
+            chargebackRiskCount: null as number | null,
+          },
+          managers: digest.managers,
+          coachingMoments: coachingMoments.slice(0, 10),
+        };
       }),
   }),
 

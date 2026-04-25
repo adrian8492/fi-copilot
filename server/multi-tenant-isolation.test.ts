@@ -129,6 +129,7 @@ vi.mock("./db", () => ({
   getAllDealerships: vi.fn().mockResolvedValue([]),
   getDealershipById: vi.fn().mockResolvedValue(null),
   updateDealershipOnboarding: vi.fn().mockResolvedValue(undefined),
+  getDealershipDigest: vi.fn().mockResolvedValue({ sessions: [], grades: [], flags: [], managers: [] }),
   createDealership: vi.fn().mockResolvedValue(undefined),
   updateDealership: vi.fn().mockResolvedValue(undefined),
   assignUserToDealership: vi.fn().mockResolvedValue(undefined),
@@ -998,6 +999,86 @@ describe("Phase 2: onboarding.saveBaseline + saveCadence", () => {
         coachingRunBy: "fi_director",
       })
     ).rejects.toThrow();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// H. Phase 3 — recaps.yesterday tenant scope + shape
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 3: recaps.yesterday", () => {
+  it("Korum user gets digest for own dealership", async () => {
+    vi.mocked(db.getDealershipDigest).mockResolvedValueOnce({
+      sessions: [
+        { id: 1, userId: 1, dealershipId: STORE_A, status: "completed" } as never,
+        { id: 2, userId: 1, dealershipId: STORE_A, status: "active" } as never,
+      ],
+      grades: [
+        { sessionId: 1, pvr: 1850, overallScore: 82, complianceScore: 90, menuSequenceScore: 85, objectionResponseScore: 75 } as never,
+      ],
+      flags: [
+        { id: 10, sessionId: 1, severity: "critical", resolved: false } as never,
+      ],
+      managers: [
+        { userId: 1, name: "Sarah", email: "sarah@korum.com", sessionCount: 2, avgPru: 1850, avgScore: 82 },
+      ],
+    });
+
+    const user = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const recap = await caller.recaps.yesterday();
+
+    expect(recap.dealershipId).toBe(STORE_A);
+    expect(recap.numbers.unitsDelivered).toBe(1);
+    expect(recap.numbers.avgPru).toBe(1850);
+    expect(recap.numbers.criticalUnresolvedFlags).toBe(1);
+    expect(recap.numbers.pendingSessions).toBe(1);
+    expect(recap.managers).toHaveLength(1);
+    expect(db.getDealershipDigest).toHaveBeenCalledWith(STORE_A, expect.any(Date), expect.any(Date));
+  });
+
+  it("user with no dealership assignment gets BAD_REQUEST", async () => {
+    const orphan = makeUser({ dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(orphan));
+    await expect(caller.recaps.yesterday()).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("non-super-admin cannot pass dealershipId override (always uses their own)", async () => {
+    const korumUser = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    // Pass STORE_B explicitly — must be ignored, scope must remain STORE_A.
+    await caller.recaps.yesterday({ dealershipId: STORE_B });
+    expect(db.getDealershipDigest).toHaveBeenCalledWith(STORE_A, expect.any(Date), expect.any(Date));
+    expect(db.getDealershipDigest).not.toHaveBeenCalledWith(STORE_B, expect.any(Date), expect.any(Date));
+  });
+
+  it("super admin can target any dealership via input.dealershipId", async () => {
+    const adrian = makeUser({ id: 99, isSuperAdmin: true, dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    await caller.recaps.yesterday({ dealershipId: STORE_B });
+    expect(db.getDealershipDigest).toHaveBeenCalledWith(STORE_B, expect.any(Date), expect.any(Date));
+  });
+
+  it("surfaces coaching moments from low-scoring grade sub-areas", async () => {
+    vi.mocked(db.getDealershipDigest).mockResolvedValueOnce({
+      sessions: [
+        { id: 5, userId: 1, dealershipId: STORE_A, status: "completed" } as never,
+      ],
+      grades: [
+        { sessionId: 5, pvr: 800, overallScore: 60, complianceScore: 65, menuSequenceScore: 50, objectionResponseScore: 50 } as never,
+      ],
+      flags: [],
+      managers: [
+        { userId: 1, name: "Sarah", email: "sarah@korum.com", sessionCount: 1, avgPru: 800, avgScore: 60 },
+      ],
+    });
+    const user = makeUser({ dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const recap = await caller.recaps.yesterday();
+    // 3 distinct coaching moments (compliance, menu, objection) for 1 grade.
+    expect(recap.coachingMoments).toHaveLength(3);
+    // Thin deal flagged (PRU < $1,200).
+    expect(recap.numbers.thinDeals).toBe(1);
   });
 });
 

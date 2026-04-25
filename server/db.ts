@@ -508,6 +508,87 @@ export async function getAnalyticsSummary(userId?: number, dealershipId?: number
   };
 }
 
+// ─── Dealership digest (Phase 3 — /yesterday-recap source) ────────────────────
+/**
+ * Aggregate everything a DP wants in a morning recap for one dealership over
+ * a date range. Used by `recaps.yesterday` (range = yesterday 00:00 → today 00:00).
+ *
+ * Source-of-truth note: penetration percentages, front/back gross, and CIT
+ * aging will be backfilled from StoneEagle nightly imports starting Tue
+ * Apr 28. Until then this returns whatever the live `sessions` /
+ * `performance_grades` / `compliance_flags` rows can support and zeros out
+ * the rest.
+ */
+export async function getDealershipDigest(
+  dealershipId: number,
+  fromDate: Date,
+  toDate: Date
+) {
+  const db = await getDb();
+  if (!db) {
+    return {
+      sessions: [],
+      grades: [],
+      flags: [],
+      managers: [],
+    };
+  }
+
+  const sessionRows = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.dealershipId, dealershipId),
+        gte(sessions.startedAt, fromDate),
+        lte(sessions.startedAt, toDate)
+      )
+    );
+
+  const sessionIds = sessionRows.map((s) => s.id);
+  const userIds = Array.from(new Set(sessionRows.map((s) => s.userId)));
+
+  const gradeRows = sessionIds.length > 0
+    ? await db.select().from(performanceGrades).where(inArray(performanceGrades.sessionId, sessionIds))
+    : [];
+
+  const flagRows = sessionIds.length > 0
+    ? await db.select().from(complianceFlags).where(inArray(complianceFlags.sessionId, sessionIds))
+    : [];
+
+  const managerRows = userIds.length > 0
+    ? await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, userIds))
+    : [];
+
+  // Per-manager rollup: session count + avg PRU.
+  const perManager = managerRows.map((m) => {
+    const mgrSessions = sessionRows.filter((s) => s.userId === m.id);
+    const mgrSessionIds = mgrSessions.map((s) => s.id);
+    const mgrGrades = gradeRows.filter((g) => mgrSessionIds.includes(g.sessionId));
+    const avgPru = mgrGrades.length > 0
+      ? mgrGrades.reduce((sum, g) => sum + (g.pvr ?? 0), 0) / mgrGrades.length
+      : 0;
+    const avgScore = mgrGrades.length > 0
+      ? mgrGrades.reduce((sum, g) => sum + (g.overallScore ?? 0), 0) / mgrGrades.length
+      : 0;
+    return {
+      userId: m.id,
+      name: m.name ?? "(unnamed)",
+      email: m.email,
+      sessionCount: mgrSessions.length,
+      avgPru: Math.round(avgPru),
+      avgScore: Math.round(avgScore),
+    };
+  }).sort((a, b) => b.avgPru - a.avgPru);
+
+  return {
+    sessions: sessionRows,
+    grades: gradeRows,
+    flags: flagRows,
+    managers: perManager,
+  };
+}
+
 // ─── Session Checklists ───────────────────────────────────────────────────────
 export async function upsertSessionChecklist(data: InsertSessionChecklist) {
   const db = await getDb();

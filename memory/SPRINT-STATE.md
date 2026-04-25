@@ -11,8 +11,10 @@
 | Phase 1 — Multi-tenant query enforcement layer + 25 isolation tests | ✅ shipped | `213e3a4` |
 | Phase 1.5 — Cross-tenant write hardening (6 mutation routes) | ✅ shipped | `c896d02` |
 | Phase 2 backend — Onboarding tRPC router + 11 tests | ✅ shipped | `5f1bac9` |
-| Phase 2 frontend — Onboarding.tsx 5-step wizard | 🟡 in progress | — |
-| Phase 3 — StoneEagle ingest + /yesterday-recap + Deepgram | ⏳ pending | — |
+| Phase 2 frontend — Onboarding.tsx 5-step wizard | ✅ shipped | `df81004` |
+| Phase 3a — /yesterday-recap backend (recaps router) + frontend | 🟡 in progress | — |
+| Phase 3b — StoneEagle ingest pipeline | ⏳ pending | — |
+| Phase 3c — Deepgram (already wired in LiveSession.tsx + websocket.ts; verify only) | ⏳ pending | — |
 | Phase 4 — QA + production deploy | ⏳ pending | — |
 
 ## Test baseline

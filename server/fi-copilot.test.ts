@@ -96,6 +96,7 @@ vi.mock("./db", () => ({
   getAllDealerships: vi.fn().mockResolvedValue([{ id: 1, name: "Test Dealership", slug: "test-dealership", plan: "beta", isActive: true, createdAt: new Date() }]),
   getDealershipById: vi.fn().mockResolvedValue({ id: 1, name: "Test Dealership", slug: "test-dealership", plan: "beta", isActive: true, createdAt: new Date(), updatedAt: new Date(), groupId: null, location: null, brandMix: null, unitVolumeMonthly: null, pruBaseline: null, pruTarget: null, onboardingStep: 0, onboardingComplete: false }),
   updateDealershipOnboarding: vi.fn().mockResolvedValue(undefined),
+  getDealershipDigest: vi.fn().mockResolvedValue({ sessions: [], grades: [], flags: [], managers: [] }),
   createDealership: vi.fn().mockResolvedValue(undefined),
   updateDealership: vi.fn().mockResolvedValue(undefined),
   assignUserToDealership: vi.fn().mockResolvedValue(undefined),
