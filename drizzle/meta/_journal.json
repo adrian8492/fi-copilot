@@ -155,6 +155,13 @@
       "when": 1777099351988,
       "tag": "0021_onboarding_profile_baseline_cadence",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1777146240532,
+      "tag": "0022_consent_logs",
+      "breakpoints": true
     }
   ]
 }

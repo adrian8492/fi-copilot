@@ -1,7 +1,7 @@
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
 import { Server as HttpServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById, getUserById } from "./db";
+import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById, getUserById, getConsentLogBySession } from "./db";
 import { sendEmail, buildCriticalComplianceAlertEmail } from "./_core/email";
 import { sdk } from "./_core/sdk";
 import type { User } from "../drizzle/schema";
@@ -551,8 +551,21 @@ export function setupWebSocketServer(server: HttpServer) {
             send({ type: "error", message: "Not authorized for this session" });
             return;
           }
-          // CFPB: Block recording unless consent was obtained
-          if (wsSession && !wsSession.consentObtained) {
+          // Phase 5a: prefer consent_logs (two-party tap audit trail) when present.
+          // Falls back to the legacy session.consentObtained flag for sessions
+          // created before Phase 5a (kept for back-compat with existing tests).
+          const consentLog = await getConsentLogBySession(msg.sessionId);
+          if (consentLog) {
+            if (consentLog.revokedAt) {
+              send({ type: "error", message: "CONSENT_REVOKED: Recording consent was revoked for this session." });
+              return;
+            }
+            if (consentLog.recordingMode !== "recording") {
+              send({ type: "error", message: "CONSENT_INCOMPLETE: Both customer and manager must consent before recording." });
+              return;
+            }
+          } else if (wsSession && !wsSession.consentObtained) {
+            // Legacy CFPB gate for pre-Phase-5a sessions
             send({ type: "error", message: "CONSENT_REQUIRED: Recording consent must be obtained before streaming." });
             return;
           }

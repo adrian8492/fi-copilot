@@ -180,6 +180,13 @@ vi.mock("./db", () => ({
   getUnreadAlerts: vi.fn().mockResolvedValue([]),
   markAlertRead: vi.fn().mockResolvedValue(undefined),
 
+  // Phase 5a — Two-party consent (consent_logs):
+  getConsentLogBySession: vi.fn().mockResolvedValue(null),
+  recordCustomerConsent: vi.fn().mockResolvedValue({ id: 1, sessionId: 0, dealershipId: 0, customerConsentAt: new Date(), managerConsentAt: null, recordingMode: "pending", consentTextVersion: "v1", ipAddress: null, deviceFingerprint: null, revokedAt: null, revocationReason: null, createdAt: new Date(), updatedAt: new Date() }),
+  recordManagerConsent: vi.fn().mockResolvedValue({ id: 1, sessionId: 0, dealershipId: 0, customerConsentAt: null, managerConsentAt: new Date(), recordingMode: "pending", consentTextVersion: "v1", ipAddress: null, deviceFingerprint: null, revokedAt: null, revocationReason: null, createdAt: new Date(), updatedAt: new Date() }),
+  declineCustomerConsent: vi.fn().mockResolvedValue({ id: 1, sessionId: 0, dealershipId: 0, customerConsentAt: null, managerConsentAt: null, recordingMode: "manager_only", consentTextVersion: "v1", ipAddress: null, deviceFingerprint: null, revokedAt: new Date(), revocationReason: "customer_declined", createdAt: new Date(), updatedAt: new Date() }),
+  revokeConsent: vi.fn().mockResolvedValue({ id: 1, sessionId: 0, dealershipId: 0, customerConsentAt: new Date(), managerConsentAt: new Date(), recordingMode: "manager_only", consentTextVersion: "v1", ipAddress: null, deviceFingerprint: null, revokedAt: new Date(), revocationReason: "customer_revoked_mid_session", createdAt: new Date(), updatedAt: new Date() }),
+
   // Drizzle helpers used by health checks etc:
   getDb: vi.fn().mockResolvedValue(null),
   withRetry: vi.fn(async (fn: () => Promise<unknown>) => fn()),
@@ -1496,5 +1503,218 @@ describe("tRPC isolation: sessions.list scope routing", () => {
     // For super admin, no dealershipId filter is passed (intentional cross-tenant view).
     expect(db.getAllSessions).toHaveBeenCalledWith(50, 0);
     expect(db.getSessionCount).toHaveBeenCalledWith();
+  });
+});
+
+// ─── Phase 5a: Two-Party Consent (consent_logs) ─────────────────────────────
+// Recording is permitted only when consent_logs has both customerConsentAt and
+// managerConsentAt set, recordingMode === "recording", and revokedAt is null.
+// These tests prove the consent router cannot be used to consent on a
+// different dealership's session, and that state transitions are correct.
+function makeSessionRow(overrides: { id: number; userId: number; dealershipId: number | null }) {
+  return {
+    ...overrides,
+    customerName: null,
+    dealNumber: null,
+    vehicleType: "new" as const,
+    dealType: "retail_finance" as const,
+    status: "active" as const,
+    consentObtained: true,
+    consentMethod: "verbal" as const,
+    consentTimestamp: new Date(),
+    startedAt: new Date(),
+    endedAt: null,
+    durationSeconds: null,
+    notes: null,
+    vehicleYear: null, vehicleMake: null, vehicleModel: null, vin: null,
+    salePrice: null, tradeValue: null, amountFinanced: null,
+    lenderName: null, apr: null, termMonths: null, monthlyPayment: null,
+  } as never;
+}
+
+describe("Phase 5a: consent.recordCustomerConsent cross-tenant", () => {
+  it("Korum user CANNOT record customer consent on Paragon session", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 50, userId: 999, dealershipId: STORE_B })
+    );
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    await expect(caller.consent.recordCustomerConsent({ sessionId: 50 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    // The actual db.recordCustomerConsent must NOT be called once tenancy fails.
+    expect(db.recordCustomerConsent).not.toHaveBeenCalled();
+  });
+
+  it("Korum user CAN record customer consent on their own Korum session", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 50, userId: 1, dealershipId: STORE_A })
+    );
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    const result = await caller.consent.recordCustomerConsent({ sessionId: 50 });
+    expect(result.log).toBeDefined();
+    expect(db.recordCustomerConsent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 50, dealershipId: STORE_A })
+    );
+  });
+
+  it("blocks consent on a session with no dealershipId (PRECONDITION_FAILED)", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 50, userId: 99, dealershipId: null })
+    );
+    // Use a super admin so tenancy passes; the PRECONDITION_FAILED comes from a
+    // session lacking a dealership assignment, not from cross-tenant access.
+    const adrian = makeUser({ id: 99, isSuperAdmin: true, dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    await expect(caller.consent.recordCustomerConsent({ sessionId: 50 })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+  });
+});
+
+describe("Phase 5a: consent.recordManagerConsent cross-tenant", () => {
+  it("Korum admin CANNOT record manager consent on Paragon session", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 51, userId: 999, dealershipId: STORE_B })
+    );
+    const korumAdmin = makeUser({ id: 2, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.consent.recordManagerConsent({ sessionId: 51 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(db.recordManagerConsent).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin CAN record manager consent on Korum session", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 51, userId: 1, dealershipId: STORE_A })
+    );
+    const korumAdmin = makeUser({ id: 2, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await caller.consent.recordManagerConsent({ sessionId: 51 });
+    expect(db.recordManagerConsent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 51, dealershipId: STORE_A })
+    );
+  });
+});
+
+describe("Phase 5a: consent.declineCustomer", () => {
+  it("Korum user CANNOT mark Paragon's customer as declined", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 52, userId: 999, dealershipId: STORE_B })
+    );
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    await expect(
+      caller.consent.declineCustomer({ sessionId: 52, reason: "customer_declined_in_app" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.declineCustomerConsent).not.toHaveBeenCalled();
+  });
+
+  it("Korum user CAN decline on Korum session — recordingMode flips to manager_only", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 52, userId: 1, dealershipId: STORE_A })
+    );
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    const result = await caller.consent.declineCustomer({ sessionId: 52, reason: "test" });
+    expect(result.log.recordingMode).toBe("manager_only");
+    expect(db.declineCustomerConsent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 52, dealershipId: STORE_A })
+    );
+  });
+});
+
+describe("Phase 5a: consent.revoke", () => {
+  it("Korum user CANNOT revoke Paragon's consent", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 53, userId: 999, dealershipId: STORE_B })
+    );
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    await expect(
+      caller.consent.revoke({ sessionId: 53, reason: "customer_revoked_mid_session" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.revokeConsent).not.toHaveBeenCalled();
+  });
+
+  it("returns NOT_FOUND when no consent_logs row exists for the session", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 54, userId: 1, dealershipId: STORE_A })
+    );
+    vi.mocked(db.revokeConsent).mockResolvedValueOnce(null);
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    await expect(caller.consent.revoke({ sessionId: 54 })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});
+
+describe("Phase 5a: consent.getStatus", () => {
+  it("Korum user CANNOT read consent status for Paragon session", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 55, userId: 999, dealershipId: STORE_B })
+    );
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+    await expect(caller.consent.getStatus({ sessionId: 55 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
+  it("recordingAllowed=true only when log is recording AND not revoked", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValue(
+      makeSessionRow({ id: 56, userId: 1, dealershipId: STORE_A })
+    );
+    const korumUser = makeUser({ id: 1, dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(korumUser));
+
+    // Case 1: only customer consent → not recording
+    vi.mocked(db.getConsentLogBySession).mockResolvedValueOnce({
+      id: 1, sessionId: 56, dealershipId: STORE_A,
+      customerConsentAt: new Date(), managerConsentAt: null,
+      recordingMode: "pending", consentTextVersion: "v1",
+      ipAddress: null, deviceFingerprint: null,
+      revokedAt: null, revocationReason: null,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    const pending = await caller.consent.getStatus({ sessionId: 56 });
+    expect(pending.recordingAllowed).toBe(false);
+    expect(pending.recordingMode).toBe("pending");
+
+    // Case 2: both consents → recordingAllowed
+    vi.mocked(db.getConsentLogBySession).mockResolvedValueOnce({
+      id: 1, sessionId: 56, dealershipId: STORE_A,
+      customerConsentAt: new Date(), managerConsentAt: new Date(),
+      recordingMode: "recording", consentTextVersion: "v1",
+      ipAddress: null, deviceFingerprint: null,
+      revokedAt: null, revocationReason: null,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    const recording = await caller.consent.getStatus({ sessionId: 56 });
+    expect(recording.recordingAllowed).toBe(true);
+    expect(recording.recordingMode).toBe("recording");
+
+    // Case 3: revoked → recordingAllowed=false even if mode says recording
+    vi.mocked(db.getConsentLogBySession).mockResolvedValueOnce({
+      id: 1, sessionId: 56, dealershipId: STORE_A,
+      customerConsentAt: new Date(), managerConsentAt: new Date(),
+      recordingMode: "manager_only", consentTextVersion: "v1",
+      ipAddress: null, deviceFingerprint: null,
+      revokedAt: new Date(), revocationReason: "customer_revoked_mid_session",
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    const revoked = await caller.consent.getStatus({ sessionId: 56 });
+    expect(revoked.recordingAllowed).toBe(false);
+    expect(revoked.revokedAt).not.toBeNull();
+
+    // Case 4: no consent_logs row at all → not recording, no log
+    vi.mocked(db.getConsentLogBySession).mockResolvedValueOnce(null);
+    const empty = await caller.consent.getStatus({ sessionId: 56 });
+    expect(empty.recordingAllowed).toBe(false);
+    expect(empty.log).toBeNull();
+    expect(empty.recordingMode).toBe("pending");
   });
 });

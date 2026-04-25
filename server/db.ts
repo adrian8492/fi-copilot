@@ -28,6 +28,8 @@ import {
   asuraScorecards,
   type InsertAsuraScorecard,
   type AsuraScorecard,
+  consentLogs,
+  type ConsentLog,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
@@ -2442,4 +2444,151 @@ export async function setUserPasswordHash(userId: number, hash: string) {
   if (!db) throw new Error("DB unavailable");
   await db.update(users).set({ passwordHash: hash } as any).where(eq(users.id, userId));
   return { success: true };
+}
+
+// ─── Consent Logs (Phase 5a — two-party recording consent) ────────────────────
+// One row per session. Recording is permitted only when both customerConsentAt
+// and managerConsentAt are set, recordingMode === "recording", and revokedAt
+// is null. Server-side WS gate in server/websocket.ts checks this before
+// invoking Deepgram. Frontend mirrors the state in the consent modal.
+
+export async function getConsentLogBySession(sessionId: number): Promise<ConsentLog | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(consentLogs).where(eq(consentLogs.sessionId, sessionId)).limit(1);
+  return rows[0] ?? null;
+}
+
+async function upsertConsentLog(input: {
+  sessionId: number;
+  dealershipId: number;
+  patch: Partial<{
+    customerConsentAt: Date;
+    managerConsentAt: Date;
+    recordingMode: "pending" | "recording" | "manager_only";
+    ipAddress: string | null;
+    deviceFingerprint: string | null;
+    consentTextVersion: string;
+    revokedAt: Date | null;
+    revocationReason: string | null;
+  }>;
+}): Promise<ConsentLog> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const existing = await getConsentLogBySession(input.sessionId);
+  if (existing) {
+    const update: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(input.patch)) {
+      if (v !== undefined) update[k] = v;
+    }
+    if (Object.keys(update).length > 0) {
+      await db.update(consentLogs).set(update as any).where(eq(consentLogs.id, existing.id));
+    }
+  } else {
+    await db.insert(consentLogs).values({
+      sessionId: input.sessionId,
+      dealershipId: input.dealershipId,
+      customerConsentAt: input.patch.customerConsentAt ?? null,
+      managerConsentAt: input.patch.managerConsentAt ?? null,
+      recordingMode: input.patch.recordingMode ?? "pending",
+      ipAddress: input.patch.ipAddress ?? null,
+      deviceFingerprint: input.patch.deviceFingerprint ?? null,
+      consentTextVersion: input.patch.consentTextVersion ?? "v1",
+      revokedAt: input.patch.revokedAt ?? null,
+      revocationReason: input.patch.revocationReason ?? null,
+    });
+  }
+  const fresh = await getConsentLogBySession(input.sessionId);
+  if (!fresh) throw new Error("Failed to upsert consent log");
+  return fresh;
+}
+
+export async function recordCustomerConsent(input: {
+  sessionId: number;
+  dealershipId: number;
+  ipAddress?: string | null;
+  deviceFingerprint?: string | null;
+  consentTextVersion?: string;
+}): Promise<ConsentLog> {
+  const existing = await getConsentLogBySession(input.sessionId);
+  if (existing?.revokedAt) {
+    throw new Error("Consent has been revoked for this session");
+  }
+  const now = new Date();
+  const customerAlreadyConsented = !!existing?.customerConsentAt;
+  const managerHas = !!existing?.managerConsentAt;
+  const newMode: "pending" | "recording" = managerHas ? "recording" : "pending";
+  return upsertConsentLog({
+    sessionId: input.sessionId,
+    dealershipId: input.dealershipId,
+    patch: {
+      customerConsentAt: customerAlreadyConsented ? undefined : now,
+      recordingMode: newMode,
+      ipAddress: existing?.ipAddress ?? input.ipAddress ?? null,
+      deviceFingerprint: existing?.deviceFingerprint ?? input.deviceFingerprint ?? null,
+      consentTextVersion: input.consentTextVersion,
+    },
+  });
+}
+
+export async function recordManagerConsent(input: {
+  sessionId: number;
+  dealershipId: number;
+  ipAddress?: string | null;
+  deviceFingerprint?: string | null;
+  consentTextVersion?: string;
+}): Promise<ConsentLog> {
+  const existing = await getConsentLogBySession(input.sessionId);
+  if (existing?.revokedAt) {
+    throw new Error("Consent has been revoked for this session");
+  }
+  const now = new Date();
+  const managerAlreadyConsented = !!existing?.managerConsentAt;
+  const customerHas = !!existing?.customerConsentAt;
+  const newMode: "pending" | "recording" = customerHas ? "recording" : "pending";
+  return upsertConsentLog({
+    sessionId: input.sessionId,
+    dealershipId: input.dealershipId,
+    patch: {
+      managerConsentAt: managerAlreadyConsented ? undefined : now,
+      recordingMode: newMode,
+      ipAddress: existing?.ipAddress ?? input.ipAddress ?? null,
+      deviceFingerprint: existing?.deviceFingerprint ?? input.deviceFingerprint ?? null,
+      consentTextVersion: input.consentTextVersion,
+    },
+  });
+}
+
+export async function declineCustomerConsent(input: {
+  sessionId: number;
+  dealershipId: number;
+  reason?: string;
+}): Promise<ConsentLog> {
+  const now = new Date();
+  return upsertConsentLog({
+    sessionId: input.sessionId,
+    dealershipId: input.dealershipId,
+    patch: {
+      recordingMode: "manager_only",
+      revokedAt: now,
+      revocationReason: input.reason ?? "customer_declined",
+    },
+  });
+}
+
+export async function revokeConsent(input: {
+  sessionId: number;
+  reason?: string;
+}): Promise<ConsentLog | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const existing = await getConsentLogBySession(input.sessionId);
+  if (!existing) return null;
+  const now = new Date();
+  await db.update(consentLogs).set({
+    revokedAt: existing.revokedAt ?? now,
+    revocationReason: existing.revocationReason ?? input.reason ?? "customer_revoked_mid_session",
+    recordingMode: "manager_only",
+  }).where(eq(consentLogs.id, existing.id));
+  return await getConsentLogBySession(input.sessionId);
 }

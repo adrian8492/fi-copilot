@@ -634,3 +634,29 @@ export const asuraScorecards = mysqlTable("asura_scorecards", {
 
 export type AsuraScorecard = typeof asuraScorecards.$inferSelect;
 export type InsertAsuraScorecard = typeof asuraScorecards.$inferInsert;
+
+// ─── Consent Logs (Phase 5a — two-party recording consent audit trail) ────────
+// One row per session. Both customerConsentAt and managerConsentAt must be
+// non-null AND revokedAt must be null for Deepgram transcription to start.
+// recordingMode reflects the resolved state — "pending" until both consent,
+// "recording" when both have, "manager_only" when customer declines or revokes.
+export const consentLogs = mysqlTable("consent_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  dealershipId: int("dealershipId").notNull(),
+  sessionId: int("sessionId").notNull().unique(),
+  customerConsentAt: timestamp("customerConsentAt"),
+  managerConsentAt: timestamp("managerConsentAt"),
+  consentTextVersion: varchar("consentTextVersion", { length: 32 }).notNull().default("v1"),
+  recordingMode: mysqlEnum("recordingMode", ["pending", "recording", "manager_only"]).notNull().default("pending"),
+  ipAddress: varchar("ipAddress", { length: 64 }),
+  deviceFingerprint: varchar("deviceFingerprint", { length: 256 }),
+  revokedAt: timestamp("revokedAt"),
+  revocationReason: varchar("revocationReason", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  dealershipIdIdx: index("ix_consent_logs_dealership_id").on(table.dealershipId),
+}));
+
+export type ConsentLog = typeof consentLogs.$inferSelect;
+export type InsertConsentLog = typeof consentLogs.$inferInsert;

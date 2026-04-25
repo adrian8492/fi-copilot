@@ -129,6 +129,11 @@ import {
   getRecentScorecardScores,
   getUnreadAlerts,
   markAlertRead,
+  getConsentLogBySession,
+  recordCustomerConsent,
+  recordManagerConsent,
+  declineCustomerConsent,
+  revokeConsent,
 } from "./db";
 import { runASURAScorecardEngine, type CoachingCadenceInput } from "./asura-scorecard";
 import { invokeLLM } from "./_core/llm";
@@ -1066,6 +1071,170 @@ export const appRouter = router({
           coachingMoments: coachingMoments.slice(0, 10),
           decisions,
         };
+      }),
+  }),
+
+  // ─── Consent (Phase 5a — two-party recording consent audit) ─────────────────
+  // Each session needs a consent_logs row with both customerConsentAt and
+  // managerConsentAt set, recordingMode="recording", and revokedAt null before
+  // the WS gate in server/websocket.ts will allow Deepgram to start. If the
+  // customer declines, recordingMode flips to "manager_only" — the session can
+  // still proceed but no audio is streamed.
+  consent: router({
+    getStatus: protectedProcedure
+      .input(z.object({ sessionId: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        await assertSessionAccess(ctx, session);
+        const log = await getConsentLogBySession(input.sessionId);
+        return {
+          log,
+          recordingAllowed: !!log && log.recordingMode === "recording" && !log.revokedAt,
+          customerConsentAt: log?.customerConsentAt ?? null,
+          managerConsentAt: log?.managerConsentAt ?? null,
+          revokedAt: log?.revokedAt ?? null,
+          recordingMode: log?.recordingMode ?? "pending",
+        };
+      }),
+
+    recordCustomerConsent: protectedProcedure
+      .input(z.object({
+        sessionId: z.number().int().positive(),
+        deviceFingerprint: z.string().max(256).optional(),
+        consentTextVersion: z.string().max(32).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        await assertSessionAccess(ctx, session);
+        if (session.dealershipId == null) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Session is not assigned to a dealership" });
+        }
+        const ipRaw = ctx.req?.ip ?? ctx.req?.headers?.["x-forwarded-for"] ?? null;
+        const ipAddress = typeof ipRaw === "string" ? ipRaw.slice(0, 64) : null;
+        let log;
+        try {
+          log = await recordCustomerConsent({
+            sessionId: input.sessionId,
+            dealershipId: session.dealershipId,
+            ipAddress,
+            deviceFingerprint: input.deviceFingerprint ?? null,
+            consentTextVersion: input.consentTextVersion,
+          });
+        } catch (err) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: err instanceof Error ? err.message : "Failed to record consent",
+          });
+        }
+        await insertAuditLog({
+          userId: ctx.user.id,
+          dealershipId: session.dealershipId,
+          action: "consent.customer_consent_recorded",
+          resourceType: "session",
+          resourceId: String(session.id),
+          details: { recordingMode: log.recordingMode },
+          ipAddress: ipAddress ?? undefined,
+        });
+        return { log };
+      }),
+
+    recordManagerConsent: protectedProcedure
+      .input(z.object({
+        sessionId: z.number().int().positive(),
+        deviceFingerprint: z.string().max(256).optional(),
+        consentTextVersion: z.string().max(32).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        await assertSessionAccess(ctx, session);
+        if (session.dealershipId == null) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Session is not assigned to a dealership" });
+        }
+        const ipRaw = ctx.req?.ip ?? ctx.req?.headers?.["x-forwarded-for"] ?? null;
+        const ipAddress = typeof ipRaw === "string" ? ipRaw.slice(0, 64) : null;
+        let log;
+        try {
+          log = await recordManagerConsent({
+            sessionId: input.sessionId,
+            dealershipId: session.dealershipId,
+            ipAddress,
+            deviceFingerprint: input.deviceFingerprint ?? null,
+            consentTextVersion: input.consentTextVersion,
+          });
+        } catch (err) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: err instanceof Error ? err.message : "Failed to record consent",
+          });
+        }
+        await insertAuditLog({
+          userId: ctx.user.id,
+          dealershipId: session.dealershipId,
+          action: "consent.manager_consent_recorded",
+          resourceType: "session",
+          resourceId: String(session.id),
+          details: { recordingMode: log.recordingMode },
+          ipAddress: ipAddress ?? undefined,
+        });
+        return { log };
+      }),
+
+    declineCustomer: protectedProcedure
+      .input(z.object({
+        sessionId: z.number().int().positive(),
+        reason: z.string().max(255).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        await assertSessionAccess(ctx, session);
+        if (session.dealershipId == null) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Session is not assigned to a dealership" });
+        }
+        const log = await declineCustomerConsent({
+          sessionId: input.sessionId,
+          dealershipId: session.dealershipId,
+          reason: input.reason,
+        });
+        await insertAuditLog({
+          userId: ctx.user.id,
+          dealershipId: session.dealershipId,
+          action: "consent.customer_declined",
+          resourceType: "session",
+          resourceId: String(session.id),
+          details: { reason: input.reason ?? "customer_declined" },
+        });
+        return { log };
+      }),
+
+    revoke: protectedProcedure
+      .input(z.object({
+        sessionId: z.number().int().positive(),
+        reason: z.string().max(255).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const session = await getSessionById(input.sessionId);
+        if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+        await assertSessionAccess(ctx, session);
+        const log = await revokeConsent({
+          sessionId: input.sessionId,
+          reason: input.reason,
+        });
+        if (!log) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "No consent record exists for this session" });
+        }
+        await insertAuditLog({
+          userId: ctx.user.id,
+          dealershipId: session.dealershipId ?? undefined,
+          action: "consent.revoked",
+          resourceType: "session",
+          resourceId: String(session.id),
+          details: { reason: input.reason ?? "customer_revoked_mid_session" },
+        });
+        return { log };
       }),
   }),
 
