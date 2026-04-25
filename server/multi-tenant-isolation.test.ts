@@ -1082,6 +1082,61 @@ describe("Phase 3: recaps.yesterday", () => {
   });
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// I. Phase 1.5 follow-up — admin.listUsers must never fall back to
+//    getAllUsers() for non-super-admins. (Was a real cross-tenant leak
+//    when admin had no rooftop assignment.)
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 1.5 follow-up: admin.listUsers cross-tenant", () => {
+  it("super admin still gets the global list (intended)", async () => {
+    vi.mocked(db.getAllUsers).mockResolvedValueOnce([{ id: 1, name: "u1" }] as never);
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true, dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    const users = await caller.admin.listUsers();
+    expect(users).toHaveLength(1);
+    expect(db.getAllUsers).toHaveBeenCalled();
+    expect(db.getAllUsersByDealershipIds).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin with NO rooftop assignment falls back to their primary dealership (no leak)", async () => {
+    vi.mocked(db.getUserAccessibleDealershipIds).mockResolvedValueOnce([]);
+    vi.mocked(db.getAllUsersByDealershipIds).mockResolvedValueOnce([{ id: 7, name: "Sarah" }] as never);
+    const korumAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await caller.admin.listUsers();
+    // The leaky fallback was getAllUsers() — verify it was NOT called.
+    expect(db.getAllUsers).not.toHaveBeenCalled();
+    // Instead we scoped to the caller's primary dealership.
+    expect(db.getAllUsersByDealershipIds).toHaveBeenCalledWith([STORE_A]);
+  });
+
+  it("admin with NO rooftop AND no primary dealership returns [] (fail-closed, no leak)", async () => {
+    vi.mocked(db.getUserAccessibleDealershipIds).mockResolvedValueOnce([]);
+    const orphan = makeUser({ id: 1, role: "admin", dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(orphan));
+    const users = await caller.admin.listUsers();
+    expect(users).toEqual([]);
+    expect(db.getAllUsers).not.toHaveBeenCalled();
+    expect(db.getAllUsersByDealershipIds).not.toHaveBeenCalled();
+  });
+
+  it("group admin's primary dealershipId is merged with rooftop set (deduped)", async () => {
+    vi.mocked(db.getUserAccessibleDealershipIds).mockResolvedValueOnce([STORE_A, STORE_B]);
+    vi.mocked(db.getAllUsersByDealershipIds).mockResolvedValueOnce([] as never);
+    const groupAdmin = makeUser({
+      id: 5,
+      role: "admin",
+      isGroupAdmin: true,
+      dealershipId: STORE_A, // already in the rooftop set
+    });
+    const caller = appRouter.createCaller(makeCtx(groupAdmin));
+    await caller.admin.listUsers();
+    const arg = vi.mocked(db.getAllUsersByDealershipIds).mock.calls[0][0];
+    expect(new Set(arg)).toEqual(new Set([STORE_A, STORE_B])); // deduped
+  });
+});
+
 describe("tRPC isolation: sessions.list scope routing", () => {
   it("regular Korum user only sees their own sessions (getSessionsByUserId, NOT getAllSessions)", async () => {
     vi.mocked(db.getSessionsByUserId).mockResolvedValueOnce([]);

@@ -1828,9 +1828,19 @@ If no products were declined, return an empty array [].`;
   admin: router({
     listUsers: adminProcedure.query(async ({ ctx }) => {
       if (ctx.user.isSuperAdmin) return getAllUsers();
-      const dealershipIds = await getUserAccessibleDealershipIds(ctx.user.id);
-      if (dealershipIds.length === 0) return getAllUsers();
-      return getAllUsersByDealershipIds(dealershipIds);
+      // Group admins + regular admins: scope to accessible dealerships.
+      // Defense-in-depth: also include the caller's primary dealershipId in
+      // case they were attached via users.dealershipId but never got a
+      // userRooftopAssignments row (legacy users predate the rooftop system).
+      const accessible = await getUserAccessibleDealershipIds(ctx.user.id);
+      const allowed = new Set<number>(accessible);
+      if (ctx.user.dealershipId != null) allowed.add(ctx.user.dealershipId);
+      if (allowed.size === 0) {
+        // Fail-closed: previously fell back to getAllUsers() which leaked
+        // every tenant's user list to any admin without a dealership.
+        return [];
+      }
+      return getAllUsersByDealershipIds(Array.from(allowed));
     }),
 
     updateRole: adminProcedure
