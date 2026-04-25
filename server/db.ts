@@ -30,6 +30,8 @@ import {
   type AsuraScorecard,
   consentLogs,
   type ConsentLog,
+  dataDeletionRequests,
+  type DataDeletionRequest,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { encrypt, decrypt, encryptFields, decryptFields, decryptRows } from "./_core/encryption";
@@ -2591,4 +2593,126 @@ export async function revokeConsent(input: {
     recordingMode: "manager_only",
   }).where(eq(consentLogs.id, existing.id));
   return await getConsentLogBySession(input.sessionId);
+}
+
+// ─── Data Deletion Requests (Phase 5b — FTC Safeguards baseline) ──────────────
+// 30-day soft-delete window. Cron sweeps pending requests with
+// scheduledDeletionAt <= now and hard-deletes the underlying rows. Cancellation
+// is allowed during the window. Status transitions: pending → completed
+// (success) or pending → cancelled (operator/customer-of-mind).
+
+const DEFAULT_DELETION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+export async function createDataDeletionRequest(input: {
+  dealershipId: number;
+  requestedBy: number;
+  customerId?: number | null;
+  sessionId?: number | null;
+  customerEmail?: string | null;
+  customerName?: string | null;
+  reason?: string | null;
+  notes?: string | null;
+  windowMs?: number;
+}): Promise<DataDeletionRequest> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const window = input.windowMs ?? DEFAULT_DELETION_WINDOW_MS;
+  const scheduledDeletionAt = new Date(Date.now() + window);
+  const result = await db.insert(dataDeletionRequests).values({
+    dealershipId: input.dealershipId,
+    requestedBy: input.requestedBy,
+    customerId: input.customerId ?? null,
+    sessionId: input.sessionId ?? null,
+    customerEmail: input.customerEmail ?? null,
+    customerName: input.customerName ?? null,
+    reason: input.reason ?? null,
+    notes: input.notes ?? null,
+    status: "pending",
+    scheduledDeletionAt,
+  });
+  const insertedId = (result as { insertId?: number }).insertId
+    ?? (Array.isArray(result) ? (result as Array<{ insertId?: number }>)[0]?.insertId : undefined);
+  if (!insertedId) throw new Error("Failed to retrieve insert id for data_deletion_requests");
+  const row = await getDataDeletionRequestById(insertedId);
+  if (!row) throw new Error("Failed to load created data_deletion_request");
+  return row;
+}
+
+export async function getDataDeletionRequestById(id: number): Promise<DataDeletionRequest | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(dataDeletionRequests)
+    .where(eq(dataDeletionRequests.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getDataDeletionRequestsByDealership(
+  dealershipId: number,
+  limit = 100,
+  offset = 0,
+): Promise<DataDeletionRequest[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dataDeletionRequests)
+    .where(eq(dataDeletionRequests.dealershipId, dealershipId))
+    .orderBy(desc(dataDeletionRequests.createdAt))
+    .limit(limit).offset(offset);
+}
+
+export async function cancelDataDeletionRequest(input: {
+  id: number;
+  cancelledBy: number;
+}): Promise<DataDeletionRequest | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const existing = await getDataDeletionRequestById(input.id);
+  if (!existing) return null;
+  if (existing.status !== "pending") return existing;
+  const now = new Date();
+  await db.update(dataDeletionRequests).set({
+    status: "cancelled",
+    cancelledAt: now,
+    cancelledBy: input.cancelledBy,
+  }).where(eq(dataDeletionRequests.id, input.id));
+  return await getDataDeletionRequestById(input.id);
+}
+
+export async function completeDataDeletionRequest(id: number): Promise<DataDeletionRequest | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const existing = await getDataDeletionRequestById(id);
+  if (!existing) return null;
+  if (existing.status !== "pending") return existing;
+  const now = new Date();
+  await db.update(dataDeletionRequests).set({
+    status: "completed",
+    completedAt: now,
+  }).where(eq(dataDeletionRequests.id, id));
+  return await getDataDeletionRequestById(id);
+}
+
+export async function getPendingDeletionRequestsDue(asOf: Date = new Date()): Promise<DataDeletionRequest[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dataDeletionRequests)
+    .where(and(
+      eq(dataDeletionRequests.status, "pending"),
+      lte(dataDeletionRequests.scheduledDeletionAt, asOf),
+    ))
+    .orderBy(dataDeletionRequests.scheduledDeletionAt);
+}
+
+// Audit trail accessor for FTC Safeguards Rule compliance reviews.
+// Returns every audit_log entry that referenced this customer (read or write).
+export async function getAuditTrailForCustomer(customerId: number, dealershipId: number): Promise<unknown[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(auditLogs)
+    .where(and(
+      eq(auditLogs.dealershipId, dealershipId),
+      eq(auditLogs.resourceType, "customer"),
+      eq(auditLogs.resourceId, String(customerId)),
+    ))
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(500);
 }

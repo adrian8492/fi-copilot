@@ -187,6 +187,15 @@ vi.mock("./db", () => ({
   declineCustomerConsent: vi.fn().mockResolvedValue({ id: 1, sessionId: 0, dealershipId: 0, customerConsentAt: null, managerConsentAt: null, recordingMode: "manager_only", consentTextVersion: "v1", ipAddress: null, deviceFingerprint: null, revokedAt: new Date(), revocationReason: "customer_declined", createdAt: new Date(), updatedAt: new Date() }),
   revokeConsent: vi.fn().mockResolvedValue({ id: 1, sessionId: 0, dealershipId: 0, customerConsentAt: new Date(), managerConsentAt: new Date(), recordingMode: "manager_only", consentTextVersion: "v1", ipAddress: null, deviceFingerprint: null, revokedAt: new Date(), revocationReason: "customer_revoked_mid_session", createdAt: new Date(), updatedAt: new Date() }),
 
+  // Phase 5b — Data Deletion + audit trail:
+  createDataDeletionRequest: vi.fn().mockResolvedValue({ id: 1, dealershipId: 0, customerId: null, sessionId: null, requestedBy: 0, customerEmail: null, customerName: null, reason: null, status: "pending", scheduledDeletionAt: new Date(Date.now() + 30 * 86400000), completedAt: null, cancelledAt: null, cancelledBy: null, notes: null, createdAt: new Date(), updatedAt: new Date() }),
+  getDataDeletionRequestById: vi.fn().mockResolvedValue(null),
+  getDataDeletionRequestsByDealership: vi.fn().mockResolvedValue([]),
+  cancelDataDeletionRequest: vi.fn().mockResolvedValue({ id: 1, dealershipId: 0, customerId: null, sessionId: null, requestedBy: 0, customerEmail: null, customerName: null, reason: null, status: "cancelled", scheduledDeletionAt: new Date(), completedAt: null, cancelledAt: new Date(), cancelledBy: 0, notes: null, createdAt: new Date(), updatedAt: new Date() }),
+  completeDataDeletionRequest: vi.fn().mockResolvedValue(null),
+  getPendingDeletionRequestsDue: vi.fn().mockResolvedValue([]),
+  getAuditTrailForCustomer: vi.fn().mockResolvedValue([]),
+
   // Drizzle helpers used by health checks etc:
   getDb: vi.fn().mockResolvedValue(null),
   withRetry: vi.fn(async (fn: () => Promise<unknown>) => fn()),
@@ -1716,5 +1725,186 @@ describe("Phase 5a: consent.getStatus", () => {
     expect(empty.recordingAllowed).toBe(false);
     expect(empty.log).toBeNull();
     expect(empty.recordingMode).toBe("pending");
+  });
+});
+
+// ─── Phase 5b: Data Deletion (FTC Safeguards Rule + breach notification) ────
+function makeCustomerRow(overrides: { id: number; dealershipId: number | null }) {
+  return {
+    ...overrides,
+    name: "Test Customer",
+    email: null,
+    phone: null,
+    notes: null,
+    customerType: "retail" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    encryptedSsn: null,
+    incomeRange: null,
+  } as never;
+}
+
+function makeDeletionRequest(overrides: Partial<{
+  id: number;
+  dealershipId: number;
+  status: "pending" | "completed" | "cancelled";
+  customerId: number | null;
+  sessionId: number | null;
+}>) {
+  return {
+    id: 1,
+    dealershipId: STORE_A,
+    customerId: null,
+    sessionId: null,
+    requestedBy: 1,
+    customerEmail: null,
+    customerName: null,
+    reason: null,
+    status: "pending" as const,
+    scheduledDeletionAt: new Date(Date.now() + 30 * 86400000),
+    completedAt: null,
+    cancelledAt: null,
+    cancelledBy: null,
+    notes: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+describe("Phase 5b: dataDeletion.submit cross-tenant", () => {
+  it("Korum admin CANNOT submit deletion for Paragon customer", async () => {
+    vi.mocked(db.getCustomerById).mockResolvedValueOnce(makeCustomerRow({ id: 88, dealershipId: STORE_B }));
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.dataDeletion.submit({ customerId: 88 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(db.createDataDeletionRequest).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin CANNOT submit deletion for Paragon session", async () => {
+    vi.mocked(db.getSessionById).mockResolvedValueOnce(
+      makeSessionRow({ id: 70, userId: 999, dealershipId: STORE_B })
+    );
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.dataDeletion.submit({ sessionId: 70 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(db.createDataDeletionRequest).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin CAN submit deletion for own customer; request stamped with their dealershipId", async () => {
+    vi.mocked(db.getCustomerById).mockResolvedValueOnce(makeCustomerRow({ id: 88, dealershipId: STORE_A }));
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    const result = await caller.dataDeletion.submit({ customerId: 88, reason: "customer_request" });
+    expect(result.request).toBeDefined();
+    expect(db.createDataDeletionRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ dealershipId: STORE_A, customerId: 88, requestedBy: 1 })
+    );
+  });
+
+  it("blocks submission when user has no dealership assignment", async () => {
+    const orphan = makeUser({ id: 1, dealershipId: null, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(orphan));
+    await expect(caller.dataDeletion.submit({ reason: "test" })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+  });
+});
+
+describe("Phase 5b: dataDeletion.list scoping", () => {
+  it("Korum admin only sees Korum's deletion requests", async () => {
+    vi.mocked(db.getDataDeletionRequestsByDealership).mockResolvedValueOnce([
+      makeDeletionRequest({ id: 1, dealershipId: STORE_A }),
+      makeDeletionRequest({ id: 2, dealershipId: STORE_A, status: "completed" }),
+    ]);
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    const result = await caller.dataDeletion.list({ limit: 50, offset: 0 });
+    expect(result.requests).toHaveLength(2);
+    expect(db.getDataDeletionRequestsByDealership).toHaveBeenCalledWith(STORE_A, 50, 0);
+  });
+});
+
+describe("Phase 5b: dataDeletion.cancel", () => {
+  it("Korum admin CANNOT cancel Paragon deletion request", async () => {
+    vi.mocked(db.getDataDeletionRequestById).mockResolvedValueOnce(
+      makeDeletionRequest({ id: 5, dealershipId: STORE_B })
+    );
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.dataDeletion.cancel({ id: 5 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(db.cancelDataDeletionRequest).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin CAN cancel own pending request", async () => {
+    vi.mocked(db.getDataDeletionRequestById).mockResolvedValueOnce(
+      makeDeletionRequest({ id: 5, dealershipId: STORE_A, status: "pending" })
+    );
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    const result = await caller.dataDeletion.cancel({ id: 5 });
+    expect(result.request?.status).toBe("cancelled");
+    expect(db.cancelDataDeletionRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 5, cancelledBy: 1 })
+    );
+  });
+
+  it("rejects cancel on already-completed request (PRECONDITION_FAILED)", async () => {
+    vi.mocked(db.getDataDeletionRequestById).mockResolvedValueOnce(
+      makeDeletionRequest({ id: 6, dealershipId: STORE_A, status: "completed" })
+    );
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.dataDeletion.cancel({ id: 6 })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+  });
+
+  it("returns NOT_FOUND when deletion request doesn't exist", async () => {
+    vi.mocked(db.getDataDeletionRequestById).mockResolvedValueOnce(null);
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.dataDeletion.cancel({ id: 999 })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+  });
+});
+
+describe("Phase 5b: admin.auditTrailForCustomer cross-tenant", () => {
+  it("Korum admin CANNOT read audit trail for Paragon customer", async () => {
+    vi.mocked(db.getCustomerById).mockResolvedValueOnce(makeCustomerRow({ id: 88, dealershipId: STORE_B }));
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.admin.auditTrailForCustomer({ customerId: 88 })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(db.getAuditTrailForCustomer).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin CAN read audit trail for own customer; query scoped to their dealership", async () => {
+    vi.mocked(db.getCustomerById).mockResolvedValueOnce(makeCustomerRow({ id: 88, dealershipId: STORE_A }));
+    vi.mocked(db.getAuditTrailForCustomer).mockResolvedValueOnce([
+      { id: 1, action: "customer.read", resourceType: "customer", resourceId: "88" },
+    ]);
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    const result = await caller.admin.auditTrailForCustomer({ customerId: 88 });
+    expect(result.entries).toHaveLength(1);
+    expect(db.getAuditTrailForCustomer).toHaveBeenCalledWith(88, STORE_A);
+  });
+
+  it("returns NOT_FOUND when customer doesn't exist", async () => {
+    vi.mocked(db.getCustomerById).mockResolvedValueOnce(null);
+    const korumAdmin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(caller.admin.auditTrailForCustomer({ customerId: 999 })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 });

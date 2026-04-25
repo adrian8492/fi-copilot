@@ -660,3 +660,35 @@ export const consentLogs = mysqlTable("consent_logs", {
 
 export type ConsentLog = typeof consentLogs.$inferSelect;
 export type InsertConsentLog = typeof consentLogs.$inferInsert;
+
+// ─── Data Deletion Requests (Phase 5b — FTC Safeguards Rule + GDPR-style) ─────
+// Customer or DP-on-behalf-of-customer can request data deletion. Soft-delete
+// window is 30 days (status="pending"); cron flips to status="completed" on
+// day 31 and hard-deletes the rows. Cancellation during the window is allowed.
+// Scope is either a single sessionId, a customerId (all sessions/transcripts/
+// recordings for that customer), or null (whole-customer + email-matched
+// records when no internal customerId exists).
+export const dataDeletionRequests = mysqlTable("data_deletion_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  dealershipId: int("dealershipId").notNull(),
+  customerId: int("customerId"),
+  sessionId: int("sessionId"),
+  requestedBy: int("requestedBy").notNull(),
+  customerEmail: varchar("customerEmail", { length: 320 }),
+  customerName: varchar("customerName", { length: 255 }),
+  reason: varchar("reason", { length: 500 }),
+  status: mysqlEnum("status", ["pending", "completed", "cancelled"]).notNull().default("pending"),
+  scheduledDeletionAt: timestamp("scheduledDeletionAt").notNull(),
+  completedAt: timestamp("completedAt"),
+  cancelledAt: timestamp("cancelledAt"),
+  cancelledBy: int("cancelledBy"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  dealershipIdIdx: index("ix_ddr_dealership_id").on(table.dealershipId),
+  scheduledIdx: index("ix_ddr_scheduled_deletion_at").on(table.scheduledDeletionAt),
+}));
+
+export type DataDeletionRequest = typeof dataDeletionRequests.$inferSelect;
+export type InsertDataDeletionRequest = typeof dataDeletionRequests.$inferInsert;

@@ -134,6 +134,11 @@ import {
   recordManagerConsent,
   declineCustomerConsent,
   revokeConsent,
+  createDataDeletionRequest,
+  getDataDeletionRequestById,
+  getDataDeletionRequestsByDealership,
+  cancelDataDeletionRequest,
+  getAuditTrailForCustomer,
 } from "./db";
 import { runASURAScorecardEngine, type CoachingCadenceInput } from "./asura-scorecard";
 import { invokeLLM } from "./_core/llm";
@@ -1235,6 +1240,141 @@ export const appRouter = router({
           details: { reason: input.reason ?? "customer_revoked_mid_session" },
         });
         return { log };
+      }),
+  }),
+
+  // ─── Data Deletion (Phase 5b — FTC Safeguards Rule + state breach laws) ─────
+  // Customer (via DP) requests data deletion. 30-day soft-delete window before
+  // a cron job hard-deletes the underlying rows. Cancellation is allowed during
+  // the window. Cross-tenant submission/listing/cancel is blocked.
+  dataDeletion: router({
+    submit: protectedProcedure
+      .input(z.object({
+        customerId: z.number().int().positive().optional(),
+        sessionId: z.number().int().positive().optional(),
+        customerEmail: z.string().email().max(320).optional(),
+        customerName: z.string().max(255).optional(),
+        reason: z.string().max(500).optional(),
+        notes: z.string().max(2000).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (dealershipId == null) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User is not assigned to a dealership" });
+        }
+        // If a sessionId is given, verify it belongs to the user's tenant.
+        if (input.sessionId != null) {
+          const session = await getSessionById(input.sessionId);
+          if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+          await assertSessionAccess(ctx, session);
+          if (session.dealershipId !== dealershipId && !ctx.user.isSuperAdmin && !ctx.user.isGroupAdmin) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Cross-tenant deletion not permitted" });
+          }
+        }
+        // If a customerId is given, verify ownership via getCustomerById.
+        if (input.customerId != null) {
+          const customer = await getCustomerById(input.customerId);
+          if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
+          if (customer.dealershipId !== dealershipId && !ctx.user.isSuperAdmin && !ctx.user.isGroupAdmin) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Cross-tenant deletion not permitted" });
+          }
+        }
+        const request = await createDataDeletionRequest({
+          dealershipId,
+          requestedBy: ctx.user.id,
+          customerId: input.customerId ?? null,
+          sessionId: input.sessionId ?? null,
+          customerEmail: input.customerEmail ?? null,
+          customerName: input.customerName ?? null,
+          reason: input.reason ?? null,
+          notes: input.notes ?? null,
+        });
+        await insertAuditLog({
+          userId: ctx.user.id,
+          dealershipId,
+          action: "data_deletion.submitted",
+          resourceType: "data_deletion_request",
+          resourceId: String(request.id),
+          details: {
+            customerId: input.customerId ?? null,
+            sessionId: input.sessionId ?? null,
+            scheduledDeletionAt: request.scheduledDeletionAt,
+          },
+        });
+        // Notify Adrian (Manus webdev notification — fire-and-forget, no error
+        // path back to the user since the request is already recorded).
+        notifyOwner({
+          title: `[F&I Co-Pilot] Data deletion request #${request.id} (dealership ${dealershipId})`,
+          content: [
+            `Requested by user ${ctx.user.id} (${ctx.user.email ?? "no-email"})`,
+            input.customerId != null ? `Scope: customer ${input.customerId}` : null,
+            input.sessionId != null ? `Scope: session ${input.sessionId}` : null,
+            input.customerEmail ? `Customer email: ${input.customerEmail}` : null,
+            `Scheduled for: ${request.scheduledDeletionAt.toISOString()} (30-day soft-delete window)`,
+            input.reason ? `Reason: ${input.reason}` : null,
+          ].filter(Boolean).join("\n"),
+        }).catch((err) => console.error("[DataDeletion] notifyOwner failed:", err));
+        return { request };
+      }),
+
+    list: adminProcedure
+      .input(z.object({
+        limit: z.number().int().min(1).max(500).default(100),
+        offset: z.number().int().min(0).default(0),
+      }).optional())
+      .query(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (dealershipId == null && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "User is not assigned to a dealership" });
+        }
+        if (ctx.user.isSuperAdmin) {
+          // Super admin can see all dealerships' requests by passing dealershipId
+          // explicitly; for now this returns nothing (forces explicit scope).
+          return { requests: [] };
+        }
+        const requests = await getDataDeletionRequestsByDealership(
+          dealershipId!,
+          input?.limit ?? 100,
+          input?.offset ?? 0,
+        );
+        return { requests };
+      }),
+
+    getStatus: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const request = await getDataDeletionRequestById(input.id);
+        if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Deletion request not found" });
+        if (!ctx.user.isSuperAdmin && request.dealershipId !== ctx.user.dealershipId) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Deletion request belongs to a different dealership" });
+        }
+        return { request };
+      }),
+
+    cancel: adminProcedure
+      .input(z.object({
+        id: z.number().int().positive(),
+        reason: z.string().max(500).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const request = await getDataDeletionRequestById(input.id);
+        if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Deletion request not found" });
+        if (!ctx.user.isSuperAdmin && request.dealershipId !== ctx.user.dealershipId) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Deletion request belongs to a different dealership" });
+        }
+        if (request.status !== "pending") {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Request is already ${request.status}` });
+        }
+        const updated = await cancelDataDeletionRequest({ id: input.id, cancelledBy: ctx.user.id });
+        await insertAuditLog({
+          userId: ctx.user.id,
+          dealershipId: request.dealershipId,
+          action: "data_deletion.cancelled",
+          resourceType: "data_deletion_request",
+          resourceId: String(request.id),
+          details: { reason: input.reason ?? null },
+        });
+        return { request: updated };
       }),
   }),
 
@@ -2393,6 +2533,31 @@ If no products were declined, return an empty array [].`;
 
       return { status: overallStatus, checks, timestamp: Date.now() };
     }),
+
+    // Phase 5b — FTC Safeguards Rule audit trail accessor for compliance reviews.
+    // Returns every audit_log entry that touched a given customer record.
+    auditTrailForCustomer: adminProcedure
+      .input(z.object({ customerId: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const customer = await getCustomerById(input.customerId);
+        if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
+        if (!ctx.user.isSuperAdmin && customer.dealershipId !== ctx.user.dealershipId) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Customer belongs to a different dealership" });
+        }
+        if (customer.dealershipId == null) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Customer is not assigned to a dealership" });
+        }
+        const entries = await getAuditTrailForCustomer(input.customerId, customer.dealershipId);
+        await insertAuditLog({
+          userId: ctx.user.id,
+          dealershipId: customer.dealershipId,
+          action: "admin.audit_trail_for_customer.read",
+          resourceType: "customer",
+          resourceId: String(input.customerId),
+          details: { entryCount: entries.length },
+        });
+        return { customerId: input.customerId, dealershipId: customer.dealershipId, entries };
+      }),
   }),
 
   // ─── Invitations ─────────────────────────────────────────────────────────────
