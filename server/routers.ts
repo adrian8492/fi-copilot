@@ -118,6 +118,7 @@ import {
   getDealRecoveryById,
   getProductMenuItemById,
   getComplianceFlagById,
+  getComplianceRuleById,
   getDealershipById,
   updateDealershipOnboarding,
   getDealershipDigest,
@@ -151,6 +152,31 @@ const groupAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) throw new TRPCError({ code: "FORBIDDEN", message: NOT_GROUP_ADMIN_ERR_MSG });
   return next({ ctx });
 });
+
+/**
+ * Enforce tenancy on a compliance rule. Rules with null dealershipId are
+ * "global" — only super admins can edit them. Tenant-scoped rules require
+ * either super admin or a matching dealershipId on the caller (treating
+ * undefined and null as nullish-equivalent for back-compat with admins
+ * who don't have a primary dealership set).
+ */
+async function assertRuleAccess(
+  ctx: { user: { dealershipId: number | null; isSuperAdmin: boolean } },
+  rule: { dealershipId: number | null }
+) {
+  if (ctx.user.isSuperAdmin) return;
+  // Global rule (null dealershipId) → super admin only.
+  if (rule.dealershipId == null) {
+    // Allow legacy "no-tenant" admins (dealershipId == null) to manage
+    // legacy "no-tenant" rules — both pre-date the tenancy migration.
+    if (ctx.user.dealershipId == null) return;
+    throw new TRPCError({ code: "FORBIDDEN", message: "Global rules can only be edited by a super admin" });
+  }
+  // Tenant-scoped rule → must match caller's dealership.
+  if (rule.dealershipId !== ctx.user.dealershipId) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Rule belongs to a different dealership" });
+  }
+}
 
 /**
  * Enforce dealership-scoped data isolation.
@@ -1469,7 +1495,13 @@ If no products were declined, return an empty array [].`;
         dealStage: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        await insertComplianceRule({ ...input, createdBy: ctx.user.id });
+        // Tenant-stamp: rules created by a tenant admin are scoped to that
+        // tenant. Super admins creating rules with null dealershipId means
+        // "global rule" — applies to every tenant.
+        const dealershipId = ctx.user.isSuperAdmin
+          ? null
+          : (ctx.user.dealershipId ?? null);
+        await insertComplianceRule({ ...input, createdBy: ctx.user.id, dealershipId });
         await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.create", resourceType: "compliance_rule", resourceId: input.title });
         return { success: true };
       }),
@@ -1488,6 +1520,11 @@ If no products were declined, return an empty array [].`;
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;
+        // Verify the rule belongs to the caller's scope before editing it.
+        // Was: any admin could edit any tenant's rules (CFPB audit trail bug).
+        const existing = await getComplianceRuleById(id);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found" });
+        await assertRuleAccess(ctx, existing);
         await updateComplianceRule(id, data);
         await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.update", resourceType: "compliance_rule", resourceId: String(id) });
         return { success: true };
@@ -1495,6 +1532,10 @@ If no products were declined, return an empty array [].`;
     deleteRule: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ ctx, input }) => {
+        // Same tenant-match check as updateRule.
+        const existing = await getComplianceRuleById(input.id);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found" });
+        await assertRuleAccess(ctx, existing);
         await deleteComplianceRule(input.id);
         await insertAuditLog({ userId: ctx.user.id, action: "compliance.rule.delete", resourceType: "compliance_rule", resourceId: String(input.id) });
         return { success: true };

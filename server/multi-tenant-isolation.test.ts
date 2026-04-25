@@ -58,6 +58,7 @@ vi.mock("./db", () => ({
   getProductMenuItemById: vi.fn(),
   getDealRecoveryById: vi.fn(),
   getComplianceFlagById: vi.fn(),
+  getComplianceRuleById: vi.fn(),
 
   // Mutations + writes that may be called transitively:
   insertTranscript: vi.fn().mockResolvedValue(true),
@@ -1134,6 +1135,170 @@ describe("Phase 1.5 follow-up: admin.listUsers cross-tenant", () => {
     await caller.admin.listUsers();
     const arg = vi.mocked(db.getAllUsersByDealershipIds).mock.calls[0][0];
     expect(new Set(arg)).toEqual(new Set([STORE_A, STORE_B])); // deduped
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// J. Phase 1.5 follow-up — compliance rules cross-tenant
+//    Was: any admin could edit any tenant's rules (CFPB audit-trail bug).
+//    Now: stamped on insert, verified on update/delete.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 1.5 follow-up: compliance.deleteRule / updateRule cross-tenant", () => {
+  it("Korum admin cannot delete a Paragon rule", async () => {
+    vi.mocked(db.getComplianceRuleById).mockResolvedValueOnce({
+      id: 7,
+      createdBy: 999,
+      dealershipId: STORE_B,
+      title: "Paragon-only rule",
+      description: null,
+      category: "custom",
+      triggerKeywords: [],
+      requiredPhrase: null,
+      severity: "warning",
+      weight: 1.0,
+      isActive: true,
+      dealStage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    const korumAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(
+      caller.compliance.deleteRule({ id: 7 })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.deleteComplianceRule).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin cannot edit a Paragon rule", async () => {
+    vi.mocked(db.getComplianceRuleById).mockResolvedValueOnce({
+      id: 7,
+      createdBy: 999,
+      dealershipId: STORE_B,
+      title: "Paragon-only rule",
+      description: null,
+      category: "custom",
+      triggerKeywords: [],
+      requiredPhrase: null,
+      severity: "warning",
+      weight: 1.0,
+      isActive: true,
+      dealStage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    const korumAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(
+      caller.compliance.updateRule({ id: 7, title: "Pwned" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.updateComplianceRule).not.toHaveBeenCalled();
+  });
+
+  it("Korum admin CAN edit Korum's own rule", async () => {
+    vi.mocked(db.getComplianceRuleById).mockResolvedValueOnce({
+      id: 5,
+      createdBy: 1,
+      dealershipId: STORE_A,
+      title: "Korum-only rule",
+      description: null,
+      category: "custom",
+      triggerKeywords: [],
+      requiredPhrase: null,
+      severity: "warning",
+      weight: 1.0,
+      isActive: true,
+      dealStage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    const korumAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    const result = await caller.compliance.updateRule({ id: 5, title: "Updated" });
+    expect(result.success).toBe(true);
+    expect(db.updateComplianceRule).toHaveBeenCalledWith(5, { title: "Updated" });
+  });
+
+  it("non-super admin cannot edit a global (null-dealership) rule", async () => {
+    vi.mocked(db.getComplianceRuleById).mockResolvedValueOnce({
+      id: 9,
+      createdBy: 99, // super admin id
+      dealershipId: null, // global
+      title: "Federal TILA disclosure",
+      description: null,
+      category: "federal_tila",
+      triggerKeywords: [],
+      requiredPhrase: null,
+      severity: "critical",
+      weight: 1.0,
+      isActive: true,
+      dealStage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    const korumAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(
+      caller.compliance.deleteRule({ id: 9 })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.deleteComplianceRule).not.toHaveBeenCalled();
+  });
+
+  it("super admin CAN edit a global rule", async () => {
+    vi.mocked(db.getComplianceRuleById).mockResolvedValueOnce({
+      id: 9,
+      createdBy: 99,
+      dealershipId: null,
+      title: "Federal TILA disclosure",
+      description: null,
+      category: "federal_tila",
+      triggerKeywords: [],
+      requiredPhrase: null,
+      severity: "critical",
+      weight: 1.0,
+      isActive: true,
+      dealStage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true, dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    const result = await caller.compliance.deleteRule({ id: 9 });
+    expect(result.success).toBe(true);
+    expect(db.deleteComplianceRule).toHaveBeenCalledWith(9);
+  });
+});
+
+describe("Phase 1.5 follow-up: compliance.createRule stamps dealershipId", () => {
+  it("Korum admin's new rule is stamped with their dealershipId", async () => {
+    const korumAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await caller.compliance.createRule({
+      title: "Korum custom rule",
+      category: "custom",
+      triggerKeywords: ["foo"],
+      severity: "warning",
+    });
+    expect(db.insertComplianceRule).toHaveBeenCalledWith(expect.objectContaining({
+      createdBy: 1,
+      dealershipId: STORE_A,
+      title: "Korum custom rule",
+    }));
+  });
+
+  it("super admin can create a global (null-dealership) rule", async () => {
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true, dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    await caller.compliance.createRule({
+      title: "Federal global rule",
+      category: "federal_tila",
+      triggerKeywords: ["apr"],
+      severity: "critical",
+    });
+    expect(db.insertComplianceRule).toHaveBeenCalledWith(expect.objectContaining({
+      createdBy: 99,
+      dealershipId: null,
+    }));
   });
 });
 

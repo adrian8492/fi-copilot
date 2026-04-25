@@ -305,6 +305,13 @@ export async function getComplianceFlagById(flagId: number) {
   return row ? decryptFields(row, ["excerpt"]) : null;
 }
 
+export async function getComplianceRuleById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(complianceRules).where(eq(complianceRules.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
 // ─── Performance Grades ───────────────────────────────────────────────────────
 export async function upsertGrade(data: {
   sessionId: number;
@@ -916,6 +923,7 @@ export async function getActiveComplianceRules() {
 
 export async function insertComplianceRule(data: {
   createdBy: number;
+  dealershipId?: number | null;
   title: string;
   description?: string;
   category: "federal_tila" | "federal_ecoa" | "federal_udap" | "federal_cla" | "contract_element" | "fi_product_disclosure" | "process_step" | "custom";

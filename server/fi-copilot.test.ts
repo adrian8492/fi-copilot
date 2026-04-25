@@ -152,6 +152,9 @@ vi.mock("./db", () => ({
   deleteProductMenuItem: vi.fn().mockResolvedValue(undefined),
   getDealRecoveryById: vi.fn().mockResolvedValue({ id: 1, sessionId: 1, dealershipId: 1, productType: "gap_insurance", declineReason: null, recoveryScript: null, recoveryStatus: "pending", potentialRevenue: null, actualRevenue: null, createdAt: new Date(), updatedAt: new Date() }),
   getComplianceFlagById: vi.fn().mockResolvedValue({ id: 1, sessionId: 1, dealershipId: null, severity: "warning", rule: "test", description: "test", excerpt: null, timestamp: null, resolved: false, resolvedBy: null, resolvedAt: null, createdAt: new Date() }),
+  // Mocked rule has null dealershipId so the "legacy admin without dealership"
+  // path in assertRuleAccess passes for the existing makeAdminCtx() tests.
+  getComplianceRuleById: vi.fn().mockResolvedValue({ id: 1, dealershipId: null, createdBy: 1, title: "Test Rule", description: "test", category: "custom", triggerKeywords: [], requiredPhrase: null, severity: "warning", weight: 1.0, isActive: true, dealStage: null, createdAt: new Date(), updatedAt: new Date() }),
   setUserMfaSecret: vi.fn().mockResolvedValue(undefined),
   enableUserMfa: vi.fn().mockResolvedValue(undefined),
   disableUserMfa: vi.fn().mockResolvedValue(undefined),
