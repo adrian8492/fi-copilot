@@ -84,6 +84,37 @@ export function buildCriticalComplianceAlertEmail(opts: {
   return { to: opts.managerEmail, subject, html, text };
 }
 
+export function buildOnboardingInviteEmail(opts: {
+  managerName: string;
+  managerEmail: string;
+  dealershipName: string;
+  inviterName: string;
+  inviteToken: string;
+  appBaseUrl: string;
+}) {
+  const link = `${opts.appBaseUrl.replace(/\/$/, "")}/join?token=${opts.inviteToken}`;
+  const subject = `${opts.inviterName} invited you to F&I Co-Pilot`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 22px;">Welcome to F&amp;I Co-Pilot</h1>
+        <p style="margin: 6px 0 0; opacity: 0.92; font-size: 14px;">${opts.dealershipName}</p>
+      </div>
+      <div style="background: #fff; border: 1px solid #e5e7eb; border-top: none; padding: 24px; border-radius: 0 0 8px 8px;">
+        <p>Hi ${opts.managerName},</p>
+        <p>${opts.inviterName} invited you to join the <strong>${opts.dealershipName}</strong> F&amp;I team on F&amp;I Co-Pilot — the AI-powered F&amp;I performance platform by ASURA Group.</p>
+        <p style="text-align: center; margin: 28px 0;">
+          <a href="${link}" style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">Accept invitation</a>
+        </p>
+        <p style="font-size: 13px; color: #6b7280;">Or copy this link into your browser:<br><code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${link}</code></p>
+        <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">If you weren't expecting this invitation, you can safely ignore this email.</p>
+      </div>
+    </div>
+  `;
+  const text = `${opts.inviterName} invited you to join ${opts.dealershipName} on F&I Co-Pilot.\n\nAccept the invitation: ${link}\n\nIf you weren't expecting this email, you can ignore it.`;
+  return { to: opts.managerEmail, subject, html, text };
+}
+
 export function buildSessionSummaryEmail(opts: {
   managerEmail: string;
   managerName: string;

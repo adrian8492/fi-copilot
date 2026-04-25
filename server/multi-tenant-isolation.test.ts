@@ -195,6 +195,14 @@ vi.mock("./_core/llm", () => ({
   invokeLLM: vi.fn().mockResolvedValue({ choices: [{ message: { content: "{}" } }] }),
 }));
 
+vi.mock("./_core/email", () => ({
+  sendEmail: vi.fn().mockResolvedValue(true),
+  buildCriticalComplianceAlertEmail: vi.fn().mockReturnValue({ to: "x", subject: "x", html: "x", text: "x" }),
+  buildSessionSummaryEmail: vi.fn().mockReturnValue({ to: "x", subject: "x", html: "x", text: "x" }),
+  buildWeeklyDigestEmail: vi.fn().mockReturnValue({ to: "x", subject: "x", html: "x", text: "x" }),
+  buildOnboardingInviteEmail: vi.fn().mockReturnValue({ to: "x", subject: "x", html: "x", text: "x" }),
+}));
+
 vi.mock("./_core/voiceTranscription", () => ({
   transcribeAudio: vi.fn().mockResolvedValue({ text: "", language: "en", segments: [] }),
 }));
@@ -948,6 +956,59 @@ describe("Phase 2: onboarding.saveTeam", () => {
       dealershipId: STORE_A,
       invitedBy: 7,
     }));
+  });
+
+  it("invites are emailed via Resend (best-effort, non-blocking)", async () => {
+    const email = await import("./_core/email");
+    vi.mocked(email.sendEmail).mockClear();
+    vi.mocked(email.buildOnboardingInviteEmail).mockClear();
+    vi.mocked(db.createInvitation)
+      .mockResolvedValueOnce({ token: "tok-a", expiresAt: new Date() } as never)
+      .mockResolvedValueOnce({ token: "tok-b", expiresAt: new Date() } as never);
+    vi.mocked(db.getDealershipById).mockResolvedValueOnce({
+      id: STORE_A, name: "Korum Auto", slug: "korum", plan: "beta", isActive: true,
+      createdAt: new Date(), updatedAt: new Date(), groupId: null,
+      location: "Puyallup, WA", brandMix: ["Toyota"],
+      unitVolumeMonthly: 200, pruBaseline: 1700, pruTarget: 2200,
+      onboardingStep: 2, onboardingComplete: false,
+    } as never);
+
+    const admin = makeUser({ id: 7, dealershipId: STORE_A, role: "admin", name: "Jim Koch" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveTeam({
+      managers: [
+        { name: "Sarah", email: "sarah@korum.com", role: "user" },
+        { name: "Mike", email: "mike@korum.com", role: "user" },
+      ],
+    });
+
+    expect(email.buildOnboardingInviteEmail).toHaveBeenCalledTimes(2);
+    expect(email.buildOnboardingInviteEmail).toHaveBeenCalledWith(expect.objectContaining({
+      managerName: "Sarah",
+      managerEmail: "sarah@korum.com",
+      dealershipName: "Korum Auto",
+      inviterName: "Jim Koch",
+      inviteToken: "tok-a",
+    }));
+    expect(email.sendEmail).toHaveBeenCalledTimes(2);
+    expect(result.invites[0].emailed).toBe(true);
+  });
+
+  it("saveTeam completes successfully even if email delivery fails", async () => {
+    const email = await import("./_core/email");
+    vi.mocked(email.sendEmail).mockClear();
+    vi.mocked(email.sendEmail).mockRejectedValueOnce(new Error("resend down"));
+    vi.mocked(db.createInvitation).mockResolvedValueOnce({ token: "tok-x", expiresAt: new Date() } as never);
+
+    const admin = makeUser({ id: 7, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveTeam({
+      managers: [{ name: "Sarah", email: "sarah@korum.com", role: "user" }],
+    });
+    // Invite still created — email failure does not roll back the row.
+    expect(result.invites).toHaveLength(1);
+    expect(result.invites[0].emailed).toBe(false);
+    expect(db.createInvitation).toHaveBeenCalled();
   });
 });
 

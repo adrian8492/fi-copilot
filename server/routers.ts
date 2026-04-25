@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { notifyOwner } from "./_core/notification";
-import { sendEmail, buildSessionSummaryEmail, buildWeeklyDigestEmail } from "./_core/email";
+import { sendEmail, buildSessionSummaryEmail, buildWeeklyDigestEmail, buildOnboardingInviteEmail } from "./_core/email";
 import { generateRecommendations, calculateMissedRevenue } from "./product-recommendation";
 import { PRODUCT_DATABASE } from "../shared/productIntelligence";
 import { COOKIE_NAME, NOT_GROUP_ADMIN_ERR_MSG } from "@shared/const";
@@ -840,7 +840,13 @@ export const appRouter = router({
         if (ctx.user.role !== "admin" && !ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Only the dealership admin can run onboarding" });
         }
-        const invites: { email: string; token: string }[] = [];
+        // Resolve dealership + inviter name for the invite email body.
+        const dealership = await getDealershipById(dealershipId);
+        const dealershipName = dealership?.name ?? "your F&I team";
+        const inviterName = ctx.user.name ?? "Your F&I Director";
+        const appBaseUrl = process.env.APP_BASE_URL ?? "https://finico-pilot-mqskutaj.manus.space";
+
+        const invites: { email: string; token: string; emailed: boolean }[] = [];
         for (const mgr of input.managers) {
           const inv = await createInvitation({
             email: mgr.email,
@@ -848,10 +854,25 @@ export const appRouter = router({
             role: mgr.role,
             invitedBy: ctx.user.id,
           });
-          invites.push({ email: mgr.email, token: inv.token });
+          // Email is best-effort — silently no-ops when RESEND_API_KEY is
+          // unset; never blocks onboarding when the email service is down.
+          let emailed = false;
+          try {
+            emailed = await sendEmail(buildOnboardingInviteEmail({
+              managerName: mgr.name,
+              managerEmail: mgr.email,
+              dealershipName,
+              inviterName,
+              inviteToken: inv.token,
+              appBaseUrl,
+            }));
+          } catch {
+            emailed = false;
+          }
+          invites.push({ email: mgr.email, token: inv.token, emailed });
         }
         await updateDealershipOnboarding(dealershipId, { onboardingStep: 3 });
-        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveTeam", resourceType: "dealership", resourceId: String(dealershipId), details: { managerCount: input.managers.length } });
+        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveTeam", resourceType: "dealership", resourceId: String(dealershipId), details: { managerCount: input.managers.length, emailedCount: invites.filter(i => i.emailed).length } });
         return { success: true, step: 3, invites };
       }),
 
