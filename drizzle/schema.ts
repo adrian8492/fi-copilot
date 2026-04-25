@@ -32,6 +32,15 @@ export const dealerships = mysqlTable("dealerships", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   groupId: int("groupId"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  // Onboarding profile (Phase 2):
+  location: varchar("location", { length: 255 }),
+  brandMix: json("brandMix").$type<string[]>(),
+  unitVolumeMonthly: int("unitVolumeMonthly"),
+  pruBaseline: int("pruBaseline"),
+  pruTarget: int("pruTarget"),
+  // Onboarding state machine: 0 = profile pending, 5 = all complete.
+  onboardingStep: int("onboardingStep").notNull().default(0),
+  onboardingComplete: boolean("onboardingComplete").notNull().default(false),
 });
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -451,6 +460,17 @@ export const dealershipSettings = mysqlTable("dealership_settings", {
   requireCustomerName: boolean("requireCustomerName").notNull().default(true),
   requireDealNumber: boolean("requireDealNumber").notNull().default(false),
   consentMethod: mysqlEnum("consentMethod", ["verbal", "written", "electronic"]).notNull().default("verbal"),
+  // Onboarding step 4 — baseline metrics (the install benchmark for tracking lift):
+  vsaPenBaseline: float("vsaPenBaseline"),
+  gapPenBaseline: float("gapPenBaseline"),
+  appearancePenBaseline: float("appearancePenBaseline"),
+  chargebackRateBaseline: float("chargebackRateBaseline"),
+  citAgingBaseline: float("citAgingBaseline"),
+  // Onboarding step 5 — coaching cadence (the 15-min weekly):
+  coachingCadenceDay: varchar("coachingCadenceDay", { length: 10 }),
+  coachingCadenceTime: varchar("coachingCadenceTime", { length: 8 }),
+  coachingRunBy: mysqlEnum("coachingRunBy", ["fi_director", "asura_coach", "dp", "other"]),
+  pru90DayTarget: int("pru90DayTarget"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

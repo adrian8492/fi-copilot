@@ -127,6 +127,8 @@ vi.mock("./db", () => ({
   getUserMfaStatus: vi.fn().mockResolvedValue({ mfaEnabled: false, totpSecret: null }),
 
   getAllDealerships: vi.fn().mockResolvedValue([]),
+  getDealershipById: vi.fn().mockResolvedValue(null),
+  updateDealershipOnboarding: vi.fn().mockResolvedValue(undefined),
   createDealership: vi.fn().mockResolvedValue(undefined),
   updateDealership: vi.fn().mockResolvedValue(undefined),
   assignUserToDealership: vi.fn().mockResolvedValue(undefined),
@@ -783,6 +785,219 @@ describe("Phase 1.5: compliance.resolveFlag cross-tenant", () => {
       caller.compliance.resolveFlag({ flagId: 100 })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(db.resolveFlag).not.toHaveBeenCalled();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// G. Phase 2 — onboarding wizard (5-step DP/F&I-Director flow)
+//    Tenant safety here is structural: every onboarding mutation reads
+//    ctx.user.dealershipId rather than accepting a dealership ID from input.
+//    A Korum admin physically cannot mutate Paragon's dealership row.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 2: onboarding.getStatus", () => {
+  it("returns hasDealership=false when user has no dealership", async () => {
+    const user = makeUser({ dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const status = await caller.onboarding.getStatus();
+    expect(status.hasDealership).toBe(false);
+  });
+
+  it("returns dealership + settings when user has a dealership", async () => {
+    vi.mocked(db.getDealershipById).mockResolvedValueOnce({
+      id: STORE_A,
+      name: "Korum",
+      slug: "korum",
+      plan: "beta",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      groupId: null,
+      location: "Puyallup, WA",
+      brandMix: ["Toyota", "Honda"],
+      unitVolumeMonthly: 200,
+      pruBaseline: 1700,
+      pruTarget: 2200,
+      onboardingStep: 1,
+      onboardingComplete: false,
+    } as never);
+    vi.mocked(db.getDealershipSettings).mockResolvedValueOnce(null);
+
+    const user = makeUser({ dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(user));
+    const status = await caller.onboarding.getStatus();
+    expect(status.hasDealership).toBe(true);
+    if (status.hasDealership) {
+      expect(status.dealership.name).toBe("Korum");
+      expect(status.dealership.onboardingStep).toBe(1);
+    }
+  });
+});
+
+describe("Phase 2: onboarding.saveProfile", () => {
+  it("admin updates own dealership profile and advances step to 1", async () => {
+    const admin = makeUser({ dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveProfile({
+      location: "Puyallup, WA",
+      brandMix: ["Toyota", "Honda", "Subaru"],
+      unitVolumeMonthly: 200,
+      pruBaseline: 1700,
+      pruTarget: 2200,
+    });
+    expect(result).toEqual({ success: true, step: 1 });
+    expect(db.updateDealershipOnboarding).toHaveBeenCalledWith(STORE_A, expect.objectContaining({
+      location: "Puyallup, WA",
+      brandMix: ["Toyota", "Honda", "Subaru"],
+      onboardingStep: 1,
+    }));
+  });
+
+  it("rejects regular F&I manager (only admin/group/super can onboard)", async () => {
+    const manager = makeUser({ dealershipId: STORE_A, role: "user" });
+    const caller = appRouter.createCaller(makeCtx(manager));
+    await expect(
+      caller.onboarding.saveProfile({
+        location: "Puyallup, WA",
+        brandMix: ["Toyota"],
+        unitVolumeMonthly: 200,
+        pruBaseline: 1700,
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.updateDealershipOnboarding).not.toHaveBeenCalled();
+  });
+
+  it("rejects user with no dealership assignment", async () => {
+    const orphan = makeUser({ dealershipId: null, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(orphan));
+    await expect(
+      caller.onboarding.saveProfile({
+        location: "Nowhere",
+        brandMix: ["Toyota"],
+        unitVolumeMonthly: 100,
+        pruBaseline: 1500,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});
+
+describe("Phase 2: onboarding.saveProducts", () => {
+  it("admin bulk-upserts product menu items scoped to their dealership", async () => {
+    const admin = makeUser({ dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveProducts({
+      items: [
+        { productType: "vehicle_service_contract", displayName: "VSA", retailPrice: 2400 },
+        { productType: "gap_insurance", displayName: "GAP", retailPrice: 800 },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(result.itemCount).toBe(2);
+    expect(db.upsertProductMenuItem).toHaveBeenCalledTimes(2);
+    expect(db.upsertProductMenuItem).toHaveBeenCalledWith(expect.objectContaining({
+      dealershipId: STORE_A,
+      productType: "vehicle_service_contract",
+    }));
+  });
+
+  it("rejects id-smuggling: passing another tenant's product item id", async () => {
+    vi.mocked(db.getProductMenuItemById).mockResolvedValueOnce({
+      id: 99,
+      dealershipId: STORE_B, // belongs to Paragon
+      productType: "gap_insurance",
+      displayName: "Original GAP",
+      providerName: null, description: null,
+      costToDealer: null, retailPrice: null,
+      termMonths: null, maxMileage: null,
+      isActive: true, sortOrder: 0,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as never);
+    const korumAdmin = makeUser({ dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(
+      caller.onboarding.saveProducts({
+        items: [
+          { id: 99, productType: "gap_insurance", displayName: "Pwned" },
+        ],
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.upsertProductMenuItem).not.toHaveBeenCalled();
+  });
+});
+
+describe("Phase 2: onboarding.saveTeam", () => {
+  it("admin generates invitations for F&I managers and returns codes", async () => {
+    vi.mocked(db.createInvitation)
+      .mockResolvedValueOnce({ token: "tok-a", expiresAt: new Date() } as never)
+      .mockResolvedValueOnce({ token: "tok-b", expiresAt: new Date() } as never);
+
+    const admin = makeUser({ id: 7, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveTeam({
+      managers: [
+        { name: "Sarah", email: "sarah@korum.com", role: "user" },
+        { name: "Mike", email: "mike@korum.com", role: "user" },
+      ],
+    });
+    expect(result.invites).toHaveLength(2);
+    expect(result.invites[0].token).toBe("tok-a");
+    expect(db.createInvitation).toHaveBeenCalledWith(expect.objectContaining({
+      email: "sarah@korum.com",
+      dealershipId: STORE_A,
+      invitedBy: 7,
+    }));
+  });
+});
+
+describe("Phase 2: onboarding.saveBaseline + saveCadence", () => {
+  it("saveBaseline upserts settings and advances step to 4", async () => {
+    const admin = makeUser({ dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveBaseline({
+      vsaPenBaseline: 45,
+      gapPenBaseline: 60,
+      appearancePenBaseline: 30,
+      chargebackRateBaseline: 1.5,
+      citAgingBaseline: 4.2,
+    });
+    expect(result).toEqual({ success: true, step: 4 });
+    expect(db.upsertDealershipSettings).toHaveBeenCalledWith(STORE_A, expect.objectContaining({
+      vsaPenBaseline: 45,
+      citAgingBaseline: 4.2,
+    }));
+    expect(db.updateDealershipOnboarding).toHaveBeenCalledWith(STORE_A, { onboardingStep: 4 });
+  });
+
+  it("saveCadence finalizes onboarding (step 5 + complete=true)", async () => {
+    const admin = makeUser({ dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveCadence({
+      coachingCadenceDay: "monday",
+      coachingCadenceTime: "09:00",
+      coachingRunBy: "fi_director",
+      pru90DayTarget: 2200,
+    });
+    expect(result).toEqual({ success: true, step: 5, complete: true });
+    expect(db.upsertDealershipSettings).toHaveBeenCalledWith(STORE_A, expect.objectContaining({
+      coachingCadenceDay: "monday",
+      coachingRunBy: "fi_director",
+    }));
+    expect(db.updateDealershipOnboarding).toHaveBeenCalledWith(STORE_A, {
+      onboardingStep: 5,
+      onboardingComplete: true,
+    });
+  });
+
+  it("rejects invalid time format", async () => {
+    const admin = makeUser({ dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    await expect(
+      caller.onboarding.saveCadence({
+        coachingCadenceDay: "monday",
+        coachingCadenceTime: "9am", // invalid
+        coachingRunBy: "fi_director",
+      })
+    ).rejects.toThrow();
   });
 });
 

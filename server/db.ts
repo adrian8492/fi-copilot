@@ -1027,6 +1027,30 @@ export async function createDealership(data: { name: string; slug: string; plan?
   return result[0] ?? null;
 }
 
+export async function getDealershipById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(dealerships).where(eq(dealerships.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function updateDealershipOnboarding(
+  id: number,
+  data: Partial<{
+    location: string | null;
+    brandMix: string[] | null;
+    unitVolumeMonthly: number | null;
+    pruBaseline: number | null;
+    pruTarget: number | null;
+    onboardingStep: number;
+    onboardingComplete: boolean;
+  }>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(dealerships).set(data).where(eq(dealerships.id, id));
+}
+
 export async function updateDealership(id: number, data: Partial<{ name: string; plan: "trial" | "beta" | "pro" | "enterprise"; isActive: boolean; groupId: number | null }>) {
   const db = await getDb();
   if (!db) return;
@@ -1721,6 +1745,17 @@ export async function upsertDealershipSettings(
     requireCustomerName?: boolean;
     requireDealNumber?: boolean;
     consentMethod?: "verbal" | "written" | "electronic";
+    // Onboarding step 4 — baseline metrics (Phase 2):
+    vsaPenBaseline?: number;
+    gapPenBaseline?: number;
+    appearancePenBaseline?: number;
+    chargebackRateBaseline?: number;
+    citAgingBaseline?: number;
+    // Onboarding step 5 — coaching cadence (Phase 2):
+    coachingCadenceDay?: string;
+    coachingCadenceTime?: string;
+    coachingRunBy?: "fi_director" | "asura_coach" | "dp" | "other";
+    pru90DayTarget?: number;
   }
 ) {
   const db = await getDb();

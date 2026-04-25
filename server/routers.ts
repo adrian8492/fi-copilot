@@ -118,6 +118,8 @@ import {
   getDealRecoveryById,
   getProductMenuItemById,
   getComplianceFlagById,
+  getDealershipById,
+  updateDealershipOnboarding,
   upsertScorecard,
   getScorecardBySession,
   getScorecardsByUser,
@@ -709,6 +711,165 @@ export const appRouter = router({
         await setUserPasswordHash(ctx.user.id, hash);
         await insertAuditLog({ userId: ctx.user.id, action: "auth.setPassword", resourceType: "user", resourceId: String(ctx.user.id), details: {} });
         return { success: true };
+      }),
+  }),
+
+  // ─── Onboarding (5-step DP/F&I-Director wizard) ─────────────────────────────
+  // Run as the dealership admin (DP or F&I Director). Each step updates the
+  // dealership's profile/settings and advances `dealerships.onboardingStep`.
+  // After step 5 is saved, `onboardingComplete = true` and the wizard exits.
+  // Tenant safety: every mutation operates against `ctx.user.dealershipId` —
+  // there is no input dealership ID, so cross-tenant onboarding is impossible.
+  onboarding: router({
+    getStatus: protectedProcedure.query(async ({ ctx }) => {
+      const dealershipId = ctx.user.dealershipId;
+      if (!dealershipId) return { hasDealership: false as const };
+      const dealership = await getDealershipById(dealershipId);
+      if (!dealership) return { hasDealership: false as const };
+      const settings = await getDealershipSettings(dealershipId);
+      return {
+        hasDealership: true as const,
+        dealership,
+        settings,
+      };
+    }),
+
+    // Step 1 — dealership profile
+    saveProfile: protectedProcedure
+      .input(z.object({
+        location: z.string().min(1).max(255),
+        brandMix: z.array(z.string()).min(1).max(20),
+        unitVolumeMonthly: z.number().int().min(0).max(10000),
+        pruBaseline: z.number().int().min(0).max(20000),
+        pruTarget: z.number().int().min(0).max(20000).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        if (ctx.user.role !== "admin" && !ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the dealership admin can run onboarding" });
+        }
+        await updateDealershipOnboarding(dealershipId, {
+          location: input.location,
+          brandMix: input.brandMix,
+          unitVolumeMonthly: input.unitVolumeMonthly,
+          pruBaseline: input.pruBaseline,
+          pruTarget: input.pruTarget ?? null,
+          onboardingStep: 1,
+        });
+        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveProfile", resourceType: "dealership", resourceId: String(dealershipId), details: input });
+        return { success: true, step: 1 };
+      }),
+
+    // Step 2 — product menu (bulk upsert)
+    saveProducts: protectedProcedure
+      .input(z.object({
+        items: z.array(z.object({
+          id: z.number().optional(),
+          productType: z.enum(["vehicle_service_contract","gap_insurance","prepaid_maintenance","interior_exterior_protection","road_hazard","paintless_dent_repair","key_replacement","windshield_protection","lease_wear_tear","tire_wheel","theft_protection","other"]),
+          displayName: z.string().min(1),
+          providerName: z.string().optional().nullable(),
+          retailPrice: z.number().optional().nullable(),
+          costToDealer: z.number().optional().nullable(),
+          sortOrder: z.number().optional(),
+        })).min(1).max(30),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        if (ctx.user.role !== "admin" && !ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the dealership admin can run onboarding" });
+        }
+        // For bulk upsert during onboarding we trust dealershipId from ctx.
+        // The id-smuggling case (passing another tenant's item id) is blocked
+        // because every passed id below is verified against this dealership.
+        for (const item of input.items) {
+          if (item.id) {
+            const existing = await getProductMenuItemById(item.id);
+            if (!existing || existing.dealershipId !== dealershipId) {
+              throw new TRPCError({ code: "FORBIDDEN", message: `Item ${item.id} does not belong to this dealership` });
+            }
+          }
+          await upsertProductMenuItem({ ...item, dealershipId });
+        }
+        await updateDealershipOnboarding(dealershipId, { onboardingStep: 2 });
+        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveProducts", resourceType: "dealership", resourceId: String(dealershipId), details: { itemCount: input.items.length } });
+        return { success: true, step: 2, itemCount: input.items.length };
+      }),
+
+    // Step 3 — invite F&I team
+    saveTeam: protectedProcedure
+      .input(z.object({
+        managers: z.array(z.object({
+          name: z.string().min(1).max(255),
+          email: z.string().email(),
+          // role in the dealership ("user" = F&I manager; "admin" = F&I director with admin powers)
+          role: z.enum(["user", "admin"]).default("user"),
+        })).min(1).max(50),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        if (ctx.user.role !== "admin" && !ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the dealership admin can run onboarding" });
+        }
+        const invites: { email: string; token: string }[] = [];
+        for (const mgr of input.managers) {
+          const inv = await createInvitation({
+            email: mgr.email,
+            dealershipId,
+            role: mgr.role,
+            invitedBy: ctx.user.id,
+          });
+          invites.push({ email: mgr.email, token: inv.token });
+        }
+        await updateDealershipOnboarding(dealershipId, { onboardingStep: 3 });
+        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveTeam", resourceType: "dealership", resourceId: String(dealershipId), details: { managerCount: input.managers.length } });
+        return { success: true, step: 3, invites };
+      }),
+
+    // Step 4 — baseline metrics
+    saveBaseline: protectedProcedure
+      .input(z.object({
+        vsaPenBaseline: z.number().min(0).max(100).optional(),
+        gapPenBaseline: z.number().min(0).max(100).optional(),
+        appearancePenBaseline: z.number().min(0).max(100).optional(),
+        chargebackRateBaseline: z.number().min(0).max(100).optional(),
+        citAgingBaseline: z.number().min(0).max(60).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        if (ctx.user.role !== "admin" && !ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the dealership admin can run onboarding" });
+        }
+        await upsertDealershipSettings(dealershipId, input);
+        await updateDealershipOnboarding(dealershipId, { onboardingStep: 4 });
+        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveBaseline", resourceType: "dealership", resourceId: String(dealershipId), details: input });
+        return { success: true, step: 4 };
+      }),
+
+    // Step 5 — coaching cadence (final step; marks onboarding complete)
+    saveCadence: protectedProcedure
+      .input(z.object({
+        coachingCadenceDay: z.enum(["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]),
+        coachingCadenceTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be HH:MM"),
+        coachingRunBy: z.enum(["fi_director", "asura_coach", "dp", "other"]),
+        pru90DayTarget: z.number().int().min(0).max(20000).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const dealershipId = ctx.user.dealershipId;
+        if (!dealershipId) throw new TRPCError({ code: "BAD_REQUEST", message: "No dealership assigned" });
+        if (ctx.user.role !== "admin" && !ctx.user.isGroupAdmin && !ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the dealership admin can run onboarding" });
+        }
+        await upsertDealershipSettings(dealershipId, input);
+        await updateDealershipOnboarding(dealershipId, {
+          onboardingStep: 5,
+          onboardingComplete: true,
+        });
+        await insertAuditLog({ userId: ctx.user.id, action: "onboarding.saveCadence", resourceType: "dealership", resourceId: String(dealershipId), details: input });
+        return { success: true, step: 5, complete: true };
       }),
   }),
 
