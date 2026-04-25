@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-04-25 (live; updated continuously by autonomous Claude Code session)
 **Branch:** `feature/multi-tenant-pilot`
-**Last commit:** `5f1bac9` (Phase 2 backend) — frontend follows in next commit
+**Last commit:** `4efe736` (Phase 3 polish — today's decisions + auto-refresh)
 
 ## Where we are
 
@@ -18,14 +18,18 @@
 | Phase 4a — load-test seed (1000 deals × 5 tenants) + 13 unit tests | ✅ shipped | `e80d237` |
 | Phase 4b — operator runbook (docs/ADDING_NEW_DEALERSHIP.md) | ✅ shipped | `e80d237` |
 | QoL — auto-redirect dealership admins to /onboarding | ✅ shipped | `37b3a3f` |
+| Phase 1.5 follow-up — admin.listUsers cross-tenant fix | ✅ shipped | `938f491` |
+| Phase 1.5 follow-up — compliance.createRule/updateRule/deleteRule cross-tenant | ✅ shipped | `e640697` |
+| Phase 2 follow-up — Resend invite delivery on saveTeam | ✅ shipped | `b98c961` |
+| Phase 3 polish — today's 3 decisions + 10-min auto-refresh | ✅ shipped | `4efe736` |
 | Phase 4c — Manus deploy + mobile smoke test | ⏳ Adrian's hands | — |
 
 ## Test baseline
 
 - `pnpm check`: 0 TypeScript errors
-- `pnpm test`: **32/32 test files green. 1358 passed | 1 skipped | 0 failed** (out of 1359)
+- `pnpm test`: **32/32 test files green. 1376 passed | 1 skipped | 0 failed** (out of 1377)
 - The deepgram-key env check is now `it.skipIf(!process.env.DEEPGRAM_API_KEY)` — passes against a real boxed env, skips cleanly in CI/sandbox
-- Phase 4c (deploy) must keep tests at or above 1358 passing with 0 failing test files
+- Phase 4c (deploy) must keep tests at or above 1376 passing with 0 failing test files
 
 ## Decisions made this session
 
@@ -66,22 +70,19 @@ Failing tests: **0** (the deepgram env-check is now properly skipped, not failed
 
 These are real but non-blocking for the Mon Apr 27 install. Ranked by leak severity:
 
-1. **`getAllUsers` returns all users globally** (medium risk). Called from `admin.users.list`; an admin from store A can list users across all tenants. Fix: filter by `getUserAccessibleDealershipIds(ctx.user.id)`. Touches an existing-tested route — the existing tests need their mock'd users tagged with dealership IDs. ~30 min of careful work.
-
-2. **`compliance.createRule/updateRule/deleteRule` cross-tenant** (medium-low risk). All adminProcedure but don't check rule's dealershipId. An admin from store A can modify store B's compliance rules (CFPB audit-trail integrity issue). Fix: stamp `dealershipId: ctx.user.dealershipId` on insert; load + verify match on update/delete. Existing fi-copilot.test.ts tests need their mock'd rules to match the test user's dealership. ~30 min.
-
-3. **`auditLogs` not auto-stamped with dealershipId** (low risk — audit-only). The schema column exists (Phase 1) but `insertAuditLog` callers don't pass dealershipId. Fix: extend the helper signature, update call sites in routers.ts. Mostly mechanical, ~15 min.
-
-4. **Defense-in-depth: auto-stamp `dealershipId` on session-scoped child inserts** (low risk — reads still go through assertSessionAccess). transcripts, copilotSuggestions, complianceFlags, performanceGrades, audioRecordings, coachingReports, sessionChecklists, objectionLogs, dealRecovery, asuraScorecards, complianceRules. Fix: extend each insert helper + update call sites in routers.ts and websocket.ts. Substantial — ~2 hr.
-
-5. **Resend email for invite delivery** (functional gap). `onboarding.saveTeam` returns invite tokens but doesn't email them. Adrian/Ian email manually for the pilot. ~1 hr to wire `_core/email.ts` template + trigger.
-
-6. **`/yesterday-recap` polish from spec** (nice-to-have). Auto-refresh every 10 min, "today's 3 decisions" AI suggestions, dealership-local timezone. ~2 hr.
+1. ~~`getAllUsers` returns all users globally~~ ✅ fixed in `938f491`.
+2. ~~`compliance.createRule/updateRule/deleteRule` cross-tenant~~ ✅ fixed in `e640697`.
+3. **`auditLogs` not auto-stamped with dealershipId** (low risk — audit-only). The schema column exists (Phase 1) but `insertAuditLog` callers don't pass dealershipId. Mostly mechanical, ~15 min. Note: audit-log access is already user-scoped in the read path, so this is pure defense-in-depth.
+4. **Defense-in-depth: auto-stamp `dealershipId` on session-scoped child inserts** (low risk — reads still go through assertSessionAccess). transcripts, copilotSuggestions, complianceFlags, performanceGrades, audioRecordings, coachingReports, sessionChecklists, objectionLogs, dealRecovery, asuraScorecards, complianceRules. Fix: extend each insert helper + update call sites in routers.ts and websocket.ts. Substantial — ~2 hr. Read-side isolation already correct via assertSessionAccess; this guards against future bugs that forget the access check.
+5. ~~Resend email for invite delivery~~ ✅ shipped in `b98c961`.
+6. ~~`/yesterday-recap` polish~~ ✅ today's 3 decisions + auto-refresh shipped in `4efe736`. Multi-TZ day boundary still deferred — post-pilot scaling concern.
 
 ## Useful state for next session
 
-- Branch is on `feature/multi-tenant-pilot` at `37b3a3f`. PR-able when Adrian wants.
-- All Phase 1-4 backend work that doesn't require external creds is shipped.
+- Branch is on `feature/multi-tenant-pilot` at `4efe736`. PR-able when Adrian wants.
+- 16 commits in autonomous session. Test count `1274/1275 → 1376/1377` (+102 net new tests).
+- All Phase 1-4 backend work + the high-value Phase 1.5 follow-ups are shipped.
+- Remaining deferred items are pure defense-in-depth (#3, #4) or post-pilot multi-TZ — none block the Mon Apr 27 Korum install.
 - Manus deploy + mobile smoke + Korum install on Mon Apr 27 are Adrian's hands.
 
 ## Critical context to preserve across compactions
