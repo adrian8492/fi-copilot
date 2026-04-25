@@ -9,6 +9,7 @@ import {
   boolean,
   json,
   decimal,
+  index,
 } from "drizzle-orm/mysql-core";
 
 // ─── Dealership Groups ───────────────────────────────────────────────────────
@@ -89,6 +90,7 @@ export const sessions = mysqlTable("sessions", {
 export const transcripts = mysqlTable("transcripts", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull(),
+  dealershipId: int("dealershipId"),
   speaker: mysqlEnum("speaker", ["manager", "customer", "unknown"]).default("unknown").notNull(),
   text: text("text").notNull(),
   startTime: float("startTime"),
@@ -96,12 +98,15 @@ export const transcripts = mysqlTable("transcripts", {
   confidence: float("confidence"),
   isFinal: boolean("isFinal").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_transcripts_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Copilot Suggestions ──────────────────────────────────────────────────────
 export const copilotSuggestions = mysqlTable("copilot_suggestions", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull(),
+  dealershipId: int("dealershipId"),
   type: mysqlEnum("type", [
     "product_recommendation",
     "objection_handling",
@@ -140,12 +145,15 @@ export const copilotSuggestions = mysqlTable("copilot_suggestions", {
   usedAt: timestamp("usedAt"),
   usedBy: varchar("usedBy", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_copilot_suggestions_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Compliance Flags ─────────────────────────────────────────────────────────
 export const complianceFlags = mysqlTable("compliance_flags", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull(),
+  dealershipId: int("dealershipId"),
   severity: mysqlEnum("severity", ["critical", "warning", "info"]).default("warning").notNull(),
   rule: varchar("rule", { length: 255 }).notNull(),
   description: text("description").notNull(),
@@ -155,13 +163,16 @@ export const complianceFlags = mysqlTable("compliance_flags", {
   resolvedBy: int("resolvedBy"),
   resolvedAt: timestamp("resolvedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_compliance_flags_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Performance Grades ───────────────────────────────────────────────────────
 export const performanceGrades = mysqlTable("performance_grades", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull().unique(),
   userId: int("userId").notNull(),
+  dealershipId: int("dealershipId"),
   // Rubric scores (0-100)
   rapportScore: float("rapportScore"),
   productPresentationScore: float("productPresentationScore"),
@@ -185,13 +196,16 @@ export const performanceGrades = mysqlTable("performance_grades", {
   transitionAccuracyScore: float("transitionAccuracyScore"),
   wordTrackUtilizationScore: float("wordTrackUtilizationScore"),
   gradedAt: timestamp("gradedAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_performance_grades_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Audio Recordings ─────────────────────────────────────────────────────────
 export const audioRecordings = mysqlTable("audio_recordings", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull(),
   userId: int("userId").notNull(),
+  dealershipId: int("dealershipId"),
   fileKey: varchar("fileKey", { length: 512 }).notNull(),
   fileUrl: text("fileUrl").notNull(),
   fileName: varchar("fileName", { length: 255 }),
@@ -203,13 +217,16 @@ export const audioRecordings = mysqlTable("audio_recordings", {
   processedAt: timestamp("processedAt"),
   retentionExpiresAt: timestamp("retentionExpiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_audio_recordings_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Coaching Reports ─────────────────────────────────────────────────────────
 export const coachingReports = mysqlTable("coaching_reports", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull().unique(),
   userId: int("userId").notNull(),
+  dealershipId: int("dealershipId"),
   executiveSummary: text("executiveSummary"),
   sentimentOverall: mysqlEnum("sentimentOverall", ["positive", "neutral", "negative", "mixed"]),
   sentimentManagerScore: float("sentimentManagerScore"),
@@ -221,7 +238,9 @@ export const coachingReports = mysqlTable("coaching_reports", {
   recommendations: text("recommendations"),
   behaviorInsights: text("behaviorInsights"),
   generatedAt: timestamp("generatedAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_coaching_reports_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Session Checklists ──────────────────────────────────────────────────────
 // Tracks the 17-point F&I process checklist per session (Introduction / Compliance / Menu)
@@ -229,6 +248,7 @@ export const sessionChecklists = mysqlTable("session_checklists", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull().unique(),
   userId: int("userId").notNull(),
+  dealershipId: int("dealershipId"),
   // Introduction section (6 items)
   fiManagerGreeting: boolean("fiManagerGreeting").default(false).notNull(),
   statedTitleWork: boolean("statedTitleWork").default(false).notNull(),
@@ -256,7 +276,9 @@ export const sessionChecklists = mysqlTable("session_checklists", {
   overallChecklistScore: float("overallChecklistScore"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_session_checklists_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Objection Logs ───────────────────────────────────────────────────────────
 // Tracks individual objections raised during sessions for Eagle Eye analytics
@@ -264,6 +286,7 @@ export const objectionLogs = mysqlTable("objection_logs", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull(),
   userId: int("userId").notNull(),
+  dealershipId: int("dealershipId"),
   // Which F&I product was objected to
   product: mysqlEnum("product", [
     "vehicle_service_contract",
@@ -294,12 +317,15 @@ export const objectionLogs = mysqlTable("objection_logs", {
   wasResolved: boolean("wasResolved").default(false).notNull(),
   resolutionMethod: varchar("resolutionMethod", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_objection_logs_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Compliance Rules (Custom Rules Builder) ────────────────────────────────
 export const complianceRules = mysqlTable("compliance_rules", {
   id: int("id").autoincrement().primaryKey(),
   createdBy: int("createdBy").notNull(),
+  dealershipId: int("dealershipId"),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   category: mysqlEnum("category", [
@@ -320,7 +346,9 @@ export const complianceRules = mysqlTable("compliance_rules", {
   dealStage: varchar("dealStage", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_compliance_rules_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Script Library (Verbatim Script Index) ───────────────────────────────────
 export const scriptLibrary = mysqlTable("script_library", {
@@ -351,6 +379,7 @@ export const scriptLibrary = mysqlTable("script_library", {
 export const auditLogs = mysqlTable("audit_logs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"),
+  dealershipId: int("dealershipId"),
   action: varchar("action", { length: 128 }).notNull(),
   resourceType: varchar("resourceType", { length: 64 }),
   resourceId: varchar("resourceId", { length: 64 }),
@@ -358,7 +387,9 @@ export const auditLogs = mysqlTable("audit_logs", {
   ipAddress: varchar("ipAddress", { length: 64 }),
   userAgent: text("userAgent"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_audit_logs_dealership_id").on(table.dealershipId),
+}));
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
@@ -524,6 +555,7 @@ export type InsertProductIntelligenceItem = typeof productIntelligence.$inferIns
 export const dealRecovery = mysqlTable("deal_recovery", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull(),
+  dealershipId: int("dealershipId"),
   productType: mysqlEnum("productType", [
     "vehicle_service_contract",
     "gap_insurance",
@@ -545,7 +577,9 @@ export const dealRecovery = mysqlTable("deal_recovery", {
   actualRevenue: float("actualRevenue"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_deal_recovery_dealership_id").on(table.dealershipId),
+}));
 
 export type DealRecoveryItem = typeof dealRecovery.$inferSelect;
 export type InsertDealRecoveryItem = typeof dealRecovery.$inferInsert;
@@ -555,6 +589,7 @@ export const asuraScorecards = mysqlTable("asura_scorecards", {
   id: int("id").autoincrement().primaryKey(),
   sessionId: int("sessionId").notNull().unique(),
   userId: int("userId").notNull(),
+  dealershipId: int("dealershipId"),
   // Tier-1 Score (weighted overall)
   tier1Score: float("tier1Score").notNull(),
   tier: varchar("tier", { length: 32 }).notNull(), // "Tier-1" | "Tier-2" | "Tier-3" | "Below-Tier"
@@ -573,7 +608,9 @@ export const asuraScorecards = mysqlTable("asura_scorecards", {
   gradedAt: timestamp("gradedAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  dealershipIdIdx: index("ix_asura_scorecards_dealership_id").on(table.dealershipId),
+}));
 
 export type AsuraScorecard = typeof asuraScorecards.$inferSelect;
 export type InsertAsuraScorecard = typeof asuraScorecards.$inferInsert;
