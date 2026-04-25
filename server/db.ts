@@ -1998,6 +1998,27 @@ export async function getCustomerCountByDealership(dealershipId: number): Promis
   return result[0]?.count ?? 0;
 }
 
+/**
+ * Look up a session by its dealNumber within a single dealership scope.
+ * Used by the StoneEagle nightly ingest to dedupe deals that have already
+ * been imported (idempotency).
+ */
+export async function findSessionByDealNumber(dealershipId: number, dealNumber: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.dealershipId, dealershipId),
+        eq(sessions.dealNumber, dealNumber)
+      )
+    )
+    .limit(1);
+  return result[0] ?? null;
+}
+
 export async function getSessionsByCustomerId(customerId: number) {
   const db = await getDb();
   if (!db) return [];
