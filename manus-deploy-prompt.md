@@ -12,8 +12,7 @@ This repo is **ready for April 25 deployment**.
 - `/monthly-dashboard` — Monthly Performance Dashboard with KPI bar, daily pacing chart, calendar heatmap, manager table, product treemap, goal progress, comparison panel
 - `/deal-structure` — Deal Structuring Calculator with payment grid, product affordability, structure optimizer, lender recommendation, deal health indicator, localStorage save
 
-### Verification (April 25)
-- Claude Code was attempted for the nightly build but hung without emitting output; repo was verified manually afterward
+### Verification (April 25, second pass)
 - `pnpm check` — 0 TypeScript errors
 - `pnpm test` — 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
 - Working tree is clean after docs refresh and commit

@@ -568,9 +568,26 @@ Target: 1,240+ tests passing (up from 1,180)
 - Refreshed this task file with tonight’s verification status
 - Refreshed `manus-deploy-prompt.md` for tonight’s deployment handoff
 
-### What's next:
+### What’s next:
 - Deploy current `main` to Manus
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
 - Optional follow-up: diagnose why Claude Code stalled before output on tonight’s run
+
+## Re-verification — April 25, 2026 (second pass)
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all April 21 features present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
+- Confirmed sidebar entries in `AppLayout.tsx` for all pages in correct sections
+- Confirmed `server/nightly-april21.test.ts` present with tests
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ — only documentation update for this verification run
+- Latest commit on `main` before tonight’s update: `1966ee4 docs: refresh nightly verification for april 25`
+
+### What’s next:
+- Deploy current `main` to Manus
+- Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
+- Verify Trainer Mode scenario flow and localStorage persistence
+- Verify mobile More drawer shows new pages in correct sections
