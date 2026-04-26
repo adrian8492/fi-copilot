@@ -576,18 +576,28 @@ Target: 1,240+ tests passing (up from 1,180)
 - Optional follow-up: diagnose why Claude Code stalled before output on tonight’s run
 
 ## Re-verification — April 25, 2026 (second pass)
-**Verified by**: Henry (Claude Code)
-- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
-- Confirmed all April 21 features present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
-- Confirmed sidebar entries in `AppLayout.tsx` for all pages in correct sections
-- Confirmed `server/nightly-april21.test.ts` present with tests
+**Verified by**: Henry (Claude Code + manual verification)
+- Re-ran Claude Code successfully in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`; it refreshed the nightly docs and pushed commit `24ea139`
+- Re-verified all April 21 features remain present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
+- Confirmed sidebar entries in `client/src/components/AppLayout.tsx` remain in the correct sections
+- Confirmed `server/nightly-april21.test.ts` remains present
 - `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
-- `git status` ✅ — only documentation update for this verification run
-- Latest commit on `main` before tonight’s update: `1966ee4 docs: refresh nightly verification for april 25`
+- `pnpm test` ❌ — current repo baseline is **1375/1377 passing** with **1 skipped**, not 1274/1275
+- Confirmed pre-existing env-related noise still appears around Deepgram/OAuth setup, but the current real blocking failure is `server/seed-load-test.test.ts` (`generateDeals` deterministic-seed assertion fails because generated `dealDate` values drift by 1ms between runs)
+- `server/http-stream.test.ts` now passes locally
+- `git status` ✅ — working tree clean after docs refresh and Claude Code push
+- Latest commit on `main` after tonight’s verification: `24ea139 docs: refresh nightly verification for april 25 (second pass)`
+
+### What was completed tonight:
+- Ran Claude Code per nightly instruction
+- Independently re-ran `pnpm check` and `pnpm test`
+- Corrected the nightly status to reflect the actual current test baseline and failure state
+- Refreshed the deployment handoff with an explicit blocker note
 
 ### What’s next:
-- Deploy current `main` to Manus
+- Fix `server/seed-load-test.test.ts` deterministic date-generation bug or relax the assertion to avoid 1ms timestamp drift
+- Re-run `pnpm test` and restore a truthful green baseline before Manus deploy
+- After that, deploy current `main` to Manus
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections

@@ -4,7 +4,7 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **ready for April 25 deployment**.
+This repo is **not deploy-ready yet after April 25 re-verification**.
 
 ### What was built (April 21 nightly, completed April 23)
 - `/chargeback-tracker` — Chargeback Tracker with KPI bar, 25-record chargeback table, reason PieChart, monthly trend, manager impact, at-risk deals, reserve calculator
@@ -14,7 +14,9 @@ This repo is **ready for April 25 deployment**.
 
 ### Verification (April 25, second pass)
 - `pnpm check` — 0 TypeScript errors
-- `pnpm test` — 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `pnpm test` — **1375/1377 passing, 1 skipped**
+- Current blocking failure: `server/seed-load-test.test.ts` deterministic-seed assertion fails because generated `dealDate` timestamps drift by 1ms between runs
+- `server/http-stream.test.ts` now passes locally
 - Working tree is clean after docs refresh and commit
 - All 4 pages remain lazy-loaded in `App.tsx`
 - Sidebar entries remain in place: Monthly Dashboard (Performance), Trainer Mode (Coaching), Deal Structure (Operations), Chargeback Tracker (Business)
@@ -34,8 +36,9 @@ This repo is **ready for April 25 deployment**.
 - Trainer Mode scenario flow, scoring, word track retrieval, and localStorage progress
 
 ## Notes
-- Expected test baseline still includes the single pre-existing Deepgram env-var failure until `DEEPGRAM_API_KEY` is configured in the test environment
-- Optional follow-up after deploy: investigate the Claude Code CLI stall from tonight’s run
+- Do **not** deploy until the seed-load determinism failure is fixed or intentionally re-baselined
+- There is still env-related logging around Deepgram/OAuth setup, but tonight’s real blocker is `server/seed-load-test.test.ts`, not `server/deepgram.test.ts`
+- Optional follow-up after the test fix: investigate why seeded deal generation is producing 1ms timestamp drift
 
 ## All pages in the app (46+ pages)
 Dashboard, Live Session, Session History, Session Detail, Eagle Eye View, Objection Analysis,
