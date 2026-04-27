@@ -4,20 +4,29 @@
 
 > **[BRANCH-MERGE 2026-04-27]** Consolidated `feature/multi-tenant-pilot` (Phases 1–5)
 > + the Sat-night `seed-load-test` date-clamp fix into `main`. **Canonical deploy
-> branch is now `main`.** Last commit on `main`: `27d6db5` (merge commit). Tests:
-> 1402 passed | 1 skipped (1403 total), 32/32 files green, 0 TypeScript errors.
-> Repo is deploy-ready for Korum **Thursday May 1**. The `feature/multi-tenant-pilot`
-> branch is preserved at tip `9863f53` for reference but should not receive new work
-> — branch from `main` going forward.
+> branch is now `main`.** Repo is deploy-ready for Korum **Thursday May 1**. The
+> `feature/multi-tenant-pilot` branch is preserved at tip `9863f53` for reference
+> but should not receive new work — branch from `main` going forward.
+>
+> **[PHASE 6 2026-04-27]** Three issues caught during Adrian's real-use test:
+> (1) hotfix — platform admin login no longer force-redirects to /onboarding
+> (commit `7637e61`); (2) admin-driven onboarding wizard at `/admin/dealerships`
+> + `/admin/dealerships/:id/setup` so Adrian can pre-configure Korum/Paragon
+> before their users get access (commits `4b50cfe` + `f6afb81`); (3) cost-plus
+> pricing model on the product menu — schema + UI toggle, plus the "Other"
+> custom-name validation (commits `aed89af` + `dcef405`). Migration `0025`
+> ships with this. **Last commit on `main`: `dcef405`. Tests: 1426/1427 passing,
+> 33/33 files green, 0 TS errors. +24 net new tests since the merge.**
 
 ## Where you are
 
 | Field | Value |
 |---|---|
 | Branch | **`main`** (canonical deploy branch as of 2026-04-27) |
-| Last commit | `27d6db5` (merge: feature/multi-tenant-pilot Phase 1–5 consolidation) |
+| Last commit | `dcef405` (Phase 6 issue 3 frontend — pricing-toggle UI on both wizards) |
+| Phase 6 entry point | `7637e61` (hotfix: super admin skips /onboarding) — first Phase 6 commit on `main` |
+| Pre-Phase-6 main tip | `27d6db5` (the Phase 1–5 merge commit) |
 | Pre-merge feature tip | `9863f53` (preserved on `feature/multi-tenant-pilot` for reference) |
-| Pre-merge main tip | `3a8dcdb` (test fix that's now folded into the merge) |
 | GitHub | `git@github.com:adrian8492/fi-copilot.git` |
 | Spec — Phases 1-4 | `~/asura-build/content/briefs/fi-copilot-benstock-pilot-sprint.md` |
 | Spec — Phase 5 (current) | `~/asura-build/content/briefs/fi-copilot-phase-5-compliance.md` |
@@ -26,10 +35,11 @@
 ## Test baseline (do NOT regress)
 
 - `pnpm check`: **0 TypeScript errors**
-- `pnpm test`: **32/32 test files green. 1402 passed | 1 skipped | 0 failed** (out of 1403)
+- `pnpm test`: **33/33 test files green. 1426 passed | 1 skipped | 0 failed** (out of 1427)
 - The 1 skipped is `server/deepgram.test.ts` env-gated check (`it.skipIf(!process.env.DEEPGRAM_API_KEY)`); passes in real boxed env, skips in CI/sandbox
-- Net new tests across all of Phase 5: **+26** (Phase 5a +11, Phase 5b +12, Phase 5c +3)
-- Any new work must keep tests at or above 1402 with 0 failing test files
+- Net new tests in Phase 6: **+24** (Phase 6 issue 2 +8 adminOnboarding, issue 3a +2 'other' validation, issue 3b +4 cost-plus integration + 10 unit tests in new `pricing-model.test.ts`)
+- Phase 5 net new tests: **+26** (Phase 5a +11, Phase 5b +12, Phase 5c +3)
+- Any new work must keep tests at or above 1426 with 0 failing test files
 
 ## Anything in progress?
 
@@ -50,6 +60,12 @@
 | **Phase 5a — Two-party recording consent (RCW 9.73.030)** | **✅ shipped** | **`6fbaa7b`** |
 | **Phase 5b — Data-deletion request + audit-trail accessor (FTC Safeguards)** | **✅ shipped** | **`8c31285`** |
 | **Phase 5c — `/compliance` page + DPA gate + DPA template v1** | **✅ shipped** | **`67750db` + `ffbc980`** |
+| **Phase 6 issue 1 — hotfix: super admin skip /onboarding redirect** | **✅ shipped** | **`7637e61`** |
+| **Phase 6 issue 2a — `adminOnboarding` tRPC router + 8 isolation tests** | **✅ shipped** | **`4b50cfe`** |
+| **Phase 6 issue 2b — `/admin/dealerships` list + `/admin/dealerships/:id/setup` wizard** | **✅ shipped** | **`f6afb81`** |
+| **Phase 6 issue 3a/3b — pricing-model schema (migration 0025) + Zod refines + 16 tests** | **✅ shipped** | **`aed89af`** |
+| **Phase 6 issue 3 frontend — cost-plus toggle UI on both wizards** | **✅ shipped** | **`dcef405`** |
+| **Manus deploy runbook** | **✅ shipped** | **`c40405a`** |
 
 ## Korum/Benstock timeline (per Phase 5 spec, last updated 2026-04-25)
 
@@ -65,6 +81,17 @@
 | **Mon May 5** | **Brian Benstock install (Paragon Honda)** | Adrian |
 
 5+ days of buffer remain between today and the install.
+
+## Phase 6 architectural notes for the next session
+
+- **Role taxonomy.** Spec mentioned `platform_admin / super_admin / dealership_admin / dealer_principal`. Schema only has `role: "user" | "admin"` enum + `isSuperAdmin / isGroupAdmin` booleans. Mapping used throughout Phase 6:
+  - `platform_admin / super_admin` → `isSuperAdmin === true`
+  - `dealership_admin / dealer_principal` → `role === "admin"` AND not super
+  - `fi_manager` → `role === "user"`
+  Keeping the existing schema avoided a churnful enum migration during the Korum-week pressure window. A real role-enum overhaul belongs post-pilot.
+- **Admin-driven onboarding has a parallel router (`adminOnboarding`)** with the same 5 mutations + getStatus + listDealershipsWithStatus. Every route requires `isSuperAdmin === true`. Group admins and regular dealership admins still use the self-serve `onboarding` router. Audit logs include `{actor: ctx.user.id, target: input.dealershipId}` so we can reconstruct who configured whom.
+- **Pricing model (migration `0025`)** adds `pricingModel` enum + `markupAmount` + `markupType` to `product_menu`. `db.ts:computeRetailPrice` is the canonical math (also exported for tests). Reads everywhere see the same final `retailPrice` regardless of which model the row was saved with. Frontend wizard pages (`Onboarding.tsx`, `AdminDealershipSetup.tsx`) duplicate the toggle UI — extracting a shared `<ProductMenuStep>` component is post-Korum cleanup.
+- **`/admin/dealerships` setup-status field** is computed (not stored): `step === 0 → pending`, `1-4 → in_progress`, `complete → complete`. Lives only in the response shape from `adminOnboarding.listDealershipsWithStatus`, not in the schema.
 
 ## Decisions pending Adrian (none are blocking)
 
