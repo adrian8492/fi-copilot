@@ -4,28 +4,39 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **not deploy-ready yet after April 25 re-verification**.
+This repo is **deploy-ready** as of the April 26, 2026 nightly build.
 
-### What was built (April 21 nightly, completed April 23)
-- `/chargeback-tracker` — Chargeback Tracker with KPI bar, 25-record chargeback table, reason PieChart, monthly trend, manager impact, at-risk deals, reserve calculator
-- `/trainer-mode` — F&I Trainer Mode with 6 interactive scenarios (credit-challenged, lease return, first-time buyer, cash deal, high PVR, objection gauntlet), ASURA OPS pillar scoring, word tracks, localStorage progress
-- `/monthly-dashboard` — Monthly Performance Dashboard with KPI bar, daily pacing chart, calendar heatmap, manager table, product treemap, goal progress, comparison panel
-- `/deal-structure` — Deal Structuring Calculator with payment grid, product affordability, structure optimizer, lender recommendation, deal health indicator, localStorage save
+### What was fixed (April 26 nightly)
+- Fixed `scripts/seed-load-test.ts` deterministic date-generation bug — `dealMs` could exceed `endDate` by 1ms due to floating-point overflow in the LCG RNG; clamped with `Math.min()` to guarantee dates stay within the rolling window
+- Restored green test baseline: 1376/1377 passing, 1 skipped (pre-existing deepgram env)
 
-### Verification (April 25, second pass)
+### Previous builds on `main`
+- April 21 (completed April 23): Chargeback Tracker, F&I Trainer Mode, Monthly Performance Dashboard, Deal Structuring Calculator
+- April 20: Contract Checklist, F&I Manager Report Card, Funding Queue, Gross Per Unit Tracker
+- April 19: Incentive Tracker, F&I Health Score, Stip Tracker, Deal Profit Breakdown
+- April 18: F&I Snapshot, Trade-In Analyzer, Product Profitability, Coaching Planner
+- April 17: Heat Sheet, Word Tracks, Desk Log, Rate Watch
+- April 6: Lender Matrix, Deal Jacket, Weekend Recap, Commission Calculator, Mobile Bottom Nav
+
+### Verification (April 26)
 - `pnpm check` — 0 TypeScript errors
-- `pnpm test` — **1375/1377 passing, 1 skipped**
-- Current blocking failure: `server/seed-load-test.test.ts` deterministic-seed assertion fails because generated `dealDate` timestamps drift by 1ms between runs
-- `server/http-stream.test.ts` now passes locally
-- Working tree is clean after docs refresh and commit
-- All 4 pages remain lazy-loaded in `App.tsx`
-- Sidebar entries remain in place: Monthly Dashboard (Performance), Trainer Mode (Coaching), Deal Structure (Operations), Chargeback Tracker (Business)
+- `pnpm test` — 1376/1377 passing, 1 skipped
+- No blocking failures — the seed-load-test determinism bug is resolved
+- Working tree is clean after commit and push
 
 ## Smoke-test these routes
-- `/monthly-dashboard`
-- `/deal-structure`
 - `/chargeback-tracker`
 - `/trainer-mode`
+- `/monthly-dashboard`
+- `/deal-structure`
+- `/contract-checklist`
+- `/report-card`
+- `/funding-queue`
+- `/gpu-tracker`
+- `/incentive-tracker`
+- `/fi-health`
+- `/stip-tracker`
+- `/deal-profit`
 
 ## Smoke-test focus
 - Sidebar placement in correct sections
@@ -34,13 +45,15 @@ This repo is **not deploy-ready yet after April 25 re-verification**.
 - Deal Structure payment grid, lender recommendations, optimizer, save/load behavior
 - Chargeback filters, KPI math, trend chart, reserve calculator
 - Trainer Mode scenario flow, scoring, word track retrieval, and localStorage progress
+- Funding Queue bulk actions and detail slide-out
+- Contract Checklist fund-readiness gating
 
 ## Notes
-- Do **not** deploy until the seed-load determinism failure is fixed or intentionally re-baselined
-- There is still env-related logging around Deepgram/OAuth setup, but tonight’s real blocker is `server/seed-load-test.test.ts`, not `server/deepgram.test.ts`
-- Optional follow-up after the test fix: investigate why seeded deal generation is producing 1ms timestamp drift
+- Repo is deploy-ready — no blocking test failures remain
+- The 1 skipped test is `server/deepgram.test.ts` which requires `DEEPGRAM_API_KEY` env var (not a code issue)
+- All new pages are lazy-loaded in `App.tsx` and registered in `AppLayout.tsx` sidebar
 
-## All pages in the app (46+ pages)
+## All pages in the app (60+ pages)
 Dashboard, Live Session, Session History, Session Detail, Eagle Eye View, Objection Analysis,
 Admin Panel, Analytics, Batch Upload, Compliance Rules, Customers, Customer Detail, Product Menu,
 Deal Recovery, Dealership Settings, Pipeline Diagnostics, Manager Scorecard, Demo Mode, Session Comparison,

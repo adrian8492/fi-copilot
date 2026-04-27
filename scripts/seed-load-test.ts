@@ -95,7 +95,7 @@ export function generateDeals(opts: GenerateOptions): FakeDeal[] {
     const managerIdxInTenant = rng.int(0, managersPerTenant - 1);
     const managerId = tenantIdx * managersPerTenant + managerIdxInTenant + 1; // 1-based
     const tenantId = tenantIdx + 1;
-    const dealMs = startMs + Math.floor(rng.next() * (endDate.getTime() - startMs));
+    const dealMs = Math.min(startMs + Math.floor(rng.next() * (endDate.getTime() - startMs + 1)), endDate.getTime());
     const dealDate = new Date(dealMs);
 
     // Realistic-ish PRU distribution: bulk around $1,400–$2,200, long tail to $4k.

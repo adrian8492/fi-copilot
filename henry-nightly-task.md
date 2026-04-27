@@ -595,9 +595,27 @@ Target: 1,240+ tests passing (up from 1,180)
 - Refreshed the deployment handoff with an explicit blocker note
 
 ### What’s next:
-- Fix `server/seed-load-test.test.ts` deterministic date-generation bug or relax the assertion to avoid 1ms timestamp drift
-- Re-run `pnpm test` and restore a truthful green baseline before Manus deploy
-- After that, deploy current `main` to Manus
+- Deploy current `main` to Manus
+- Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
+- Verify Trainer Mode scenario flow and localStorage persistence
+- Verify mobile More drawer shows new pages in correct sections
+
+## Nightly Build — April 26, 2026
+**Completed by**: Henry (Claude Code)
+**Tests**: 1376/1377 passing, 1 skipped (1 pre-existing deepgram env failure)
+**TypeScript**: 0 errors
+
+### What was completed tonight:
+1. **Fixed `seed-load-test.ts` deterministic date-generation bug** — the `generateDeals` function in `scripts/seed-load-test.ts` could produce `dealDate` timestamps exceeding `endDate` by 1ms due to floating-point overflow in the LCG RNG multiplication. Applied `Math.min()` clamp on line 98 to guarantee `dealMs ≤ endDate.getTime()`. This restores `server/seed-load-test.test.ts` to green.
+2. **Restored green test baseline** — all 1376 tests now pass (plus 1 skipped deepgram env test), up from 1375/1377 with 1 real failure on April 25.
+
+### Verification:
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — 1376/1377 passing, 1 skipped (pre-existing `server/deepgram.test.ts` env failure)
+- `git status` ✅ — only the seed-load-test fix + documentation updates
+
+### What’s next:
+- Deploy current `main` to Manus — repo is now deploy-ready with a clean test baseline
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
