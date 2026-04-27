@@ -200,6 +200,13 @@ export default function Dashboard() {
   // Auto-redirect dealership admins to /onboarding when their store hasn't
   // finished the 5-step setup. Non-admin F&I managers stay on the dashboard
   // (they can't run onboarding anyway and shouldn't be bounced).
+  //
+  // PHASE 6 HOTFIX (2026-04-27): platform-level super admins are NOT
+  // dealership admins — they manage the platform, not a single store. The
+  // earlier `isSuperAdmin` inclusion in the redirect check forced Adrian
+  // (super admin) into /onboarding whenever his nominal dealership row had
+  // onboardingComplete=false. Excluded here so super admins land on
+  // Dashboard normally and can navigate to /admin from there.
   const onboardingStatus = trpc.onboarding.getStatus.useQuery(undefined, {
     // only run once we know the user's role; spares one round-trip for guests
     enabled: !!user,
@@ -207,8 +214,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user || !onboardingStatus.data) return;
     const u = user as { role?: string; isSuperAdmin?: boolean; isGroupAdmin?: boolean };
-    const isAdmin = u.role === "admin" || u.isSuperAdmin || u.isGroupAdmin;
-    if (!isAdmin) return;
+    if (u.isSuperAdmin) return; // platform admins never onboard
+    const isDealershipAdmin = u.role === "admin" || u.isGroupAdmin;
+    if (!isDealershipAdmin) return;
     if (onboardingStatus.data.hasDealership && !onboardingStatus.data.dealership.onboardingComplete) {
       navigate("/onboarding");
     }
