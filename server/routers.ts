@@ -945,6 +945,229 @@ export const appRouter = router({
       }),
   }),
 
+  // ─── Admin-driven Onboarding (Phase 6) ──────────────────────────────────────
+  // Mirrors the self-serve `onboarding` router above but accepts a target
+  // dealershipId from input — used by Adrian (super admin) to PRE-CONFIGURE
+  // a dealership before its admin/managers get access. Once admin completes
+  // Step 5 here, `onboardingComplete = true` on the target dealership and the
+  // dealership's own users land on Dashboard normally (no /onboarding bounce).
+  //
+  // Tenant safety: every route requires `isSuperAdmin === true`. Group admins
+  // and regular admins use the self-serve `onboarding` router for their own
+  // store; only super admins may configure ANY dealership through this one.
+  adminOnboarding: router({
+    getStatus: protectedProcedure
+      .input(z.object({ dealershipId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        if (!ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Super admin only" });
+        }
+        const dealership = await getDealershipById(input.dealershipId);
+        if (!dealership) return { hasDealership: false as const };
+        const settings = await getDealershipSettings(input.dealershipId);
+        return { hasDealership: true as const, dealership, settings };
+      }),
+
+    saveProfile: protectedProcedure
+      .input(z.object({
+        dealershipId: z.number(),
+        location: z.string().min(1).max(255),
+        brandMix: z.array(z.string()).min(1).max(20),
+        unitVolumeMonthly: z.number().int().min(0).max(10000),
+        pruBaseline: z.number().int().min(0).max(20000),
+        pruTarget: z.number().int().min(0).max(20000).optional(),
+        // Phase 6: when admin configures on behalf of dealership, DPA can be
+        // attested separately by the dealership admin or stamped here if
+        // signed offline. Default to false; require explicit confirm.
+        dpaAccepted: z.literal(true, { message: "DPA acceptance is required (admin confirms dealer signed offline)" }),
+        dpaVersion: z.string().min(1).max(32),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Super admin only" });
+        }
+        const dealership = await getDealershipById(input.dealershipId);
+        if (!dealership) throw new TRPCError({ code: "NOT_FOUND", message: "Dealership not found" });
+        await updateDealershipOnboarding(input.dealershipId, {
+          location: input.location,
+          brandMix: input.brandMix,
+          unitVolumeMonthly: input.unitVolumeMonthly,
+          pruBaseline: input.pruBaseline,
+          pruTarget: input.pruTarget ?? null,
+          onboardingStep: 1,
+          dpaSignedAt: new Date(),
+          dpaVersion: input.dpaVersion,
+          dpaSignedBy: ctx.user.id,
+        });
+        await insertAuditLog({
+          userId: ctx.user.id,
+          action: "adminOnboarding.saveProfile",
+          resourceType: "dealership",
+          resourceId: String(input.dealershipId),
+          details: { actor: ctx.user.id, target: input.dealershipId, dpaVersion: input.dpaVersion, location: input.location },
+        });
+        return { success: true, step: 1 };
+      }),
+
+    saveProducts: protectedProcedure
+      .input(z.object({
+        dealershipId: z.number(),
+        items: z.array(z.object({
+          id: z.number().optional(),
+          productType: z.enum(["vehicle_service_contract","gap_insurance","prepaid_maintenance","interior_exterior_protection","road_hazard","paintless_dent_repair","key_replacement","windshield_protection","lease_wear_tear","tire_wheel","theft_protection","other"]),
+          displayName: z.string().min(1),
+          providerName: z.string().optional().nullable(),
+          retailPrice: z.number().optional().nullable(),
+          costToDealer: z.number().optional().nullable(),
+          sortOrder: z.number().optional(),
+        })).min(1).max(30),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Super admin only" });
+        }
+        const dealership = await getDealershipById(input.dealershipId);
+        if (!dealership) throw new TRPCError({ code: "NOT_FOUND", message: "Dealership not found" });
+        for (const item of input.items) {
+          if (item.id) {
+            const existing = await getProductMenuItemById(item.id);
+            if (!existing || existing.dealershipId !== input.dealershipId) {
+              throw new TRPCError({ code: "FORBIDDEN", message: `Item ${item.id} does not belong to dealership ${input.dealershipId}` });
+            }
+          }
+          await upsertProductMenuItem({ ...item, dealershipId: input.dealershipId });
+        }
+        await updateDealershipOnboarding(input.dealershipId, { onboardingStep: 2 });
+        await insertAuditLog({ userId: ctx.user.id, action: "adminOnboarding.saveProducts", resourceType: "dealership", resourceId: String(input.dealershipId), details: { actor: ctx.user.id, target: input.dealershipId, itemCount: input.items.length } });
+        return { success: true, step: 2, itemCount: input.items.length };
+      }),
+
+    saveTeam: protectedProcedure
+      .input(z.object({
+        dealershipId: z.number(),
+        managers: z.array(z.object({
+          name: z.string().min(1).max(255),
+          email: z.string().email(),
+          role: z.enum(["user", "admin"]).default("user"),
+        })).min(1).max(50),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Super admin only" });
+        }
+        const dealership = await getDealershipById(input.dealershipId);
+        if (!dealership) throw new TRPCError({ code: "NOT_FOUND", message: "Dealership not found" });
+        const dealershipName = dealership.name;
+        const inviterName = ctx.user.name ?? "ASURA Admin";
+        const appBaseUrl = process.env.APP_BASE_URL ?? "https://finico-pilot-mqskutaj.manus.space";
+
+        const invites: { email: string; token: string; emailed: boolean }[] = [];
+        for (const mgr of input.managers) {
+          const inv = await createInvitation({
+            email: mgr.email,
+            dealershipId: input.dealershipId,
+            role: mgr.role,
+            invitedBy: ctx.user.id,
+          });
+          let emailed = false;
+          try {
+            emailed = await sendEmail(buildOnboardingInviteEmail({
+              managerName: mgr.name,
+              managerEmail: mgr.email,
+              dealershipName,
+              inviterName,
+              inviteToken: inv.token,
+              appBaseUrl,
+            }));
+          } catch {
+            emailed = false;
+          }
+          invites.push({ email: mgr.email, token: inv.token, emailed });
+        }
+        await updateDealershipOnboarding(input.dealershipId, { onboardingStep: 3 });
+        await insertAuditLog({ userId: ctx.user.id, action: "adminOnboarding.saveTeam", resourceType: "dealership", resourceId: String(input.dealershipId), details: { actor: ctx.user.id, target: input.dealershipId, managerCount: input.managers.length, emailedCount: invites.filter(i => i.emailed).length } });
+        return { success: true, step: 3, invites };
+      }),
+
+    saveBaseline: protectedProcedure
+      .input(z.object({
+        dealershipId: z.number(),
+        vsaPenBaseline: z.number().min(0).max(100).optional(),
+        gapPenBaseline: z.number().min(0).max(100).optional(),
+        appearancePenBaseline: z.number().min(0).max(100).optional(),
+        chargebackRateBaseline: z.number().min(0).max(100).optional(),
+        citAgingBaseline: z.number().min(0).max(60).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Super admin only" });
+        }
+        const dealership = await getDealershipById(input.dealershipId);
+        if (!dealership) throw new TRPCError({ code: "NOT_FOUND", message: "Dealership not found" });
+        const { dealershipId, ...settingsData } = input;
+        await upsertDealershipSettings(dealershipId, settingsData);
+        await updateDealershipOnboarding(dealershipId, { onboardingStep: 4 });
+        await insertAuditLog({ userId: ctx.user.id, action: "adminOnboarding.saveBaseline", resourceType: "dealership", resourceId: String(dealershipId), details: { actor: ctx.user.id, target: dealershipId, ...settingsData } });
+        return { success: true, step: 4 };
+      }),
+
+    saveCadence: protectedProcedure
+      .input(z.object({
+        dealershipId: z.number(),
+        coachingCadenceDay: z.enum(["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]),
+        coachingCadenceTime: z.string().regex(/^\d{2}:\d{2}$/, "Time must be HH:MM"),
+        coachingRunBy: z.enum(["fi_director", "asura_coach", "dp", "other"]),
+        pru90DayTarget: z.number().int().min(0).max(20000).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.user.isSuperAdmin) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Super admin only" });
+        }
+        const dealership = await getDealershipById(input.dealershipId);
+        if (!dealership) throw new TRPCError({ code: "NOT_FOUND", message: "Dealership not found" });
+        const { dealershipId, ...settingsData } = input;
+        await upsertDealershipSettings(dealershipId, settingsData);
+        await updateDealershipOnboarding(dealershipId, {
+          onboardingStep: 5,
+          onboardingComplete: true,
+        });
+        await insertAuditLog({ userId: ctx.user.id, action: "adminOnboarding.saveCadence", resourceType: "dealership", resourceId: String(dealershipId), details: { actor: ctx.user.id, target: dealershipId, ...settingsData } });
+        return { success: true, step: 5, complete: true };
+      }),
+
+    /**
+     * List every dealership with its setup-status snapshot. Powers the
+     * `/admin/dealerships` table's "Setup Status" column. Returns
+     * Pending (step 0), In Progress (1-4), or Complete (5).
+     */
+    listDealershipsWithStatus: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.user.isSuperAdmin) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Super admin only" });
+      }
+      const all = await getAllDealerships();
+      return all.map((d) => {
+        const step = d.onboardingStep ?? 0;
+        const setupStatus =
+          d.onboardingComplete ? "complete" :
+          step === 0 ? "pending" :
+          "in_progress";
+        return {
+          id: d.id,
+          name: d.name,
+          slug: d.slug,
+          plan: d.plan,
+          isActive: d.isActive,
+          onboardingStep: step,
+          onboardingComplete: d.onboardingComplete,
+          setupStatus,
+          dpaSignedAt: d.dpaSignedAt,
+          dpaVersion: d.dpaVersion,
+          createdAt: d.createdAt,
+        };
+      });
+    }),
+  }),
+
   // ─── Recaps (Phase 3 — Brian Benstock's #1 ask: /yesterday-recap) ──────────
   // Returns a structured morning digest for the caller's dealership. Tenant
   // safety: dealershipId comes from ctx, not input. Super admins can pass an

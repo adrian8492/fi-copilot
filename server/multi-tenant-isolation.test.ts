@@ -1481,6 +1481,174 @@ describe("Phase 1.5 follow-up: compliance.createRule stamps dealershipId", () =>
   });
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// K. Phase 6 — admin-driven onboarding wizard
+//    Adrian (super admin) pre-configures a dealership on behalf of its
+//    admin, so when the dealership users log in the menu/products/cadence
+//    are already set. Tenant safety: super admin gate on every route.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe("Phase 6: adminOnboarding super-admin gate", () => {
+  it("Korum admin (not super) cannot run admin onboarding for any dealership", async () => {
+    const korumAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(korumAdmin));
+    await expect(
+      caller.adminOnboarding.saveProfile({
+        dealershipId: STORE_B,
+        location: "NYC",
+        brandMix: ["Honda"],
+        unitVolumeMonthly: 300,
+        pruBaseline: 1900,
+        dpaAccepted: true as const,
+        dpaVersion: "v1",
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.updateDealershipOnboarding).not.toHaveBeenCalled();
+  });
+
+  it("group admin (not super) cannot run admin onboarding even for in-group dealership", async () => {
+    const groupAdmin = makeUser({ id: 5, role: "admin", isGroupAdmin: true, dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(groupAdmin));
+    await expect(
+      caller.adminOnboarding.getStatus({ dealershipId: STORE_A })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("super admin CAN run saveProfile against any dealership", async () => {
+    vi.mocked(db.getDealershipById).mockResolvedValueOnce({
+      id: STORE_B,
+      name: "Paragon Honda",
+      slug: "paragon",
+      plan: "beta",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      groupId: null,
+      location: null, brandMix: null, unitVolumeMonthly: null,
+      pruBaseline: null, pruTarget: null,
+      onboardingStep: 0, onboardingComplete: false,
+      dpaSignedAt: null, dpaVersion: null, dpaSignedBy: null,
+    } as never);
+
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true, dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    const result = await caller.adminOnboarding.saveProfile({
+      dealershipId: STORE_B,
+      location: "Queens, NY",
+      brandMix: ["Honda"],
+      unitVolumeMonthly: 600,
+      pruBaseline: 2200,
+      pruTarget: 2700,
+      dpaAccepted: true as const,
+      dpaVersion: "v1",
+    });
+    expect(result).toEqual({ success: true, step: 1 });
+    expect(db.updateDealershipOnboarding).toHaveBeenCalledWith(STORE_B, expect.objectContaining({
+      location: "Queens, NY",
+      onboardingStep: 1,
+      dpaSignedBy: 99,
+    }));
+  });
+
+  it("super admin saveProducts rejects id-smuggling across dealerships", async () => {
+    vi.mocked(db.getDealershipById).mockResolvedValueOnce({
+      id: STORE_B, name: "Paragon", slug: "p", plan: "beta", isActive: true,
+      createdAt: new Date(), updatedAt: new Date(), groupId: null,
+      location: null, brandMix: null, unitVolumeMonthly: null,
+      pruBaseline: null, pruTarget: null,
+      onboardingStep: 0, onboardingComplete: false,
+      dpaSignedAt: null, dpaVersion: null, dpaSignedBy: null,
+    } as never);
+    // Admin tries to update STORE_B but passes an item id that belongs to STORE_C.
+    vi.mocked(db.getProductMenuItemById).mockResolvedValueOnce({
+      id: 42, dealershipId: STORE_C,
+      productType: "gap_insurance", displayName: "GAP",
+      providerName: null, description: null,
+      costToDealer: null, retailPrice: null,
+      termMonths: null, maxMileage: null,
+      isActive: true, sortOrder: 0,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as never);
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true, dealershipId: null });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    await expect(
+      caller.adminOnboarding.saveProducts({
+        dealershipId: STORE_B,
+        items: [{ id: 42, productType: "gap_insurance", displayName: "Pwned" }],
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(db.upsertProductMenuItem).not.toHaveBeenCalled();
+  });
+
+  it("saveCadence finalizes onboarding (step 5 + complete=true) on the target dealership", async () => {
+    vi.mocked(db.getDealershipById).mockResolvedValueOnce({
+      id: STORE_A, name: "Korum", slug: "k", plan: "beta", isActive: true,
+      createdAt: new Date(), updatedAt: new Date(), groupId: null,
+      location: "Puyallup, WA", brandMix: ["Toyota"],
+      unitVolumeMonthly: 200, pruBaseline: 1700, pruTarget: 2200,
+      onboardingStep: 4, onboardingComplete: false,
+      dpaSignedAt: new Date(), dpaVersion: "v1", dpaSignedBy: 99,
+    } as never);
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    const result = await caller.adminOnboarding.saveCadence({
+      dealershipId: STORE_A,
+      coachingCadenceDay: "monday",
+      coachingCadenceTime: "09:00",
+      coachingRunBy: "fi_director",
+      pru90DayTarget: 2200,
+    });
+    expect(result).toEqual({ success: true, step: 5, complete: true });
+    expect(db.updateDealershipOnboarding).toHaveBeenCalledWith(STORE_A, {
+      onboardingStep: 5,
+      onboardingComplete: true,
+    });
+  });
+
+  it("saveProfile fails NOT_FOUND when target dealership doesn't exist", async () => {
+    vi.mocked(db.getDealershipById).mockResolvedValueOnce(null);
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    await expect(
+      caller.adminOnboarding.saveProfile({
+        dealershipId: 99999,
+        location: "Nowhere",
+        brandMix: ["Toyota"],
+        unitVolumeMonthly: 100,
+        pruBaseline: 1500,
+        dpaAccepted: true as const,
+        dpaVersion: "v1",
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("Phase 6: adminOnboarding.listDealershipsWithStatus", () => {
+  it("super admin gets list with mapped setup statuses", async () => {
+    vi.mocked(db.getAllDealerships).mockResolvedValueOnce([
+      { id: 1, name: "Pending Co", slug: "pending", plan: "beta", isActive: true, groupId: null, createdAt: new Date(), updatedAt: new Date(), location: null, brandMix: null, unitVolumeMonthly: null, pruBaseline: null, pruTarget: null, onboardingStep: 0, onboardingComplete: false, dpaSignedAt: null, dpaVersion: null, dpaSignedBy: null },
+      { id: 2, name: "Mid Co", slug: "mid", plan: "beta", isActive: true, groupId: null, createdAt: new Date(), updatedAt: new Date(), location: "x", brandMix: ["x"], unitVolumeMonthly: 100, pruBaseline: 1500, pruTarget: null, onboardingStep: 3, onboardingComplete: false, dpaSignedAt: null, dpaVersion: null, dpaSignedBy: null },
+      { id: 3, name: "Done Co", slug: "done", plan: "pro", isActive: true, groupId: null, createdAt: new Date(), updatedAt: new Date(), location: "x", brandMix: ["x"], unitVolumeMonthly: 100, pruBaseline: 1500, pruTarget: null, onboardingStep: 5, onboardingComplete: true, dpaSignedAt: new Date(), dpaVersion: "v1", dpaSignedBy: 99 },
+    ] as never);
+
+    const adrian = makeUser({ id: 99, role: "admin", isSuperAdmin: true });
+    const caller = appRouter.createCaller(makeCtx(adrian));
+    const list = await caller.adminOnboarding.listDealershipsWithStatus();
+    expect(list).toHaveLength(3);
+    expect(list[0].setupStatus).toBe("pending");
+    expect(list[1].setupStatus).toBe("in_progress");
+    expect(list[2].setupStatus).toBe("complete");
+  });
+
+  it("non-super-admin cannot list dealerships with status", async () => {
+    const dealerAdmin = makeUser({ id: 1, role: "admin", dealershipId: STORE_A });
+    const caller = appRouter.createCaller(makeCtx(dealerAdmin));
+    await expect(
+      caller.adminOnboarding.listDealershipsWithStatus()
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
 describe("tRPC isolation: sessions.list scope routing", () => {
   it("regular Korum user only sees their own sessions (getSessionsByUserId, NOT getAllSessions)", async () => {
     vi.mocked(db.getSessionsByUserId).mockResolvedValueOnce([]);
