@@ -72,12 +72,22 @@ export default function AdminDealershipSetup() {
   const [pruTarget, setPruTarget] = useState("");
   const [dpaAccepted, setDpaAccepted] = useState(false);
 
-  // Step 2 state
+  // Step 2 state — Phase 6 issue 3b adds pricingModel + cost-plus fields.
+  type PricingModel = "fixed_retail" | "cost_plus";
+  type MarkupType = "dollar" | "percent";
   const [products, setProducts] = useState<
-    { productType: ProductType; displayName: string; retailPrice: string }[]
+    {
+      productType: ProductType;
+      displayName: string;
+      retailPrice: string;
+      pricingModel: PricingModel;
+      costToDealer: string;
+      markupAmount: string;
+      markupType: MarkupType;
+    }[]
   >([
-    { productType: "vehicle_service_contract", displayName: "VSA", retailPrice: "" },
-    { productType: "gap_insurance", displayName: "GAP", retailPrice: "" },
+    { productType: "vehicle_service_contract", displayName: "VSA", retailPrice: "", pricingModel: "fixed_retail", costToDealer: "", markupAmount: "", markupType: "dollar" },
+    { productType: "gap_insurance", displayName: "GAP", retailPrice: "", pricingModel: "fixed_retail", costToDealer: "", markupAmount: "", markupType: "dollar" },
   ]);
 
   // Step 3 state
@@ -218,11 +228,25 @@ export default function AdminDealershipSetup() {
       dealershipId,
       items: products
         .filter((p) => p.displayName.trim())
-        .map((p) => ({
-          productType: p.productType,
-          displayName: p.displayName.trim(),
-          retailPrice: p.retailPrice ? parseFloat(p.retailPrice) : null,
-        })),
+        .map((p) => {
+          const base = {
+            productType: p.productType,
+            displayName: p.displayName.trim(),
+            pricingModel: p.pricingModel,
+          };
+          if (p.pricingModel === "cost_plus") {
+            return {
+              ...base,
+              costToDealer: p.costToDealer ? parseFloat(p.costToDealer) : null,
+              markupAmount: p.markupAmount ? parseFloat(p.markupAmount) : null,
+              markupType: p.markupType,
+            };
+          }
+          return {
+            ...base,
+            retailPrice: p.retailPrice ? parseFloat(p.retailPrice) : null,
+          };
+        }),
     });
   };
 
@@ -353,50 +377,103 @@ export default function AdminDealershipSetup() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Package className="w-5 h-5 text-primary" /> Product menu</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {products.map((p, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-5 space-y-1">
-                    {idx === 0 && <Label>Type</Label>}
-                    <Select
-                      value={p.productType}
-                      onValueChange={(v) =>
-                        setProducts(products.map((x, i) => (i === idx ? { ...x, productType: v as ProductType } : x)))
-                      }
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {PRODUCT_TYPES.map((pt) => <SelectItem key={pt} value={pt}>{pt.replace(/_/g, " ")}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+            <CardContent className="space-y-4">
+              {products.map((p, idx) => {
+                const cost = parseFloat(p.costToDealer || "0");
+                const markup = parseFloat(p.markupAmount || "0");
+                const computedRetail = p.markupType === "percent"
+                  ? Math.round(cost * (1 + markup / 100) * 100) / 100
+                  : Math.round((cost + markup) * 100) / 100;
+                const updateRow = (patch: Partial<typeof p>) =>
+                  setProducts(products.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
+                return (
+                  <div key={idx} className="rounded-md border border-border p-3 space-y-2">
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-4 space-y-1">
+                        {idx === 0 && <Label>Type</Label>}
+                        <Select
+                          value={p.productType}
+                          onValueChange={(v) => updateRow({ productType: v as ProductType })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {PRODUCT_TYPES.map((pt) => <SelectItem key={pt} value={pt}>{pt.replace(/_/g, " ")}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-4 space-y-1">
+                        {idx === 0 && <Label>Display name</Label>}
+                        <Input
+                          value={p.displayName}
+                          onChange={(e) => updateRow({ displayName: e.target.value })}
+                          placeholder={p.productType === "other" ? "Required — name this product" : ""}
+                        />
+                      </div>
+                      <div className="col-span-3 space-y-1">
+                        {idx === 0 && <Label>Pricing</Label>}
+                        <Select
+                          value={p.pricingModel}
+                          onValueChange={(v) => updateRow({ pricingModel: v as PricingModel })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="fixed_retail">Fixed retail</SelectItem>
+                            <SelectItem value="cost_plus">Cost plus</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-1">
+                        <Button variant="ghost" size="icon" onClick={() => setProducts(products.filter((_, i) => i !== idx))} disabled={products.length <= 1}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    {p.pricingModel === "fixed_retail" ? (
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-3 space-y-1">
+                          <Label className="text-xs">Retail $</Label>
+                          <Input
+                            type="number"
+                            value={p.retailPrice}
+                            onChange={(e) => updateRow({ retailPrice: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-12 gap-2 items-end bg-muted/30 rounded-md p-2 -mx-1">
+                        <div className="col-span-3 space-y-1">
+                          <Label className="text-xs">Dealer cost $</Label>
+                          <Input type="number" value={p.costToDealer} onChange={(e) => updateRow({ costToDealer: e.target.value })} />
+                        </div>
+                        <div className="col-span-3 space-y-1">
+                          <Label className="text-xs">Markup</Label>
+                          <Input type="number" value={p.markupAmount} onChange={(e) => updateRow({ markupAmount: e.target.value })} />
+                        </div>
+                        <div className="col-span-2 space-y-1">
+                          <Label className="text-xs">$ / %</Label>
+                          <Select value={p.markupType} onValueChange={(v) => updateRow({ markupType: v as MarkupType })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="dollar">$ dollar</SelectItem>
+                              <SelectItem value="percent">% percent</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-4 space-y-1">
+                          <Label className="text-xs text-muted-foreground">Retail (computed)</Label>
+                          <div className="h-9 px-3 flex items-center rounded-md bg-background border border-border text-sm font-medium">
+                            ${computedRetail.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="col-span-4 space-y-1">
-                    {idx === 0 && <Label>Display name</Label>}
-                    <Input
-                      value={p.displayName}
-                      onChange={(e) => setProducts(products.map((x, i) => (i === idx ? { ...x, displayName: e.target.value } : x)))}
-                      placeholder={p.productType === "other" ? "Required — name this product" : ""}
-                    />
-                  </div>
-                  <div className="col-span-2 space-y-1">
-                    {idx === 0 && <Label>Retail $</Label>}
-                    <Input
-                      type="number"
-                      value={p.retailPrice}
-                      onChange={(e) => setProducts(products.map((x, i) => (i === idx ? { ...x, retailPrice: e.target.value } : x)))}
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <Button variant="ghost" size="icon" onClick={() => setProducts(products.filter((_, i) => i !== idx))} disabled={products.length <= 1}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setProducts([...products, { productType: "other", displayName: "", retailPrice: "" }])}
+                onClick={() => setProducts([...products, { productType: "other", displayName: "", retailPrice: "", pricingModel: "fixed_retail", costToDealer: "", markupAmount: "", markupType: "dollar" }])}
               >
                 <Plus className="w-4 h-4 mr-1" /> Add product
               </Button>
