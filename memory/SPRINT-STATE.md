@@ -2,14 +2,23 @@
 
 **This is the canonical resume document. Read it first. Anything else is reference.**
 
+> **[BRANCH-MERGE 2026-04-27]** Consolidated `feature/multi-tenant-pilot` (Phases 1–5)
+> + the Sat-night `seed-load-test` date-clamp fix into `main`. **Canonical deploy
+> branch is now `main`.** Last commit on `main`: `27d6db5` (merge commit). Tests:
+> 1402 passed | 1 skipped (1403 total), 32/32 files green, 0 TypeScript errors.
+> Repo is deploy-ready for Korum **Thursday May 1**. The `feature/multi-tenant-pilot`
+> branch is preserved at tip `9863f53` for reference but should not receive new work
+> — branch from `main` going forward.
+
 ## Where you are
 
 | Field | Value |
 |---|---|
-| Branch | `feature/multi-tenant-pilot` |
-| Last commit | `ffbc980` (Phase 5c DPA template — Phase 5 fully shipped) |
+| Branch | **`main`** (canonical deploy branch as of 2026-04-27) |
+| Last commit | `27d6db5` (merge: feature/multi-tenant-pilot Phase 1–5 consolidation) |
+| Pre-merge feature tip | `9863f53` (preserved on `feature/multi-tenant-pilot` for reference) |
+| Pre-merge main tip | `3a8dcdb` (test fix that's now folded into the merge) |
 | GitHub | `git@github.com:adrian8492/fi-copilot.git` |
-| PR url | `https://github.com/adrian8492/fi-copilot/pull/new/feature/multi-tenant-pilot` |
 | Spec — Phases 1-4 | `~/asura-build/content/briefs/fi-copilot-benstock-pilot-sprint.md` |
 | Spec — Phase 5 (current) | `~/asura-build/content/briefs/fi-copilot-phase-5-compliance.md` |
 | Operating rules | `~/asura-build/.claude-code-rules.md` (read on every fresh session) |
