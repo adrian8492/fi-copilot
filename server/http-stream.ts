@@ -13,7 +13,7 @@
 
 import { Router, Request, Response, NextFunction } from "express";
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
-import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById } from "./db";
+import { insertCopilotSuggestion, insertComplianceFlag, insertTranscript, getSessionById, getConsentLogBySession } from "./db";
 import { sdk } from "./_core/sdk";
 import type { User } from "../drizzle/schema";
 import {
@@ -444,8 +444,17 @@ export function createHttpStreamRouter(): Router {
     if (authUser && session && session.userId !== authUser.id) {
       return res.status(403).json({ error: "Not authorized for this session" });
     }
-    // CFPB: Block recording unless consent was obtained
-    if (session && !session.consentObtained) {
+    // Phase 5a two-party consent gate (consent_logs takes precedence; legacy
+    // session.consentObtained is the fallback for pre-Phase-5a sessions).
+    const consentLog = await getConsentLogBySession(sessionId);
+    if (consentLog) {
+      if (consentLog.revokedAt) {
+        return res.status(403).json({ error: "CONSENT_REVOKED: Recording consent was revoked for this session." });
+      }
+      if (consentLog.recordingMode !== "recording") {
+        return res.status(403).json({ error: "CONSENT_INCOMPLETE: Both customer and manager must consent before recording." });
+      }
+    } else if (session && !session.consentObtained) {
       return res.status(403).json({ error: "CONSENT_REQUIRED: Recording consent must be obtained before streaming." });
     }
 

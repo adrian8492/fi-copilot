@@ -159,6 +159,15 @@ export default function LiveSession() {
   const [consentObtained, setConsentObtained] = useState(false);
   const [consentMethod, setConsentMethod] = useState<"verbal" | "written" | "electronic">("verbal");
 
+  // Phase 5a — Two-party consent modal state. Opens after session creation.
+  // beginRecording() only fires once both parties have tapped consent.
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [customerConsentRecorded, setCustomerConsentRecorded] = useState(false);
+  const [managerConsentRecorded, setManagerConsentRecorded] = useState(false);
+  const [consentSubmitting, setConsentSubmitting] = useState<"customer" | "manager" | null>(null);
+  const [consentRecordingMode, setConsentRecordingMode] = useState<"pending" | "recording" | "manager_only">("pending");
+  const [revokeOpen, setRevokeOpen] = useState(false);
+
   // Session state
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -247,6 +256,10 @@ export default function LiveSession() {
   const generateGrade = trpc.grades.generate.useMutation();
   const upsertChecklist = trpc.checklists.upsert.useMutation();
   const logObjection = trpc.objections.log.useMutation();
+  const recordCustomerConsentMutation = trpc.consent.recordCustomerConsent.useMutation();
+  const recordManagerConsentMutation = trpc.consent.recordManagerConsent.useMutation();
+  const declineCustomerConsentMutation = trpc.consent.declineCustomer.useMutation();
+  const revokeConsentMutation = trpc.consent.revoke.useMutation();
   const markUsedMutation = trpc.transcripts.markUsed.useMutation();
   const uploadRecording = trpc.recordings.upload.useMutation();
 
@@ -650,7 +663,7 @@ export default function LiveSession() {
 
   const handleStartSession = async () => {
     if (!consentObtained) {
-      toast.error("Recording consent is required before starting a session.");
+      toast.error("Recording consent attestation is required before starting a session.");
       return;
     }
 
@@ -667,8 +680,33 @@ export default function LiveSession() {
       if (!session) throw new Error("Failed to create session");
       setSessionId(session.id);
       sessionIdRef.current = session.id;
-      setShowSetup(false);
 
+      // Phase 5a: Open the two-party consent modal. The mic + WS + Deepgram
+      // pipeline (beginRecording) only fires once both customer and manager
+      // have explicitly tapped consent. If the customer declines, the session
+      // proceeds in manager-only notes mode (no audio capture).
+      setCustomerConsentRecorded(false);
+      setManagerConsentRecorded(false);
+      setConsentRecordingMode("pending");
+      setConsentModalOpen(true);
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      toast.error(`Failed to create session: ${errMsg}`);
+      console.error(e);
+    }
+  };
+
+  // beginRecording is the post-consent pipeline: mic → WS/HTTP → MediaRecorder →
+  // SpeechRecognition fallback. Called from the consent modal once both parties
+  // have tapped. Server-side WS gate (server/websocket.ts) double-checks the
+  // consent_logs row before invoking Deepgram — defense in depth.
+  const beginRecording = async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    setConsentModalOpen(false);
+    setShowSetup(false);
+
+    try {
       // Step 1: Get microphone access
       console.log("[Pipeline] Step 1: Requesting microphone access...");
       let stream: MediaStream;
@@ -678,7 +716,7 @@ export default function LiveSession() {
       } catch (micErr: unknown) {
         const errMsg = micErr instanceof Error ? micErr.message : String(micErr);
         toast.error(`Microphone access denied: ${errMsg}`, {
-          description: "Please allow microphone access in your browser settings and try again. The Preview panel may not support microphone \u2014 try opening the site directly.",
+          description: "Please allow microphone access in your browser settings and try again. The Preview panel may not support microphone — try opening the site directly.",
           duration: 10000,
         });
         console.error("[Pipeline] Step 1: ❌ getUserMedia failed:", micErr);
@@ -713,7 +751,7 @@ export default function LiveSession() {
       console.log("[Pipeline] Step 2: Connecting to server...");
       let wsConnected = false;
       try {
-        wsConnected = await connectWebSocket(session.id);
+        wsConnected = await connectWebSocket(sid);
         if (wsConnected) console.log("[Pipeline] Step 2: ✅ WebSocket connected");
       } catch {
         wsConnected = false;
@@ -721,7 +759,7 @@ export default function LiveSession() {
 
       if (!wsConnected) {
         console.log("[Pipeline] Step 2: WebSocket failed — trying HTTP streaming fallback...");
-        const httpOk = await connectHttpStream(session.id);
+        const httpOk = await connectHttpStream(sid);
         if (!httpOk) {
           console.error("[Pipeline] Step 2: ❌ Both WebSocket and HTTP streaming failed");
           toast.error("Failed to connect to server. Please try again.");
@@ -731,7 +769,7 @@ export default function LiveSession() {
         toast.info("Using HTTP streaming mode.", { duration: 5000 });
       }
 
-      // Step 3: Start recording \u2014 stream audio chunks via WS or HTTP
+      // Step 3: Start recording — stream audio chunks via WS or HTTP
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm")
@@ -744,18 +782,14 @@ export default function LiveSession() {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size <= 0) return;
         chunkCount++;
-        // Save chunk for recording playback
         recordedChunksRef.current.push(e.data);
         if (chunkCount <= 5 || chunkCount % 20 === 0) {
           console.log(`[Pipeline] Step 3: Audio chunk #${chunkCount} (${e.data.size} bytes) — mode: ${wsRef.current?.readyState === WebSocket.OPEN ? "WS" : httpTokenRef.current ? "HTTP" : "NONE"}`);
         }
-        // WebSocket mode: send binary directly
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(e.data);
           setAudioChunksSent((c) => c + 1);
-        }
-        // HTTP mode: POST binary audio chunk
-        else if (httpTokenRef.current) {
+        } else if (httpTokenRef.current) {
           const token = httpTokenRef.current;
           e.data.arrayBuffer().then((buf) => {
             fetch("/api/session/audio", {
@@ -777,7 +811,7 @@ export default function LiveSession() {
           if (chunkCount <= 3) console.warn("[Pipeline] Step 3: ⚠️ No connection available to send audio chunk");
         }
       };
-      mediaRecorder.start(250); // 250ms chunks for low latency
+      mediaRecorder.start(250);
       setIsRecording(true);
       console.log("[Pipeline] Step 3: ✅ MediaRecorder started (250ms chunks)");
 
@@ -799,6 +833,98 @@ export default function LiveSession() {
     } catch (e) {
       toast.error("Failed to start session. Check microphone permissions.");
       console.error(e);
+    }
+  };
+
+  // Manager-only mode: customer declined or revoked, session proceeds without
+  // audio capture. The manager can still take notes and use AI prompts but no
+  // transcript is generated.
+  const beginManagerOnlyMode = () => {
+    setConsentModalOpen(false);
+    setShowSetup(false);
+    setConsentRecordingMode("manager_only");
+    toast.info("Customer declined recording. Session continues in manager-only notes mode (no audio capture).", {
+      duration: 8000,
+    });
+  };
+
+  const handleCustomerConsent = async () => {
+    if (!sessionIdRef.current) return;
+    setConsentSubmitting("customer");
+    try {
+      const fingerprint = (typeof navigator !== "undefined" ? navigator.userAgent : "").slice(0, 256);
+      const result = await recordCustomerConsentMutation.mutateAsync({
+        sessionId: sessionIdRef.current,
+        deviceFingerprint: fingerprint,
+      });
+      setCustomerConsentRecorded(true);
+      setConsentRecordingMode(result.log.recordingMode);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to record customer consent: ${msg}`);
+    } finally {
+      setConsentSubmitting(null);
+    }
+  };
+
+  const handleManagerConsent = async () => {
+    if (!sessionIdRef.current) return;
+    setConsentSubmitting("manager");
+    try {
+      const fingerprint = (typeof navigator !== "undefined" ? navigator.userAgent : "").slice(0, 256);
+      const result = await recordManagerConsentMutation.mutateAsync({
+        sessionId: sessionIdRef.current,
+        deviceFingerprint: fingerprint,
+      });
+      setManagerConsentRecorded(true);
+      setConsentRecordingMode(result.log.recordingMode);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to record manager consent: ${msg}`);
+    } finally {
+      setConsentSubmitting(null);
+    }
+  };
+
+  const handleCustomerDecline = async () => {
+    if (!sessionIdRef.current) return;
+    try {
+      await declineCustomerConsentMutation.mutateAsync({
+        sessionId: sessionIdRef.current,
+        reason: "customer_declined_in_app",
+      });
+      beginManagerOnlyMode();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to record decline: ${msg}`);
+    }
+  };
+
+  const handleRevokeConsent = async () => {
+    if (!sessionIdRef.current) return;
+    try {
+      await revokeConsentMutation.mutateAsync({
+        sessionId: sessionIdRef.current,
+        reason: "customer_revoked_mid_session",
+      });
+      setRevokeOpen(false);
+      setConsentRecordingMode("manager_only");
+      try {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+          mediaRecorderRef.current.stop();
+        }
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close();
+        }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+        }
+      } catch { /* best-effort cleanup */ }
+      setIsRecording(false);
+      toast.info("Recording revoked. Session continues in manager-only notes mode.", { duration: 8000 });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to revoke consent: ${msg}`);
     }
   };
 
@@ -1074,12 +1200,99 @@ export default function LiveSession() {
                   disabled={!consentObtained || createSession.isPending}
                 >
                   <Mic className="w-4 h-4" />
-                  {createSession.isPending ? "Starting..." : "Start Recording"}
+                  {createSession.isPending ? "Starting..." : "Continue to Consent"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Phase 5a — Two-Party Consent Modal. Renders after session is created.
+            Both customer and manager must tap before mic/WS/Deepgram start. */}
+        <Dialog open={consentModalOpen} onOpenChange={(open) => { if (!open && (customerConsentRecorded || managerConsentRecorded)) { /* keep modal up */ return; } if (!open) setConsentModalOpen(false); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold uppercase tracking-wide text-amber-500">
+                Recording Requires Both Parties&apos; Consent
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                By tapping <span className="font-semibold text-foreground">&quot;I Consent&quot;</span>, you agree to be recorded.
+                The conversation will be transcribed for coaching and quality purposes. Recording can be stopped at any time.
+                Audio is encrypted in transit and deleted after 90 days unless retained by the dealership.
+              </p>
+
+              <div className="grid grid-cols-1 gap-3">
+                <Button
+                  size="lg"
+                  variant={customerConsentRecorded ? "default" : "outline"}
+                  className={cn(
+                    "h-16 text-base font-semibold gap-2 transition-colors",
+                    customerConsentRecorded ? "bg-green-600 hover:bg-green-600 text-white" : ""
+                  )}
+                  onClick={handleCustomerConsent}
+                  disabled={customerConsentRecorded || consentSubmitting === "customer"}
+                  data-testid="consent-customer-btn"
+                >
+                  {customerConsentRecorded ? <CheckCircle2 className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                  {consentSubmitting === "customer"
+                    ? "Recording..."
+                    : customerConsentRecorded
+                    ? "Customer Consented"
+                    : "Customer: I Consent"}
+                </Button>
+
+                <Button
+                  size="lg"
+                  variant={managerConsentRecorded ? "default" : "outline"}
+                  className={cn(
+                    "h-16 text-base font-semibold gap-2 transition-colors",
+                    managerConsentRecorded ? "bg-green-600 hover:bg-green-600 text-white" : ""
+                  )}
+                  onClick={handleManagerConsent}
+                  disabled={managerConsentRecorded || consentSubmitting === "manager"}
+                  data-testid="consent-manager-btn"
+                >
+                  {managerConsentRecorded ? <CheckCircle2 className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+                  {consentSubmitting === "manager"
+                    ? "Recording..."
+                    : managerConsentRecorded
+                    ? "Manager Consented"
+                    : "Manager: I Consent"}
+                </Button>
+              </div>
+
+              <div className="pt-2 border-t border-border space-y-2">
+                <Button
+                  className="w-full font-semibold gap-2"
+                  size="lg"
+                  onClick={beginRecording}
+                  disabled={!(customerConsentRecorded && managerConsentRecorded) || consentRecordingMode !== "recording"}
+                  data-testid="consent-begin-recording-btn"
+                >
+                  <Mic className="w-5 h-5" />
+                  Begin Recording
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground hover:text-foreground"
+                  onClick={handleCustomerDecline}
+                  data-testid="consent-decline-btn"
+                >
+                  Customer Declines — Continue in Manager-Only Mode
+                </Button>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground/70 text-center pt-1">
+                Hand the device to the customer for their tap. Their consent is logged
+                separately with timestamp, IP, and device fingerprint per
+                Washington two-party consent law (RCW 9.73.030).
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
       </AppLayout>
     );
   }
@@ -1155,6 +1368,27 @@ export default function LiveSession() {
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-[10px] font-semibold text-violet-400 capitalize">
               <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
               {currentDealStage.replace(/_/g, " ")}
+            </div>
+          )}
+
+          {/* Phase 5a — Mid-session revoke. Customer can ask manager to stop. */}
+          {isRecording && consentRecordingMode === "recording" && (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-[10px] font-semibold text-amber-400 hover:bg-amber-500/20 transition-colors"
+              onClick={() => setRevokeOpen(true)}
+              data-testid="consent-revoke-trigger"
+            >
+              <XCircle className="w-3 h-3" />
+              Revoke Consent
+            </button>
+          )}
+
+          {/* Manager-only mode badge (no audio recording) */}
+          {!isRecording && consentRecordingMode === "manager_only" && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 border border-border text-[10px] font-semibold text-muted-foreground">
+              <MicOff className="w-3 h-3" />
+              Manager-Only Mode (No Recording)
             </div>
           )}
 
@@ -1742,6 +1976,38 @@ export default function LiveSession() {
           />
         </div>
       </div>
+
+      {/* Phase 5a — Revoke confirmation Dialog. Customer-facing copy. */}
+      <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold uppercase tracking-wide text-amber-500">
+              Revoke Recording Consent?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Tapping <span className="font-semibold text-foreground">Revoke</span> will immediately stop audio
+              recording. The session continues in manager-only notes mode. Any prior transcript stays in your dealership&apos;s records
+              unless you also request deletion.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setRevokeOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 gap-2 font-semibold bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={handleRevokeConsent}
+                disabled={revokeConsentMutation.isPending}
+                data-testid="consent-revoke-confirm-btn"
+              >
+                <XCircle className="w-4 h-4" />
+                {revokeConsentMutation.isPending ? "Revoking..." : "Revoke Recording"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

@@ -84,6 +84,7 @@ const MonthlyDashboard = lazy(() => import("./pages/MonthlyDashboard"));
 const DealStructure = lazy(() => import("./pages/DealStructure"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const YesterdayRecap = lazy(() => import("./pages/YesterdayRecap"));
+const Compliance = lazy(() => import("./pages/Compliance"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -103,6 +104,8 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/login" component={Login} />
+        {/* Public compliance posture page (no auth required) — Phase 5c */}
+        <Route path="/compliance" component={Compliance} />
         <Route path="/session/new" component={LiveSession} />
         <Route path="/session/:id/print" component={SessionPrintReport} />
         <Route path="/session/:id" component={SessionDetail} />

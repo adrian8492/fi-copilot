@@ -1,116 +1,168 @@
-# Sprint State — Korum/Benstock Pilot
+# SPRINT-STATE — Korum/Benstock Pilot Handoff
 
-**Last updated:** 2026-04-25 (live; updated continuously by autonomous Claude Code session)
-**Branch:** `feature/multi-tenant-pilot`
-**Last commit:** `e264616` (audit-log auto-stamp dealershipId)
+**This is the canonical resume document. Read it first. Anything else is reference.**
 
-## Where we are
+## Where you are
 
-| Phase | Status | Commit |
-|---|---|---|
-| Phase 1 — Multi-tenant query enforcement layer + 25 isolation tests | ✅ shipped | `213e3a4` |
-| Phase 1.5 — Cross-tenant write hardening (6 mutation routes) | ✅ shipped | `c896d02` |
-| Phase 2 backend — Onboarding tRPC router + 11 tests | ✅ shipped | `5f1bac9` |
-| Phase 2 frontend — Onboarding.tsx 5-step wizard | ✅ shipped | `df81004` |
-| Phase 3a — /yesterday-recap backend (recaps router) + frontend | ✅ shipped | `fc5a5ea` |
-| Phase 3b — StoneEagle ingest pipeline (TypeScript, in-repo) | ✅ shipped | `c5d49fe` |
-| Phase 3c — Deepgram verify + clean up env-gated test fail | ✅ shipped | `768ea04` |
-| Phase 4a — load-test seed (1000 deals × 5 tenants) + 13 unit tests | ✅ shipped | `e80d237` |
-| Phase 4b — operator runbook (docs/ADDING_NEW_DEALERSHIP.md) | ✅ shipped | `e80d237` |
-| QoL — auto-redirect dealership admins to /onboarding | ✅ shipped | `37b3a3f` |
-| Phase 1.5 follow-up — admin.listUsers cross-tenant fix | ✅ shipped | `938f491` |
-| Phase 1.5 follow-up — compliance.createRule/updateRule/deleteRule cross-tenant | ✅ shipped | `e640697` |
-| Phase 2 follow-up — Resend invite delivery on saveTeam | ✅ shipped | `b98c961` |
-| Phase 3 polish — today's 3 decisions + 10-min auto-refresh | ✅ shipped | `4efe736` |
-| Phase 4c — Manus deploy + mobile smoke test | ⏳ Adrian's hands | — |
-
-## Test baseline
-
-- `pnpm check`: 0 TypeScript errors
-- `pnpm test`: **32/32 test files green. 1376 passed | 1 skipped | 0 failed** (out of 1377)
-- The deepgram-key env check is now `it.skipIf(!process.env.DEEPGRAM_API_KEY)` — passes against a real boxed env, skips cleanly in CI/sandbox
-- Phase 4c (deploy) must keep tests at or above 1376 passing with 0 failing test files
-
-## Decisions made this session
-
-### 2026-04-25 — Phase 2 auth strategy: keep Manus OAuth for pilot, defer full Clerk swap
-Spec says "Use Clerk." Reality: I don't have Clerk API keys (CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY) and creating a Clerk app + Google OAuth provider config requires Adrian to be hands-on (DNS verification, OAuth consent screen, etc.). The existing Manus OAuth already supports everything Korum/Paragon need: sessions, MFA, dealership/rooftop assignments, JWT cookies, audit logs. Per fail-closed rule, swapping working auth in mid-sprint is the riskier option.
-
-**Path forward:** Build onboarding wizard + invite flow on top of existing Manus OAuth. The dealership creation, invite generation, invite redemption all already exist as tRPC routes (`admin.createDealership`, `invitations.create`, `invitations.redeem`). Frontend wires those together. When Adrian provides Clerk creds post-pilot, swap is mechanical (server/_core/oauth.ts is the only file that knows about the OAuth provider).
-
-### 2026-04-25 — Phase 1.5 deferrals (entangled with existing tests)
-- `compliance.createRule/updateRule/deleteRule` cross-tenant fixes — deferred. Existing fi-copilot.test.ts passes admin ctx with no dealershipId; strict tenant check on rules would break those tests. Will refactor with Phase 2.
-
-## Blockers
-
-- None — proceeding.
-
-## Autonomous session summary (2026-04-25 night)
-
-Started at commit `1966ee4` (master, Henry's last). Shipped 10 commits on `feature/multi-tenant-pilot`:
-
-| Commit | Phase |
+| Field | Value |
 |---|---|
-| `213e3a4` | Phase 1 — tenant enforcement layer + 25 isolation tests |
-| `c896d02` | Phase 1.5 — cross-tenant write hardening (6 mutation routes) + 8 tests |
-| `5f1bac9` | Phase 2 backend — onboarding tRPC router + 11 tests |
-| `df81004` | Phase 2 frontend — Onboarding.tsx 5-step wizard |
-| `fc5a5ea` | Phase 3a — /yesterday-recap backend + frontend + 5 tests |
-| `c5d49fe` | Phase 3b — StoneEagle ingest script + 22 tests |
-| `768ea04` | Phase 3c — Deepgram env-test cleanup |
-| `e80d237` | Phase 4a/b — load-test seed + 13 tests + operator runbook |
-| `37b3a3f` | QoL — admin auto-redirect to /onboarding |
+| Branch | `feature/multi-tenant-pilot` |
+| Last commit | `ffbc980` (Phase 5c DPA template — Phase 5 fully shipped) |
+| GitHub | `git@github.com:adrian8492/fi-copilot.git` |
+| PR url | `https://github.com/adrian8492/fi-copilot/pull/new/feature/multi-tenant-pilot` |
+| Spec — Phases 1-4 | `~/asura-build/content/briefs/fi-copilot-benstock-pilot-sprint.md` |
+| Spec — Phase 5 (current) | `~/asura-build/content/briefs/fi-copilot-phase-5-compliance.md` |
+| Operating rules | `~/asura-build/.claude-code-rules.md` (read on every fresh session) |
 
-Test count: **1274/1275 → 1358/1359** passing (+84 net new tests).
-Test file count: **29 → 32** (3 new files: multi-tenant-isolation, stoneeagle-ingest, seed-load-test).
-TypeScript errors: **0** throughout.
-Failing tests: **0** (the deepgram env-check is now properly skipped, not failed).
+## Test baseline (do NOT regress)
 
-## Items deferred to next session / Oliver review
+- `pnpm check`: **0 TypeScript errors**
+- `pnpm test`: **32/32 test files green. 1402 passed | 1 skipped | 0 failed** (out of 1403)
+- The 1 skipped is `server/deepgram.test.ts` env-gated check (`it.skipIf(!process.env.DEEPGRAM_API_KEY)`); passes in real boxed env, skips in CI/sandbox
+- Net new tests across all of Phase 5: **+26** (Phase 5a +11, Phase 5b +12, Phase 5c +3)
+- Any new work must keep tests at or above 1402 with 0 failing test files
 
-These are real but non-blocking for the Mon Apr 27 install. Ranked by leak severity:
+## Anything in progress?
 
-1. ~~`getAllUsers` returns all users globally~~ ✅ fixed in `938f491`.
-2. ~~`compliance.createRule/updateRule/deleteRule` cross-tenant~~ ✅ fixed in `e640697`.
-3. ~~`auditLogs` not auto-stamped with dealershipId~~ ✅ shipped in `e264616`. Auto-derives from `users.dealershipId` via the actor's `userId`, so existing 40+ call sites in routers.ts didn't need touching.
-4. **Defense-in-depth: auto-stamp `dealershipId` on session-scoped child inserts** — **deliberately left unshipped after analysis.** Reasoning: the current NULL state is actually fail-closed. A future query that filters `WHERE transcripts.dealership_id = ?` without joining sessions returns no rows (safe). Auto-stamping would let such lazy queries succeed, which is *less* safe long-term — it permits queries that bypass the session-ownership join. The correct read pattern stays "JOIN sessions, filter on `sessions.dealership_id`" (which `assertSessionAccess` already enforces). If Adrian wants this changed post-pilot, a separate audit + ADR is the right home — there's a real architectural call to make about which query path is canonical.
-5. ~~Resend email for invite delivery~~ ✅ shipped in `b98c961`.
-6. ~~`/yesterday-recap` polish~~ ✅ today's 3 decisions + auto-refresh shipped in `4efe736`. Multi-TZ day boundary still deferred — post-pilot scaling concern.
+**No.** Every commit on the branch is a clean checkpoint. No half-done features, no stashed changes, no uncommitted edits. Working tree is clean. You can safely `git pull` and start anywhere.
 
-## Useful state for next session
+## Phase status
 
-- Branch is on `feature/multi-tenant-pilot` at `e264616`. PR-able when Adrian wants.
-- 17 commits in autonomous session. Test count `1274/1275 → 1376/1377` (+102 net new tests, 32/32 files green, 0 failed, 1 skipped Deepgram-env-only).
-- All Phase 1-4 backend work + 5 of 6 high-value follow-up items are shipped.
-- Only deferred item left is #4 (session-child auto-stamp) and that's a deliberate skip with an ADR-style rationale logged above (the current NULL state is fail-closed; auto-stamping would weaken that invariant).
-- Multi-TZ day boundary in /yesterday-recap is the only remaining polish item — purely a post-pilot scaling concern.
-- Manus deploy + mobile smoke + Korum install on Mon Apr 27 are Adrian's hands.
+| Phase | Status | Last commit |
+|---|---|---|
+| Phase 1 — query-level tenant enforcement + 25 isolation tests | ✅ shipped | `213e3a4` |
+| Phase 1.5 — cross-tenant write hardening on 6 mutations + 8 tests | ✅ shipped | `c896d02` |
+| Phase 2 — onboarding 5-step wizard (backend + frontend) | ✅ shipped | `df81004` |
+| Phase 3a — `/yesterday-recap` (Brian's #1 ask) | ✅ shipped | `fc5a5ea` |
+| Phase 3b — StoneEagle nightly CSV ingest + 22 tests | ✅ shipped | `c5d49fe` |
+| Phase 3c — Deepgram env-test cleanup | ✅ shipped | `768ea04` |
+| Phase 4 — load-test seed + operator runbook | ✅ shipped | `e80d237` |
+| Phase 4.x deferred-list cleanup (5 of 6) | ✅ shipped | `26ad0d8` |
+| **Phase 5a — Two-party recording consent (RCW 9.73.030)** | **✅ shipped** | **`6fbaa7b`** |
+| **Phase 5b — Data-deletion request + audit-trail accessor (FTC Safeguards)** | **✅ shipped** | **`8c31285`** |
+| **Phase 5c — `/compliance` page + DPA gate + DPA template v1** | **✅ shipped** | **`67750db` + `ffbc980`** |
 
-## Critical context to preserve across compactions
+## Korum/Benstock timeline (per Phase 5 spec, last updated 2026-04-25)
 
-- MySQL dialect (NOT Postgres) — adapt all spec syntax inline
-- Schema is at `drizzle/schema.ts`, NOT `shared/schema.ts` (spec is wrong about this path)
-- `_core/` and `shared/_core/` are Manus-template internals — do not modify
-- `getUserAccessibleDealershipIds` + `assertSessionAccess` already exist; build on top of them
-- New `server/tenancy.ts` is the canonical enforcement layer going forward
-- 21 existing migrations 0000-0019, plus new 0020_multi_tenant_pilot.sql; two 0019_* files coexist (parallel-branch artifact, leaving alone)
-- Auto-memory entry at `~/.claude/projects/-home-adrian2410-agents/memory/project_fi_copilot_pilot.md`
-- Sprint journal at `~/fi-copilot/memory/2026-04-24.md`
-- Spec at `~/asura-build/content/briefs/fi-copilot-benstock-pilot-sprint.md` — pull every 2hr
-- Operating rules at `~/asura-build/.claude-code-rules.md` (Oliver published 2026-04-25)
+| Date | Milestone | Status |
+|---|---|---|
+| Sat Apr 25 | Phase 5 build (this session) | ✅ done |
+| Sun Apr 26 | Manus redeploy + smoke test | Adrian |
+| Mon Apr 27 | Adrian + Ian dry-run with mock data on live URL | Adrian |
+| Tue Apr 28 | Final compliance review + Jim Koch pre-call to walk DPA | Adrian |
+| Wed Apr 30 | StoneEagle nightly export starts populating production data | Adrian + Jim |
+| **Thu May 1** | **Korum install on-site — Puyallup, WA** | Adrian + Ian |
+| Fri May 2 – Sun May 4 | Bug fixes + manager training | Adrian |
+| **Mon May 5** | **Brian Benstock install (Paragon Honda)** | Adrian |
+
+5+ days of buffer remain between today and the install.
+
+## Decisions pending Adrian (none are blocking)
+
+1. **PR vs keep-going.** Branch is PR-ready (24 commits ahead of master). Adrian can merge to `master` whenever he wants (after Manus deploy + Korum smoke), or keep iterating until install day.
+2. **Auth swap timing (Clerk).** Spec says Clerk; we kept Manus OAuth for the pilot. Mechanical post-pilot swap when Adrian provides Clerk creds (only `server/_core/oauth.ts` knows about the OAuth provider).
+3. **NOT NULL hardening on the 12 child-table `dealershipId` columns + the new `consent_logs.dealershipId` is already NOT NULL.** Phase 1 columns all nullable for safe migration. After Korum's first nightly StoneEagle import (Tue Apr 28) populates them, a migration to flip NOT NULL is the right next step.
+4. **Compliance rules tenancy semantics for legacy rules.** Existing rules with `dealershipId = NULL` ("global"). New code allows null-dealership admins to manage null-dealership rules (back-compat). Once Korum is live, may want to backfill rules with their owning tenant or formalize "null = federal/global, super-admin-only".
+5. **DPA `v1` content review.** The DPA template at `docs/legal/dpa-template-v1.md` was drafted by Claude. Adrian/legal should review before Korum + Paragon counter-sign. The in-app gate already records `dpaVersion="v1"`; if v2 lands, bump `CURRENT_DPA_VERSION` in `client/src/pages/Onboarding.tsx`.
+
+## Next tasks ranked by value (pick whichever; all independent)
+
+### 1. Hard-delete cron for data-deletion requests (~1.5 hr)
+
+Phase 5b shipped the request + 30-day soft-delete. Still need the cron sweep.
+
+`scripts/process-data-deletion.ts`:
+- Read pending requests where `scheduledDeletionAt <= now()` via `getPendingDeletionRequestsDue`
+- For each: hard-delete in this order to respect FKs:
+  - `transcripts`, `copilot_suggestions`, `compliance_flags`, `performance_grades`, `audio_recordings`, `coaching_reports`, `session_checklists`, `objection_logs`, `deal_recovery`, `asura_scorecards`, `consent_logs`, `audit_logs` (tenant-scoped) — for the session(s) in scope
+  - `customers` row if customerId is set
+  - The session row last
+- Mark request `completed` via `completeDataDeletionRequest`
+- Notify Adrian via `notifyOwner` on each completion
+- Refuse `NODE_ENV=production` without `--commit` (mirror the seed script's safety)
+- Log to `memory/deletion-logs/YYYY-MM-DD.md` for audit trail
+
+First run not needed until ~May 31 (30 days after Korum install).
+
+### 2. Dealership-local timezone for `/yesterday-recap` day boundary (~1 hr)
+
+Same task that was queued before Phase 5. Now even more relevant since Brian Benstock's Paragon install is May 5 and he's NYC-based. Spec at the previous SPRINT-STATE entry — unchanged.
+
+### 3. Tenancy health-check admin endpoint (~30 min)
+
+Same as before. `admin.tenancyHealth` returning invariant counts. Pure read endpoint, low blast radius, high diagnostic value. Especially useful after first StoneEagle ingest to verify cross-tenant doesn't leak.
+
+### 4. ADR + decision: session-child write auto-stamping
+
+Same long-running deferred decision from before Phase 5. Worth an ADR not a code change. Adrian's call.
+
+## Phase 5 file map (new since last handoff)
+
+| Path | What |
+|---|---|
+| `drizzle/0022_consent_logs.sql` | Phase 5a — consent_logs table |
+| `drizzle/0023_data_deletion_requests.sql` | Phase 5b — deletion request table |
+| `drizzle/0024_dpa_signing.sql` | Phase 5c — `dpaSignedAt` / `dpaVersion` / `dpaSignedBy` on dealerships |
+| `client/src/pages/Compliance.tsx` | Public `/compliance` attestation page (no auth) |
+| `docs/legal/dpa-template-v1.md` | DPA v1 template (Adrian customizes per dealer) |
+| `client/src/pages/LiveSession.tsx` | Two-party consent modal + revoke Dialog (Phase 5a) |
+| `client/src/pages/Onboarding.tsx` | Step 1 DPA acceptance gate + version constant (Phase 5c) |
+| `server/db.ts` | +12 helpers across consent_logs + data_deletion_requests + audit trail |
+| `server/routers.ts` | +`consent` router + `dataDeletion` router + `admin.auditTrailForCustomer` |
+| `server/websocket.ts` + `server/http-stream.ts` | Phase 5a WS + HTTP gate now reads consent_logs first |
+| `server/multi-tenant-isolation.test.ts` | +26 isolation tests across Phase 5 |
+| `memory/2026-04-25.md` | This session's daily journal |
+
+## Architectural context to preserve
+
+- **Schema dialect: MySQL** (NOT Postgres). `drizzle.config.ts` is `dialect: "mysql"`. All Drizzle syntax in spec snippets needs MySQL adaptation: `pgTable` → `mysqlTable`, `uuid().defaultRandom()` → `int().autoincrement()` or `varchar` with manual UUID, `jsonb` → `json`, `timestamp({withTimezone: true})` → `timestamp` (MySQL handles TZ differently).
+- **Schema lives at `drizzle/schema.ts`**, not `shared/schema.ts`.
+- **Tenancy enforcement layer is at `server/tenancy.ts`** — `resolveTenantScope`, `assertTenantAccess`, `tenantFilter`, `canAccessDealership`. New code should reuse these primitives. The legacy `assertSessionAccess` helper in routers.ts is also still in use and is correct — don't replace it indiscriminately. Phase 5a/5b/5c all use `assertSessionAccess`.
+- **Phase 5a consent gate has TWO layers:**
+  1. `consent_logs` row — primary source of truth (recordingMode + revokedAt). When present, it overrides the legacy `session.consentObtained` field.
+  2. Legacy `session.consentObtained` flag — fallback for pre-Phase-5a sessions. Kept for back-compat with existing tests.
+  Both `server/websocket.ts` and `server/http-stream.ts` apply this two-layer check before invoking Deepgram.
+- **`_core/` and `shared/_core/` directories are Manus-template internals** — do not modify. Underscore prefix means hands-off (oauth, sdk, env, encryption, llm, voiceTranscription).
+- **Auth is Manus OAuth + bcrypt local-login + jose JWT cookies + MFA via otpauth.** Clerk is specced for post-pilot; not wired. `_core/oauth.ts` is the only file that knows about the OAuth provider.
+- **Deepgram is fully wired** in `server/websocket.ts` and `server/http-stream.ts` (Nova-2 model). Frontend connection status lives in `client/src/pages/LiveSession.tsx`. Don't re-implement.
+- **Email via Resend** through `server/_core/email.ts:sendEmail` — gracefully no-ops without `RESEND_API_KEY`. Builders for: critical compliance alert, session summary, weekly digest, onboarding invite.
+- **`notifyOwner`** (`_core/notification.ts`) is wired in Phase 5b's data-deletion submit. Throws when `forgeApiKey` is unset; we `.catch()` and log so the user-facing flow is unaffected. Real notification fires in Manus deploy where the env var exists.
+- **`consent_logs.sessionId` is UNIQUE.** One row per session. Mid-session revoke updates the same row (sets `revokedAt` + `revocationReason` + flips `recordingMode` to "manager_only"). Multi-revocation cycles are intentionally not modeled.
 
 ## Korum/Benstock context
 
-- **Korum:** Puyallup WA, 7 F&I managers, F&I Director Jim Koch. **Install Mon Apr 27.**
-- **Brian Benstock at Paragon Honda:** install ~May 1-5. NADA-visible.
-- **Data source:** StoneEagle nightly 2 AM PT. Korum's first export Tue Apr 28.
-- **DEEPGRAM_API_KEY:** in `.env.local` already.
+- **Korum Automotive Group:** Puyallup WA. F&I Director Jim Koch. 7 F&I managers. **Install: Thursday May 1** (postponed from Apr 27 in the Phase 5 spec to give compliance buffer).
+- **Brian Benstock at Paragon Honda:** install **Monday May 5**. NADA-visible, category-validating.
+- **Both share one MySQL database.** Cross-tenant data leak ends the pilot.
+- **Data source: StoneEagle nightly 2 AM PT.** Korum's first export Wed Apr 30. Sample CSV from Jim Koch on Sunday for ingest mapping validation.
+- **DEEPGRAM_API_KEY:** in `.env.local` on the box.
+- **Existing deployed URL:** `https://finico-pilot-mqskutaj.manus.space` (current single-tenant demo). Multi-tenant deploy target: `finico-pilot-live.manus.space` (per spec; not yet provisioned).
 
-## Recovery if a session crashes
+## Commit timeline (this session — Phase 5, 4 commits)
 
-1. Read this file
-2. Read `memory/2026-04-24.md` (sprint journal)
-3. Read `~/asura-build/content/briefs/fi-copilot-benstock-pilot-sprint.md`
-4. Read `~/asura-build/.claude-code-rules.md`
-5. `git log feature/multi-tenant-pilot --oneline -10`
-6. Pick up from "Where we are" table
+| Hash | What |
+|---|---|
+| `6fbaa7b` | Phase 5a — two-party recording consent (consent_logs + tRPC `consent` router + WS/HTTP gate + LiveSession.tsx modal + revoke Dialog + 11 tests) |
+| `8c31285` | Phase 5b — data-deletion request (data_deletion_requests + `dataDeletion` router + `admin.auditTrailForCustomer` + notifyOwner + 12 tests) |
+| `67750db` | Phase 5c — `/compliance` public page + DPA gate on `onboarding.saveProfile` + Onboarding.tsx Step 1 UI lock + 0024 migration + 3 tests |
+| `ffbc980` | Phase 5c (cont.) — DPA template v1 in `docs/legal/` |
+
+## Items NOT done (and why)
+
+- **Hard-delete cron for data-deletion requests.** Deferred — first deletion not due till ~May 31. Top-of-list for next session per ranking above.
+- **Dealership-controlled retention policy in onboarding Step 5.** Defaults baked in (90-day audio, 7-year audit logs). Per-dealer override is polish, not legal blocker.
+- **Encryption-at-rest deep verification.** Existing `_core/encryption.ts` already does AES-256-GCM column-level encryption. Phase 5 spec called for a "verification pass" — current state is good enough for the pilot; proper independent verification (a security review) is a post-pilot task.
+- **Customer self-service deletion submission UI.** Phase 5b shipped the API + admin-side flow. Spec mentions a customer-facing endpoint but the pilot goes through DP-on-customer's-behalf, which is the right scope for the install conversation.
+- **DPA template content review by legal.** Drafted by Claude. Should be reviewed before Korum/Paragon counter-sign. Listed as decision pending Adrian.
+- **`/compliance` page localization / formal SOC 2 report links.** SOC 2 is "in progress, expected Q3 2026." Page already says so.
+- **Full Clerk auth swap.** Same as before Phase 5.
+- **Manus deploy + mobile smoke + Korum install.** Adrian's hands.
+
+## Operating rules (still in effect — from `~/asura-build/.claude-code-rules.md`)
+
+- Autonomous mode: don't ask before proceeding. Make the best call, log to memory, keep going.
+- Commit + push every meaningful checkpoint. Never commit broken code (`pnpm check` + `pnpm test` before each commit).
+- Pull spec every 2 hours.
+- At 70% context: commit, push, update SPRINT-STATE, then `/compact` (Adrian's manual trigger when at keyboard).
+- Defaults: Clerk for auth (deferred for pilot), MySQL via Drizzle (don't change), match existing styling, write tests inline, fail-closed security.
+- Stop conditions: tests below 1402, TS errors, real security risk, sprint complete, Adrian explicitly stops.

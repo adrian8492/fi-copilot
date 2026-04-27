@@ -26,8 +26,15 @@ import {
   Trash2,
   ArrowLeft,
   ArrowRight,
+  ShieldCheck,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
+
+// Phase 5c: in-app DPA version. Bump when the legal text in
+// content/legal/dpa-template-v1.md changes; older signatures roll forward
+// only after re-acceptance.
+const CURRENT_DPA_VERSION = "v1";
 
 const STEPS = [
   { num: 1, title: "Dealership Profile", icon: Building2 },
@@ -67,6 +74,7 @@ export default function Onboarding() {
   const [unitVolume, setUnitVolume] = useState("");
   const [pruBaseline, setPruBaseline] = useState("");
   const [pruTarget, setPruTarget] = useState("");
+  const [dpaAccepted, setDpaAccepted] = useState(false);
 
   // Step 2 state
   const [products, setProducts] = useState<
@@ -177,12 +185,18 @@ export default function Onboarding() {
   }
 
   const submitProfile = () => {
+    if (!dpaAccepted) {
+      toast.error("You must confirm the Data Processing Addendum to proceed.");
+      return;
+    }
     saveProfile.mutate({
       location: location.trim(),
       brandMix: brandMix.split(",").map((s) => s.trim()).filter(Boolean),
       unitVolumeMonthly: parseInt(unitVolume, 10) || 0,
       pruBaseline: parseInt(pruBaseline, 10) || 0,
       pruTarget: pruTarget ? parseInt(pruTarget, 10) : undefined,
+      dpaAccepted: true as const,
+      dpaVersion: CURRENT_DPA_VERSION,
     });
   };
 
@@ -306,6 +320,54 @@ export default function Onboarding() {
                     onChange={(e) => setPruTarget(e.target.value)}
                     placeholder="2200"
                   />
+                </div>
+              </div>
+
+              {/* Phase 5c — Data Processing Addendum acceptance gate. */}
+              <div className="border-t border-border pt-4 mt-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <div className="text-sm font-medium text-foreground">Data Processing Addendum</div>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Before we activate live customer data, your dealership must accept ASURA's Data
+                  Processing Addendum (DPA). It covers FTC Safeguards Rule compliance, customer data
+                  rights, sub-processor disclosures, and breach notification timelines.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <a
+                    href="/compliance"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    View ASURA Compliance Posture <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <span className="text-xs text-muted-foreground">·</span>
+                  <span className="text-xs text-muted-foreground">DPA version: {CURRENT_DPA_VERSION}</span>
+                </div>
+                <div
+                  className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                    dpaAccepted ? "border-green-500/40 bg-green-500/5" : "border-border bg-accent/30"
+                  }`}
+                  onClick={() => setDpaAccepted(!dpaAccepted)}
+                  data-testid="onboarding-dpa-checkbox"
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                        dpaAccepted ? "bg-green-500 border-green-500" : "border-border"
+                      }`}
+                    >
+                      {dpaAccepted && <CheckCircle2 className="w-3 h-3 text-white" />}
+                    </div>
+                    <div className="text-xs leading-relaxed text-foreground">
+                      My dealership has signed the ASURA Data Processing Addendum (
+                      <span className="font-semibold">{CURRENT_DPA_VERSION}</span>) and agrees to its
+                      terms regarding customer data handling, sub-processors, retention, and breach
+                      notification.
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -549,7 +611,8 @@ export default function Onboarding() {
                 saveProfile.isPending ||
                 saveProducts.isPending ||
                 saveTeam.isPending ||
-                saveBaseline.isPending
+                saveBaseline.isPending ||
+                (step === 1 && !dpaAccepted)
               }
             >
               Save & continue <ArrowRight className="w-4 h-4 ml-2" />
