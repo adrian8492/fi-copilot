@@ -85,6 +85,8 @@ const DealStructure = lazy(() => import("./pages/DealStructure"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const YesterdayRecap = lazy(() => import("./pages/YesterdayRecap"));
 const Compliance = lazy(() => import("./pages/Compliance"));
+const AdminDealerships = lazy(() => import("./pages/AdminDealerships"));
+const AdminDealershipSetup = lazy(() => import("./pages/AdminDealershipSetup"));
 
 // Minimal loading spinner for lazy-loaded routes
 function PageLoader() {
@@ -113,6 +115,9 @@ function Router() {
         <Route path="/analytics" component={Analytics} />
         <Route path="/upload" component={BatchUpload} />
         <Route path="/admin" component={AdminPanel} />
+        {/* Phase 6 — admin-driven onboarding */}
+        <Route path="/admin/dealerships" component={AdminDealerships} />
+        <Route path="/admin/dealerships/:id/setup" component={AdminDealershipSetup} />
         <Route path="/eagle-eye" component={EagleEyeView} />
         <Route path="/objections" component={ObjectionAnalysis} />
         <Route path="/demo" component={DemoMode} />
