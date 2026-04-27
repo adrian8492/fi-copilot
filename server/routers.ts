@@ -823,7 +823,30 @@ export const appRouter = router({
           retailPrice: z.number().optional().nullable(),
           costToDealer: z.number().optional().nullable(),
           sortOrder: z.number().optional(),
-        })).min(1).max(30),
+          // Phase 6 issue 3b — pricing model
+          pricingModel: z.enum(["fixed_retail", "cost_plus"]).optional(),
+          markupAmount: z.number().optional().nullable(),
+          markupType: z.enum(["dollar", "percent"]).optional().nullable(),
+        }))
+        .min(1).max(30)
+        // Issue 3a — when type is "other", displayName must be a real custom
+        // name (not just the literal word "other"). Other product types may
+        // use a default displayName like "VSA", "GAP".
+        .refine(
+          (items) => items.every((it) =>
+            it.productType !== "other" || it.displayName.trim().toLowerCase() !== "other"
+          ),
+          { message: "When productType is 'other', displayName must be a custom dealer-specific name (not 'other')." }
+        )
+        // Issue 3b — when pricingModel is cost_plus, costToDealer + markupAmount
+        // are required. Fixed retail keeps the existing single-field semantic.
+        .refine(
+          (items) => items.every((it) =>
+            it.pricingModel !== "cost_plus" ||
+            (it.costToDealer != null && it.markupAmount != null && it.markupAmount >= 0)
+          ),
+          { message: "When pricingModel is 'cost_plus', costToDealer and markupAmount are required." }
+        ),
       }))
       .mutation(async ({ ctx, input }) => {
         const dealershipId = ctx.user.dealershipId;
@@ -1020,7 +1043,30 @@ export const appRouter = router({
           retailPrice: z.number().optional().nullable(),
           costToDealer: z.number().optional().nullable(),
           sortOrder: z.number().optional(),
-        })).min(1).max(30),
+          // Phase 6 issue 3b — pricing model
+          pricingModel: z.enum(["fixed_retail", "cost_plus"]).optional(),
+          markupAmount: z.number().optional().nullable(),
+          markupType: z.enum(["dollar", "percent"]).optional().nullable(),
+        }))
+        .min(1).max(30)
+        // Issue 3a — when type is "other", displayName must be a real custom
+        // name (not just the literal word "other"). Other product types may
+        // use a default displayName like "VSA", "GAP".
+        .refine(
+          (items) => items.every((it) =>
+            it.productType !== "other" || it.displayName.trim().toLowerCase() !== "other"
+          ),
+          { message: "When productType is 'other', displayName must be a custom dealer-specific name (not 'other')." }
+        )
+        // Issue 3b — when pricingModel is cost_plus, costToDealer + markupAmount
+        // are required. Fixed retail keeps the existing single-field semantic.
+        .refine(
+          (items) => items.every((it) =>
+            it.pricingModel !== "cost_plus" ||
+            (it.costToDealer != null && it.markupAmount != null && it.markupAmount >= 0)
+          ),
+          { message: "When pricingModel is 'cost_plus', costToDealer and markupAmount are required." }
+        ),
       }))
       .mutation(async ({ ctx, input }) => {
         if (!ctx.user.isSuperAdmin) {

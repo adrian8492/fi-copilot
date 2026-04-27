@@ -176,6 +176,13 @@
       "when": 1777147471897,
       "tag": "0024_dpa_signing",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1777316277481,
+      "tag": "0025_pricing_model",
+      "breakpoints": true
     }
   ]
 }

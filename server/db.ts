@@ -2080,17 +2080,47 @@ export async function upsertProductMenuItem(data: {
   maxMileage?: number | null;
   isActive?: boolean;
   sortOrder?: number;
+  // Phase 6 issue 3b — pricing model.
+  pricingModel?: "fixed_retail" | "cost_plus";
+  markupAmount?: number | null;
+  markupType?: "dollar" | "percent" | null;
 }) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  if (data.id) {
-    const { id, ...updates } = data;
+  // For cost_plus, derive retailPrice from cost + markup so readers always
+  // see a final price. Fixed_retail leaves retailPrice as the user entered it.
+  const computed = computeRetailPrice(data);
+  const persisted = { ...data, retailPrice: computed };
+  if (persisted.id) {
+    const { id, ...updates } = persisted;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await db.update(productMenu).set(updates as any).where(eq(productMenu.id, id));
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.insert(productMenu).values(data as any);
+    await db.insert(productMenu).values(persisted as any);
   }
+}
+
+/**
+ * Derive the canonical retailPrice for a product-menu row.
+ * Pure function (exported for unit tests). The pricing-model toggle affects
+ * how the retail field is filled, but every read path sees the same column.
+ */
+export function computeRetailPrice(data: {
+  pricingModel?: "fixed_retail" | "cost_plus";
+  costToDealer?: number | null;
+  retailPrice?: number | null;
+  markupAmount?: number | null;
+  markupType?: "dollar" | "percent" | null;
+}): number | null | undefined {
+  if (data.pricingModel !== "cost_plus") return data.retailPrice ?? null;
+  const cost = data.costToDealer ?? 0;
+  const markup = data.markupAmount ?? 0;
+  if (data.markupType === "percent") {
+    return Math.round(cost * (1 + markup / 100) * 100) / 100;
+  }
+  // dollar markup is the default for cost_plus
+  return Math.round((cost + markup) * 100) / 100;
 }
 
 export async function deleteProductMenuItem(id: number) {

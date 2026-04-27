@@ -1623,6 +1623,100 @@ describe("Phase 6: adminOnboarding super-admin gate", () => {
   });
 });
 
+describe("Phase 6 issue 3a: 'other' type requires a custom display name", () => {
+  it("rejects 'other' productType with displayName='other' (case-insensitive)", async () => {
+    const admin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    await expect(
+      caller.onboarding.saveProducts({
+        items: [{ productType: "other", displayName: "Other" }],
+      })
+    ).rejects.toThrow(/custom dealer-specific name/i);
+    expect(db.upsertProductMenuItem).not.toHaveBeenCalled();
+  });
+
+  it("accepts 'other' productType with a real custom name", async () => {
+    const admin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveProducts({
+      items: [{ productType: "other", displayName: "Cost Plus Premium Care" }],
+    });
+    expect(result.success).toBe(true);
+    expect(db.upsertProductMenuItem).toHaveBeenCalledWith(expect.objectContaining({
+      productType: "other",
+      displayName: "Cost Plus Premium Care",
+    }));
+  });
+});
+
+describe("Phase 6 issue 3b: pricing model toggle (fixed_retail vs cost_plus)", () => {
+  it("fixed_retail (default) accepts a single retailPrice field", async () => {
+    const admin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveProducts({
+      items: [
+        { productType: "vehicle_service_contract", displayName: "VSA", retailPrice: 2400, pricingModel: "fixed_retail" },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(db.upsertProductMenuItem).toHaveBeenCalledWith(expect.objectContaining({
+      pricingModel: "fixed_retail",
+      retailPrice: 2400,
+    }));
+  });
+
+  it("cost_plus rejects when costToDealer or markupAmount is missing", async () => {
+    const admin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    await expect(
+      caller.onboarding.saveProducts({
+        items: [
+          { productType: "gap_insurance", displayName: "GAP", pricingModel: "cost_plus" },
+        ],
+      })
+    ).rejects.toThrow(/cost_plus.*required/i);
+    expect(db.upsertProductMenuItem).not.toHaveBeenCalled();
+  });
+
+  it("cost_plus with dollar markup persists computed retailPrice (cost + markup)", async () => {
+    const admin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    await caller.onboarding.saveProducts({
+      items: [{
+        productType: "gap_insurance",
+        displayName: "GAP",
+        pricingModel: "cost_plus",
+        costToDealer: 350,
+        markupAmount: 450,
+        markupType: "dollar",
+      }],
+    });
+    // upsertProductMenuItem.computeRetailPrice → 350 + 450 = 800
+    expect(db.upsertProductMenuItem).toHaveBeenCalledWith(expect.objectContaining({
+      pricingModel: "cost_plus",
+      costToDealer: 350,
+      markupAmount: 450,
+      markupType: "dollar",
+    }));
+  });
+
+  it("cost_plus with percent markup also accepted", async () => {
+    const admin = makeUser({ id: 1, dealershipId: STORE_A, role: "admin" });
+    const caller = appRouter.createCaller(makeCtx(admin));
+    const result = await caller.onboarding.saveProducts({
+      items: [{
+        productType: "gap_insurance",
+        displayName: "GAP",
+        pricingModel: "cost_plus",
+        costToDealer: 350,
+        markupAmount: 100, // 100% markup
+        markupType: "percent",
+      }],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
 describe("Phase 6: adminOnboarding.listDealershipsWithStatus", () => {
   it("super admin gets list with mapped setup statuses", async () => {
     vi.mocked(db.getAllDealerships).mockResolvedValueOnce([

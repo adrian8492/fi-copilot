@@ -526,6 +526,11 @@ export const productMenu = mysqlTable("product_menu", {
   maxMileage: int("maxMileage"),
   isActive: boolean("isActive").notNull().default(true),
   sortOrder: int("sortOrder").notNull().default(0),
+  // Phase 6 issue 3b — pricing model. fixed_retail = single retail $ (current
+  // behavior). cost_plus = dealer cost + markup, retail computed at save time.
+  pricingModel: mysqlEnum("pricingModel", ["fixed_retail", "cost_plus"]).notNull().default("fixed_retail"),
+  markupAmount: float("markupAmount"),
+  markupType: mysqlEnum("markupType", ["dollar", "percent"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
