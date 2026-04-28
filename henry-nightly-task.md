@@ -619,3 +619,17 @@ Target: 1,240+ tests passing (up from 1,180)
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
+
+## Re-verification — April 27, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — 1376/1377 passing, 1 skipped (pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ — clean working tree before tonight’s documentation refresh
+- Latest commit on `main` before tonight’s update: `3a8dcdb fix: clamp seed-load-test deal date to prevent 1ms overflow past endDate`
+
+### What’s next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages

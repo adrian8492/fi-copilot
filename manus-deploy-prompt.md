@@ -4,7 +4,7 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **deploy-ready** as of the April 26, 2026 nightly build.
+This repo is **deploy-ready** as of the April 27, 2026 nightly verification.
 
 ### What was fixed (April 26 nightly)
 - Fixed `scripts/seed-load-test.ts` deterministic date-generation bug — `dealMs` could exceed `endDate` by 1ms due to floating-point overflow in the LCG RNG; clamped with `Math.min()` to guarantee dates stay within the rolling window
@@ -18,11 +18,11 @@ This repo is **deploy-ready** as of the April 26, 2026 nightly build.
 - April 17: Heat Sheet, Word Tracks, Desk Log, Rate Watch
 - April 6: Lender Matrix, Deal Jacket, Weekend Recap, Commission Calculator, Mobile Bottom Nav
 
-### Verification (April 26)
+### Verification (April 27)
 - `pnpm check` — 0 TypeScript errors
 - `pnpm test` — 1376/1377 passing, 1 skipped
-- No blocking failures — the seed-load-test determinism bug is resolved
-- Working tree is clean after commit and push
+- No blocking failures — repo remains green
+- Working tree clean after verification commit and push
 
 ## Smoke-test these routes
 - `/chargeback-tracker`
