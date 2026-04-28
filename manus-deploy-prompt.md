@@ -4,25 +4,26 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **deploy-ready** as of the April 27, 2026 nightly verification.
+This repo is **deploy-ready** as of the April 28, 2026 nightly verification.
 
-### What was fixed (April 26 nightly)
-- Fixed `scripts/seed-load-test.ts` deterministic date-generation bug — `dealMs` could exceed `endDate` by 1ms due to floating-point overflow in the LCG RNG; clamped with `Math.min()` to guarantee dates stay within the rolling window
-- Restored green test baseline: 1376/1377 passing, 1 skipped (pre-existing deepgram env)
+### Latest verification (April 28)
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — **1426/1427 passing, 1 skipped**
+- No blocking failures in the current application test suite
+- Clean working tree before the nightly docs refresh commit
 
-### Previous builds on `main`
+### Important notes
+- The remaining skipped coverage is still the env-dependent Deepgram test (`server/deepgram.test.ts`) and is not a code regression
+- Test output also includes non-blocking log noise for missing `DATABASE_URL` / `OAUTH_SERVER_URL` in isolated test mode, but the suite still passes
+- Claude Code stalled again during tonight’s attempted kickoff, so this verification was completed manually against the current repo state
+
+### Recent builds on `main`
 - April 21 (completed April 23): Chargeback Tracker, F&I Trainer Mode, Monthly Performance Dashboard, Deal Structuring Calculator
 - April 20: Contract Checklist, F&I Manager Report Card, Funding Queue, Gross Per Unit Tracker
 - April 19: Incentive Tracker, F&I Health Score, Stip Tracker, Deal Profit Breakdown
 - April 18: F&I Snapshot, Trade-In Analyzer, Product Profitability, Coaching Planner
 - April 17: Heat Sheet, Word Tracks, Desk Log, Rate Watch
 - April 6: Lender Matrix, Deal Jacket, Weekend Recap, Commission Calculator, Mobile Bottom Nav
-
-### Verification (April 27)
-- `pnpm check` — 0 TypeScript errors
-- `pnpm test` — 1376/1377 passing, 1 skipped
-- No blocking failures — repo remains green
-- Working tree clean after verification commit and push
 
 ## Smoke-test these routes
 - `/chargeback-tracker`
@@ -37,21 +38,32 @@ This repo is **deploy-ready** as of the April 27, 2026 nightly verification.
 - `/fi-health`
 - `/stip-tracker`
 - `/deal-profit`
+- `/fi-snapshot`
+- `/trade-in`
+- `/product-profit`
+- `/coaching-planner`
+- `/heat-sheet`
+- `/word-tracks`
+- `/desk-log`
+- `/rate-watch`
+- `/lender-matrix`
+- `/deal-jacket`
+- `/weekend-recap`
+- `/commission-calculator`
 
 ## Smoke-test focus
 - Sidebar placement in correct sections
-- Mobile More drawer categorization
+- Mobile More drawer categorization across all recent pages
 - Monthly Dashboard pacing chart, calendar heatmap, treemap, and comparison panel
-- Deal Structure payment grid, lender recommendations, optimizer, save/load behavior
-- Chargeback filters, KPI math, trend chart, reserve calculator
+- Deal Structure payment grid, lender recommendations, optimizer, and save/load behavior
+- Chargeback filters, KPI math, trend chart, and reserve calculator
 - Trainer Mode scenario flow, scoring, word track retrieval, and localStorage progress
 - Funding Queue bulk actions and detail slide-out
 - Contract Checklist fund-readiness gating
-
-## Notes
-- Repo is deploy-ready — no blocking test failures remain
-- The 1 skipped test is `server/deepgram.test.ts` which requires `DEEPGRAM_API_KEY` env var (not a code issue)
-- All new pages are lazy-loaded in `App.tsx` and registered in `AppLayout.tsx` sidebar
+- Lender Matrix best-lender finder and reserve heatmap
+- Deal Jacket selector, checklist states, and print layout
+- Weekend Recap scoreboard, coaching focus, and share-with-GM flow
+- Commission Calculator scenarios, YTD tracker persistence, and PVR slider
 
 ## All pages in the app (60+ pages)
 Dashboard, Live Session, Session History, Session Detail, Eagle Eye View, Objection Analysis,

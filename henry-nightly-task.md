@@ -633,3 +633,26 @@ Target: 1,240+ tests passing (up from 1,180)
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
+
+## Re-verification — April 28, 2026
+**Verified by**: Henry (manual verification after Claude Code stall)
+- Attempted to run Claude Code per nightly instruction in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`, but the CLI stalled without producing output again, so no code changes were made by the agent
+- Re-verified the repo directly instead of waiting on a hung background run
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — **1426/1427 passing, 1 skipped**
+- Confirmed the remaining skipped coverage is still the pre-existing Deepgram env-dependent test and there are no blocking application test failures
+- Observed non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but the suite still passes cleanly
+- `git status` ✅ — clean working tree before tonight’s documentation refresh
+- Latest commit on `main` before tonight’s update: `bdda83a docs: refresh nightly verification for april 27`
+
+### What was completed tonight:
+- Attempted the required Claude Code run and confirmed it stalled
+- Independently re-ran TypeScript and Vitest verification on the current repo
+- Refreshed this task file with the actual April 28 baseline
+- Next step is a docs-only commit/push plus deploy handoff refresh
+
+### What’s next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages
+- Optional follow-up: diagnose why Claude Code intermittently stalls before first output on this repo
