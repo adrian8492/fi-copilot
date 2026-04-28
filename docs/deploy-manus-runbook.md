@@ -1,4 +1,4 @@
-# Manus Production Deploy Runbook — Phase 5 Compliance Cut
+# Manus Production Deploy Runbook — Phase 5 + Phase 6
 
 **Target deploy:** `main` branch, commit `7cb0f14` (Phase 6 — cost-plus pricing + admin dealership setup).
 **Why now:** Korum Automotive Group install **Thursday May 1**. Phase 5 compliance
@@ -83,7 +83,7 @@ or `drizzle-kit migrate` with the production `DATABASE_URL`. See Section 2.
 
 ## Section 2 — Migration Sequence Check
 
-Phase 5 added three new migrations on top of Phase 1–4's `0020`–`0021`:
+Phase 5 + Phase 6 added four new migrations on top of Phase 1–4's `0020`–`0021`:
 
 | File | Adds |
 |---|---|
