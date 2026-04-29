@@ -635,24 +635,23 @@ Target: 1,240+ tests passing (up from 1,180)
 - Verify mobile More drawer categorization for all pages
 
 ## Re-verification — April 28, 2026
-**Verified by**: Henry (manual verification after Claude Code stall)
-- Attempted to run Claude Code per nightly instruction in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`, but the CLI stalled without producing output again, so no code changes were made by the agent
-- Re-verified the repo directly instead of waiting on a hung background run
+**Verified by**: Henry (Claude Code — successful run, second pass)
+- Re-ran Claude Code successfully in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
 - `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — **1426/1427 passing, 1 skipped**
-- Confirmed the remaining skipped coverage is still the pre-existing Deepgram env-dependent test and there are no blocking application test failures
-- Observed non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but the suite still passes cleanly
+- `pnpm test` ✅ — **1426/1427 passing, 1 skipped** (pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- No blocking application test failures
+- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
 - `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `bdda83a docs: refresh nightly verification for april 27`
+- Latest commit on `main` before tonight’s update: `dfd2b9f docs(runbook): fix stale Phase 5-only references in deploy runbook`
 
 ### What was completed tonight:
-- Attempted the required Claude Code run and confirmed it stalled
-- Independently re-ran TypeScript and Vitest verification on the current repo
-- Refreshed this task file with the actual April 28 baseline
-- Next step is a docs-only commit/push plus deploy handoff refresh
+- Claude Code ran successfully (earlier attempt stalled; this second pass completed)
+- Re-ran TypeScript and Vitest verification — both green
+- Refreshed this task file with verified April 28 baseline
+- Committed and pushed
 
 ### What’s next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
-- Optional follow-up: diagnose why Claude Code intermittently stalls before first output on this repo
