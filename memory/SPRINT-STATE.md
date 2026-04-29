@@ -2,11 +2,24 @@
 
 **This is the canonical resume document. Read it first. Anything else is reference.**
 
-> **[BRANCH-MERGE 2026-04-27]** Consolidated `feature/multi-tenant-pilot` (Phases 1–5)
-> + the Sat-night `seed-load-test` date-clamp fix into `main`. **Canonical deploy
-> branch is now `main`.** Repo is deploy-ready for Korum **Thursday May 1**. The
-> `feature/multi-tenant-pilot` branch is preserved at tip `9863f53` for reference
-> but should not receive new work — branch from `main` going forward.
+> **[CONTEXT-CLEAR HANDOFF 2026-04-27 evening]** Adrian is clearing the conversation
+> context window (1M tokens approaching). Everything below is the source of truth
+> for resuming. Working tree is clean, no in-progress edits, all commits pushed.
+>
+> **Current state: deploy-ready except for one missing env var.** `main` is at
+> `df12af3` (Manus checkpoint that synced GitHub `7cb0f14` Phase 6, applied
+> migration `0025_pricing_model` to TiDB production, and updated the deploy
+> runbook with all six confirmed Manus-dashboard answers). Korum install is
+> **Thursday May 1** (4 days out). Brian Benstock at Paragon Honda follows
+> **Monday May 5**.
+>
+> **Only blocker for Publish:** `APP_BASE_URL` is NOT set in Manus secrets.
+> Add it as `https://finico-pilot-mqskutaj.manus.space` before clicking deploy.
+> Without it, manager-invite emails ship with a hardcoded fallback URL.
+>
+> **All 26 migrations (0000–0025) are already applied to production TiDB**
+> per Manus's section 2.1 verification. Section 2.3 of the runbook is now an
+> idempotency re-check, not a write step.
 >
 > **[PHASE 6 2026-04-27]** Three issues caught during Adrian's real-use test:
 > (1) hotfix — platform admin login no longer force-redirects to /onboarding
@@ -15,16 +28,32 @@
 > before their users get access (commits `4b50cfe` + `f6afb81`); (3) cost-plus
 > pricing model on the product menu — schema + UI toggle, plus the "Other"
 > custom-name validation (commits `aed89af` + `dcef405`). Migration `0025`
-> ships with this. **Last commit on `main`: `dcef405`. Tests: 1426/1427 passing,
-> 33/33 files green, 0 TS errors. +24 net new tests since the merge.**
+> ships with this.
+>
+> **[MANUS RUNBOOK UPDATE 2026-04-27 evening]** Manus pushed checkpoint
+> `df12af3` ahead of mine; their runbook update covers the same 6 confirmed
+> answers (manual migrations / `main` branch / env-var audit / checkpoint
+> rollback / no staging / TiDB host). I dropped my redundant local commit
+> `9cd654c` and synced to origin. Both versions were content-equivalent;
+> Manus's is canonical. Two minor staleness items in their runbook (title
+> still says "Phase 5 Compliance Cut", section 2 prose says "three new
+> migrations" but the table correctly lists four through 0025) — not worth
+> patching mid-deploy-week unless you trip on them.
+>
+> **[BRANCH-MERGE 2026-04-27]** Consolidated `feature/multi-tenant-pilot` (Phases 1–5)
+> + the Sat-night `seed-load-test` date-clamp fix into `main`. **Canonical deploy
+> branch is now `main`.** The `feature/multi-tenant-pilot` branch is preserved
+> at tip `9863f53` for reference but should not receive new work — branch from
+> `main` going forward.
 
 ## Where you are
 
 | Field | Value |
 |---|---|
 | Branch | **`main`** (canonical deploy branch as of 2026-04-27) |
-| Last commit | `dcef405` (Phase 6 issue 3 frontend — pricing-toggle UI on both wizards) |
-| Phase 6 entry point | `7637e61` (hotfix: super admin skips /onboarding) — first Phase 6 commit on `main` |
+| Last commit on `main` | `df12af3` (Manus checkpoint: Phase 6 sync + migration `0025` applied to prod + runbook updated) |
+| Last GitHub-side authoring commit | `dcef405` (Phase 6 issue 3 frontend — pricing toggle UI) |
+| Phase 6 entry point | `7637e61` (hotfix: super admin skips /onboarding) |
 | Pre-Phase-6 main tip | `27d6db5` (the Phase 1–5 merge commit) |
 | Pre-merge feature tip | `9863f53` (preserved on `feature/multi-tenant-pilot` for reference) |
 | GitHub | `git@github.com:adrian8492/fi-copilot.git` |
@@ -81,6 +110,18 @@
 | **Mon May 5** | **Brian Benstock install (Paragon Honda)** | Adrian |
 
 5+ days of buffer remain between today and the install.
+
+## Deploy walk for next session (when Adrian is ready to click Publish)
+
+The full runbook is at `docs/deploy-manus-runbook.md` on `main`. Compressed
+walk:
+
+1. **Add `APP_BASE_URL` to Manus secrets** — value `https://finico-pilot-mqskutaj.manus.space`. Only env var still missing.
+2. **Capture rollback target** — Manus Management UI → ⋯ → Version History → note the current running checkpoint version ID.
+3. **Verify migrations** — re-run `SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY id DESC LIMIT 30;` against prod. Should show 0000 through 0025 already applied (Manus already did this — re-confirming under your eyes is good practice).
+4. **Click Publish** in Manus Management UI.
+5. **Smoke test (under 2 min)** — runbook section 4 has 7 checks: `/api/health` 200, `/compliance` 200, login works, `consent_logs` + `data_deletion_requests` tables exist, `dealerships.dpa*` columns exist, `/yesterday-recap` renders, `/admin/dealerships` loads as super admin + clicking a row opens the setup wizard, `product_menu.pricing*` columns exist.
+6. **If anything breaks** — Manus Management UI → ⋯ → Version History → click pre-deploy checkpoint → Rollback. (Code rollback only; if a destructive migration broke things, runbook section 5.2 has the reverse SQL for 0022–0025.)
 
 ## Phase 6 architectural notes for the next session
 
