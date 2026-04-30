@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "Machine-readable readiness signal for Mission Control. Generated/updated by hand at significant milestones. Honest reporting — 'unknown' is preferred over invented values.",
+  "updatedAt": "2026-04-30T06:30:00Z",
+  "branch": "main",
+  "commit": "445b794",
+  "commitNote": "HEAD before this prep session's uncommitted changes (working tree has 5 new files + 3 modified). Adrian has not yet approved a commit/push.",
+  "buildStatus": {
+    "status": "green",
+    "command": "pnpm build",
+    "lastVerifiedAt": "2026-04-30T06:14:00Z",
+    "notes": "Vite + esbuild, ~10s. SessionDetail chunk warning is pre-existing (>500kb). dist/index.js + dist/public/ produced clean."
+  },
+  "testStatus": {
+    "status": "green",
+    "command": "pnpm test",
+    "lastVerifiedAt": "2026-04-30T06:14:52Z",
+    "files": 34,
+    "passed": 1444,
+    "skipped": 1,
+    "failed": 0,
+    "skippedNote": "server/deepgram.test.ts is env-gated via it.skipIf(!process.env.DEEPGRAM_API_KEY). Passes when key is present."
+  },
+  "typecheckStatus": {
+    "status": "green",
+    "command": "pnpm check",
+    "lastVerifiedAt": "2026-04-30T06:14:00Z",
+    "errors": 0
+  },
+  "demoSeedStatus": {
+    "status": "ready",
+    "script": "scripts/seed-load-test.ts",
+    "loadCommand": "pnpm exec tsx scripts/seed-load-test.ts --commit",
+    "resetCommand": "pnpm exec tsx scripts/seed-load-test.ts --reset --commit",
+    "safetyGuards": [
+      "default is dry-run, --commit required for any DB write",
+      "refused when NODE_ENV=production",
+      "reset only matches dealNumber LIKE 'T%-D%' — cannot touch real StoneEagle data",
+      "synthetic emails use RFC 2606 .test TLD — cannot collide with real domains",
+      "customer names from public name pool, not real customers"
+    ],
+    "doc": "docs/demo-seed.md"
+  },
+  "deepgramStatus": {
+    "status": "ready_pending_env",
+    "envVar": "DEEPGRAM_API_KEY",
+    "envVarSetInProd": "yes (per docs/deployment-runbook.md §11.1; full reference in docs/deploy-manus-runbook.md §1.2)",
+    "envVarSetLocally": "unknown — check your .env",
+    "fallbackBehavior": "browser SpeechRecognition (Chrome / Edge) when key missing or Deepgram unreachable",
+    "model": "Nova-2 streaming",
+    "diarization": true,
+    "smartFormatting": true,
+    "doc": "docs/deepgram-readiness.md",
+    "blockers": [
+      "must verify server-side transcription in browser before any live demo or install — see doc § 'Verification before any live demo'"
+    ]
+  },
+  "retentionStatus": {
+    "status": "ready_for_pilot",
+    "softDeleteWindowDays": 30,
+    "hardDeleteScript": "scripts/process-data-deletion.ts",
+    "scriptStatus": "dry-run + --commit modes implemented; tested via 15-test unit suite",
+    "productionGuard": "refused without ALLOW_PRODUCTION_DELETE=1 env (cron sets it; humans should not)",
+    "auditTrail": "memory/deletion-logs/YYYY-MM-DD.md (JSONL append-only)",
+    "firstHardDeleteDue": "approximately 2026-05-31 (30 days post-Korum install)",
+    "doc": "docs/data-retention-and-delete.md",
+    "openItems": [
+      "Manus cron not yet stood up — by May 15 per docs/data-retention-and-delete.md action plan",
+      "Reads during 30-day soft-delete window not gated — open legal question"
+    ]
+  },
+  "docsStatus": {
+    "status": "complete_for_pilot",
+    "docsPresent": [
+      "docs/deployment-runbook.md",
+      "docs/deploy-manus-runbook.md",
+      "docs/demo-seed.md",
+      "docs/demo-walkthrough-korum-benstock.md",
+      "docs/deepgram-readiness.md",
+      "docs/data-retention-and-delete.md",
+      "docs/privacy-dpa-review.md",
+      "docs/korum-sprint-readiness-checklist.md",
+      "docs/benstock-demo-checklist.md",
+      "docs/legal/dpa-template-v1.md",
+      "docs/ADDING_NEW_DEALERSHIP.md"
+    ],
+    "docsMissing": [],
+    "openItems": [
+      "DPA v1 not yet counsel-reviewed",
+      "owner/action table in deployment-runbook.md was added in this session — verify Adrian agrees with the named owners"
+    ]
+  },
+  "deployStatus": {
+    "status": "blocked_by_one_env_var",
+    "branch": "main",
+    "lastDeployedCheckpoint": "df12af3",
+    "currentMainHead": "445b794",
+    "publishUrl": "https://finico-pilot-mqskutaj.manus.space",
+    "missingEnvVar": "APP_BASE_URL",
+    "missingEnvVarValue": "https://finico-pilot-mqskutaj.manus.space",
+    "missingEnvVarImpact": "manager invite emails ship with hardcoded fallback URL until set",
+    "migrationsAppliedToProd": "0000 through 0025 — all current",
+    "rollbackProcedure": "Manus Management UI -> Version History -> Rollback (see docs/deployment-runbook.md §11.4; deeper detail in docs/deploy-manus-runbook.md §5)"
+  },
+  "blockers": [
+    {
+      "severity": "high",
+      "description": "APP_BASE_URL not set in Manus secrets",
+      "owner": "Adrian",
+      "blocks": "Manus Publish for Phase 6",
+      "fix": "set APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space in Manus secrets, then click Publish"
+    },
+    {
+      "severity": "medium",
+      "description": "DPA v1 template not counsel-reviewed",
+      "owner": "Adrian + dealer counsel (Jim Koch / Paragon legal)",
+      "blocks": "counter-signed DPA from each dealer",
+      "fix": "review docs/legal/dpa-template-v1.md against §7 of docs/privacy-dpa-review.md"
+    },
+    {
+      "severity": "low",
+      "description": "Working tree has uncommitted changes from this prep session",
+      "owner": "Adrian",
+      "blocks": "nothing — but a stale working tree means the readiness JSON's commit hash will diverge from any future deploy",
+      "fix": "review the diff, commit + push when ready (Adrian has not approved auto-commit)"
+    }
+  ],
+  "readinessLevel": "sprint_ready",
+  "readinessLevelOptions": ["not_ready", "demo_ready", "sprint_ready", "production_ready"],
+  "readinessLevelReasoning": "Code, tests, build, and docs are ready for the May 1 Korum install. Production deploy is one env var away. Demo flow is verified by code and documented end-to-end. NOT 'production_ready' because: (a) APP_BASE_URL still unset in Manus, (b) DPA v1 not counsel-reviewed, (c) the deletion-cron is not yet stood up (first run not due until ~May 31, so this is not a Friday blocker)."
+}
