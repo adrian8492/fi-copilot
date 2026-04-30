@@ -655,3 +655,23 @@ Target: 1,240+ tests passing (up from 1,180)
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
+
+## Re-verification — April 29, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — **1426/1427 passing, 1 skipped** (pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- No blocking application test failures
+- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
+- `git status` ✅ — clean working tree before tonight’s documentation refresh
+- Latest commit on `main` before tonight’s update: `92a0246 docs: refresh nightly verification for april 28 (second pass)`
+
+### What was completed tonight:
+- Re-ran TypeScript and Vitest verification — both green
+- Refreshed this task file with verified April 29 baseline
+
+### What’s next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages

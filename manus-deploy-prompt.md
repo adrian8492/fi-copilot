@@ -4,9 +4,9 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **deploy-ready** as of the April 28, 2026 nightly verification.
+This repo is **deploy-ready** as of the April 29, 2026 nightly verification.
 
-### Latest verification (April 28)
+### Latest verification (April 29)
 - `pnpm check` ✅ — 0 TypeScript errors
 - `pnpm test` ✅ — **1426/1427 passing, 1 skipped**
 - No blocking failures in the current application test suite
@@ -15,7 +15,6 @@ This repo is **deploy-ready** as of the April 28, 2026 nightly verification.
 ### Important notes
 - The remaining skipped coverage is still the env-dependent Deepgram test (`server/deepgram.test.ts`) and is not a code regression
 - Test output also includes non-blocking log noise for missing `DATABASE_URL` / `OAUTH_SERVER_URL` in isolated test mode, but the suite still passes
-- Claude Code ran successfully on the second pass (earlier attempt stalled); verification is now agent-confirmed
 
 ### Recent builds on `main`
 - April 21 (completed April 23): Chargeback Tracker, F&I Trainer Mode, Monthly Performance Dashboard, Deal Structuring Calculator
