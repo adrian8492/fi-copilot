@@ -1,26 +1,38 @@
 #!/usr/bin/env tsx
 /**
- * Load-test seed — Phase 4
+ * Load-test / DEMO seed — Phase 4 (extended Phase 6 with --reset)
  *
- * Generates N fake F&I deals spread across K tenants and (optionally) inserts
- * them through the same code path as production reads/writes — including the
- * tenancy enforcement layer. Doubles as:
+ * This is the canonical demo seeder. Every row it writes is synthetic:
+ *   - Customer names from public name pools (no PII, no real customers).
+ *   - Manager emails formatted as `manager{N}@tenant{N}.test` (.test TLD is
+ *     reserved by RFC 2606 — cannot collide with real domains).
+ *   - Deal numbers prefixed `T{tenant}-D{seq}` — easy to identify and reset.
+ *
+ * Doubles as:
  *   - Demo data for /yesterday-recap before the first StoneEagle import
  *   - A perf smoke for the recap query path under a realistic row count
  *   - A correctness check that tenancy isolation holds under load
  *     (each tenant's reads must only return their own deals)
  *
  * USAGE
- *   tsx scripts/seed-load-test.ts                          # default: 1000 deals × 5 tenants, --dry-run
+ *   tsx scripts/seed-load-test.ts                          # default: 1000 deals × 5 tenants, dry-run
  *   tsx scripts/seed-load-test.ts --count 1000 --tenants 5
  *   tsx scripts/seed-load-test.ts --count 1000 --tenants 5 --commit
+ *   tsx scripts/seed-load-test.ts --reset                  # dry-run: count seeded rows that would be deleted
+ *   tsx scripts/seed-load-test.ts --reset --commit         # actually delete rows where dealNumber LIKE 'T%-D%'
  *
  * SAFETY
- *   --commit is required for actual DB writes. Default is dry-run (data is
- *   generated and shape-checked, no DB writes).
+ *   --commit is required for any DB-mutating action (insert OR delete).
+ *   Default is dry-run.
  *
- *   The script will refuse to run with --commit when NODE_ENV=production.
- *   We never want this writing into the live Korum/Paragon database.
+ *   The script refuses --commit when NODE_ENV=production. We never want this
+ *   writing into — or deleting from — the live Korum/Paragon database. To
+ *   clear demo data from production, do it deliberately via SQL with a clear
+ *   paper trail.
+ *
+ *   --reset only matches rows whose `dealNumber` matches the synthetic
+ *   `T{n}-D{seq}` prefix. Real StoneEagle deals never use that pattern, so a
+ *   reset cannot accidentally delete production data.
  */
 
 import "dotenv/config";
@@ -144,25 +156,31 @@ export interface SeedArgs {
   count: number;
   tenantCount: number;
   commit: boolean;
+  reset: boolean;
   seed?: number;
 }
+
+/** Pattern that matches a synthetic demo deal number — keep in sync with `T{tenant}-D{seq}` writes. */
+export const DEMO_DEAL_NUMBER_LIKE = "T%-D%";
 
 export function parseArgs(argv: string[]): SeedArgs {
   let count = 1000;
   let tenantCount = 5;
   let commit = false;
+  let reset = false;
   let seed: number | undefined;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--count") count = parseInt(argv[++i] ?? "0", 10);
     else if (a === "--tenants") tenantCount = parseInt(argv[++i] ?? "0", 10);
     else if (a === "--commit") commit = true;
+    else if (a === "--reset") reset = true;
     else if (a === "--seed") seed = parseInt(argv[++i] ?? "0", 10);
   }
-  if (count <= 0 || tenantCount <= 0) {
+  if (!reset && (count <= 0 || tenantCount <= 0)) {
     throw new Error("--count and --tenants must be positive integers");
   }
-  return { count, tenantCount, commit, seed };
+  return { count, tenantCount, commit, reset, seed };
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────
@@ -173,6 +191,10 @@ async function main() {
   if (args.commit && process.env.NODE_ENV === "production") {
     console.error("[seed-load-test] refusing to --commit with NODE_ENV=production");
     process.exit(1);
+  }
+
+  if (args.reset) {
+    return await runReset(args.commit);
   }
 
   const t0 = Date.now();
@@ -223,6 +245,38 @@ async function main() {
   }
   const writeMs = Date.now() - t1;
   console.log(JSON.stringify({ inserted, skipped, writeMs, perRowUs: Math.round((writeMs * 1000) / Math.max(1, inserted)) }, null, 2));
+}
+
+/**
+ * Reset path — match every session whose `dealNumber` looks synthetic
+ * (`T*-D*`) and either count them (dry-run) or hard-delete them with full
+ * child-table cascade via `deleteSessionData`. Real StoneEagle deal numbers
+ * never use this prefix, so this can never accidentally delete production data.
+ */
+async function runReset(commit: boolean) {
+  const db = await import("../server/db");
+  const ids = await db.findSessionIdsByDealNumberLike(DEMO_DEAL_NUMBER_LIKE);
+  const summary = {
+    ts: new Date().toISOString(),
+    pattern: DEMO_DEAL_NUMBER_LIKE,
+    matchedSessions: ids.length,
+    commit,
+  };
+  console.log(JSON.stringify(summary, null, 2));
+
+  if (!commit) {
+    console.log("[seed-load-test] reset dry-run — no rows deleted. Re-run with --reset --commit to delete.");
+    return;
+  }
+
+  const t0 = Date.now();
+  let deleted = 0;
+  for (const id of ids) {
+    await db.deleteSessionData(id);
+    deleted++;
+  }
+  const deleteMs = Date.now() - t0;
+  console.log(JSON.stringify({ deleted, deleteMs }, null, 2));
 }
 
 const invokedDirectly =

@@ -91,8 +91,14 @@ describe("summarizeByTenant", () => {
 });
 
 describe("parseArgs", () => {
-  it("defaults to 1000 deals × 5 tenants, dry-run", () => {
-    expect(parseArgs([])).toEqual({ count: 1000, tenantCount: 5, commit: false, seed: undefined });
+  it("defaults to 1000 deals × 5 tenants, dry-run, no reset", () => {
+    expect(parseArgs([])).toEqual({
+      count: 1000,
+      tenantCount: 5,
+      commit: false,
+      reset: false,
+      seed: undefined,
+    });
   });
 
   it("accepts --count, --tenants, --commit, --seed", () => {
@@ -100,6 +106,7 @@ describe("parseArgs", () => {
       count: 200,
       tenantCount: 3,
       commit: true,
+      reset: false,
       seed: 9,
     });
   });
@@ -107,5 +114,25 @@ describe("parseArgs", () => {
   it("rejects non-positive count or tenants", () => {
     expect(() => parseArgs(["--count", "0"])).toThrow();
     expect(() => parseArgs(["--tenants", "-3"])).toThrow();
+  });
+
+  it("--reset alone is a dry-run reset", () => {
+    expect(parseArgs(["--reset"])).toEqual({
+      count: 1000,
+      tenantCount: 5,
+      commit: false,
+      reset: true,
+      seed: undefined,
+    });
+  });
+
+  it("--reset --commit means delete-for-real", () => {
+    const args = parseArgs(["--reset", "--commit"]);
+    expect(args.reset).toBe(true);
+    expect(args.commit).toBe(true);
+  });
+
+  it("--reset skips the count/tenants positivity check (count and tenants are unused on reset)", () => {
+    expect(() => parseArgs(["--reset", "--count", "0"])).not.toThrow();
   });
 });

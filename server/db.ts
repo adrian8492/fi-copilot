@@ -2048,6 +2048,21 @@ export async function findSessionByDealNumber(dealershipId: number, dealNumber: 
   return result[0] ?? null;
 }
 
+/**
+ * Find session ids whose dealNumber matches a SQL LIKE pattern.
+ * Used by the demo seed `--reset` path to identify synthetic rows
+ * (`T{tenant}-D{seq}`) without touching real StoneEagle deals.
+ */
+export async function findSessionIdsByDealNumberLike(pattern: string): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(like(sessions.dealNumber, pattern));
+  return rows.map((r) => r.id);
+}
+
 export async function getSessionsByCustomerId(customerId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -2733,6 +2748,36 @@ export async function getPendingDeletionRequestsDue(asOf: Date = new Date()): Pr
       lte(dataDeletionRequests.scheduledDeletionAt, asOf),
     ))
     .orderBy(dataDeletionRequests.scheduledDeletionAt);
+}
+
+/**
+ * Delete the consent_logs row for a session, if any. The schema enforces
+ * UNIQUE(sessionId), so this affects at most one row. Used by the data-
+ * deletion sweep to clean up Phase 5a consent records alongside the session.
+ */
+export async function deleteConsentLogBySessionId(sessionId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db.delete(consentLogs).where(eq(consentLogs.sessionId, sessionId));
+  return (result as { affectedRows?: number })?.affectedRows ?? 0;
+}
+
+/**
+ * Delete a customer row, scoped to a dealership for defense-in-depth.
+ * A misconfigured deletion request can never reach a customer outside its
+ * own tenant. Returns the number of rows deleted (0 or 1).
+ */
+export async function deleteCustomerByIdForDealership(
+  customerId: number,
+  dealershipId: number,
+): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db.delete(customers).where(and(
+    eq(customers.id, customerId),
+    eq(customers.dealershipId, dealershipId),
+  ));
+  return (result as { affectedRows?: number })?.affectedRows ?? 0;
 }
 
 // Audit trail accessor for FTC Safeguards Rule compliance reviews.
