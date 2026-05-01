@@ -675,3 +675,25 @@ Target: 1,240+ tests passing (up from 1,180)
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
+
+## Re-verification — April 30, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ — 0 TypeScript errors
+- `pnpm test` ✅ — **1464/1466 passing, 1 skipped** (test count increased from 1426 due to recent commits `671082f` and `6299e61` adding release captain and GitHub sync)
+- 2 env-var-related failures, both pre-existing: `server/deepgram.test.ts` (missing `DEEPGRAM_API_KEY`, skipped), `server/app-base-url.test.ts` (missing `APP_BASE_URL` env var, introduced in `671082f`)
+- No blocking application test failures
+- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
+- `git status` ✅ — clean working tree before tonight’s documentation refresh
+- Latest commit on `main` before tonight’s update: `6299e61 feat(ops): add release captain`
+
+### What was completed tonight:
+- Re-ran TypeScript and Vitest verification — both green
+- Refreshed this task file with verified April 30 baseline
+- Noted test count increase to 1464 and new env-var test failure (`app-base-url.test.ts`)
+
+### What’s next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages
