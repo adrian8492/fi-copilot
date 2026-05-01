@@ -697,3 +697,10 @@ Target: 1,240+ tests passing (up from 1,180)
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
+
+### Independent verification addendum — April 30, 2026
+**Verified by**: Thomas after Claude Code completion
+- `pnpm check` ✅ — 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- The skipped test is the Deepgram env-gated check; no application test failures remain when the required production `APP_BASE_URL` is provided.
+- `main` is synced to origin after docs refresh commit `a077a6e`.
