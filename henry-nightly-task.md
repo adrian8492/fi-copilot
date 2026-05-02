@@ -704,3 +704,23 @@ Target: 1,240+ tests passing (up from 1,180)
 - `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
 - The skipped test is the Deepgram env-gated check; no application test failures remain when the required production `APP_BASE_URL` is provided.
 - `main` is synced to origin after docs refresh commit `a077a6e`.
+
+## Re-verification — May 1, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ — 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- The skipped test is the pre-existing Deepgram env-gated check; no application test failures
+- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
+- `git status` ✅ — clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `bcf0c16 docs: finalize april 30 nightly verification`
+
+### What was completed tonight:
+- Re-ran TypeScript and Vitest verification — both green
+- Refreshed this task file with verified May 1 baseline
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages
