@@ -724,3 +724,27 @@ Target: 1,240+ tests passing (up from 1,180)
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
+
+## Re-verification — May 2, 2026
+**Verified by**: Henry (manual verification after Claude Code stall)
+- Attempted to run Claude Code for tonight’s build, but the CLI produced no output and stalled; no code changes were made by the agent
+- Re-verified the repo directly in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ — 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- The skipped test remains the pre-existing Deepgram env-gated check; no application test failures remain when `APP_BASE_URL` is set
+- Non-blocking test log noise from missing `DATABASE_URL`, `OAUTH_SERVER_URL`, and notification env configuration still appears during isolated test runs, but the suite passes cleanly
+- `git status` ✅ — clean working tree before tonight’s documentation refresh
+- Latest commit on `main` before tonight’s update: `b25ceee docs: refresh nightly verification for may 1`
+
+### What was completed tonight:
+- Attempted Claude Code run and terminated it after an output stall
+- Re-ran TypeScript and Vitest verification manually — both green
+- Refreshed this task file with verified May 2 baseline
+- Refreshed `manus-deploy-prompt.md` for tonight’s deployment handoff
+
+### What’s next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages
+- Optional follow-up: diagnose why Claude Code stalled before output on this run

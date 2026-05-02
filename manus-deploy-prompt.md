@@ -4,18 +4,19 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **deploy-ready** as of the May 1, 2026 nightly verification.
+This repo is **deploy-ready** as of the May 2, 2026 nightly verification.
 
-### Latest verification (May 1)
+### Latest verification (May 2)
 - `pnpm check` ✅ — 0 TypeScript errors
 - `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
 - No blocking failures in the current application test suite when production APP_BASE_URL is provided
+- Claude Code stalled without output on tonight’s run, so verification was completed manually
 - Working tree was clean before the nightly docs refresh commit
 
 ### Important notes
 - The remaining skipped coverage is still the env-dependent Deepgram test (`server/deepgram.test.ts`) and is not a code regression
 - `server/app-base-url.test.ts` expects `APP_BASE_URL` to include `finico-pilot-mqskutaj.manus.space`; set that env var for local/test verification
-- Test output also includes non-blocking log noise for missing `DATABASE_URL` / `OAUTH_SERVER_URL` in isolated test mode, but the suite still passes
+- Test output also includes non-blocking log noise for missing `DATABASE_URL` / `OAUTH_SERVER_URL` and notification env config in isolated test mode, but the suite still passes
 
 ### Recent builds on `main`
 - April 21 (completed April 23): Chargeback Tracker, F&I Trainer Mode, Monthly Performance Dashboard, Deal Structuring Calculator
