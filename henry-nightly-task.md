@@ -750,6 +750,30 @@ Target: 1,240+ tests passing (up from 1,180)
 - Optional follow-up: diagnose why Claude Code stalled before output on this run
 
 ## Re-verification — May 2, 2026 (second pass)
+**Verified by**: Henry (Claude Code attempted again, manual verification completed)
+- Re-ran Claude Code in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`; it stalled again without producing output, so the session was terminated and no code changes were made by the agent
+- Re-verified the repo directly after the stalled run
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ — 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- The skipped test remains the pre-existing Deepgram env-gated check; no application test failures remain when `APP_BASE_URL` is set
+- Non-blocking test log noise from missing `DATABASE_URL`, `OAUTH_SERVER_URL`, and notification env configuration still appears during isolated test runs, but the suite passes cleanly
+- `git status` ✅ — clean working tree before this documentation refresh
+- Latest commit on `main` before tonight’s second-pass update: `baa629b docs: refresh nightly verification for may 2 (second pass)`
+
+### What was completed tonight:
+- Attempted Claude Code again and confirmed the same no-output stall behavior persists
+- Re-ran TypeScript and Vitest verification manually — both green
+- Refreshed this task file with a second-pass May 2 verification
+- Refreshed `manus-deploy-prompt.md` so deploy handoff matches the verified repo state
+
+### What’s next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages
+- Optional follow-up: diagnose why Claude Code is stalling before output on this nightly flow
+
+## Re-verification — May 2, 2026 (second pass)
 **Verified by**: Henry (Claude Code — successful run)
 - Re-ran Claude Code successfully in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
