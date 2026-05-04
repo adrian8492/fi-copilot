@@ -725,6 +725,26 @@ Target: 1,240+ tests passing (up from 1,180)
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
+## Re-verification — May 3, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ — 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- The skipped test is the pre-existing Deepgram env-gated check; no application test failures
+- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
+- `git status` ✅ — clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `4ec609f docs: refresh nightly verification for may 2 (third pass)`
+
+### What was completed tonight:
+- Re-ran TypeScript and Vitest verification — both green
+- Refreshed this task file with verified May 3 baseline
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages
+
 ## Re-verification — May 2, 2026
 **Verified by**: Henry (manual verification after Claude Code stall)
 - Attempted to run Claude Code for tonight’s build, but the CLI produced no output and stalled; no code changes were made by the agent
