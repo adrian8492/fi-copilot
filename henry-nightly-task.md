@@ -1,12 +1,12 @@
-# Henry Nightly Task — April 6, 2026
+# Henry Nightly Task - April 6, 2026
 
-## Priority: HIGH — Lender Matrix Dashboard, Deal Jacket Viewer, Weekend Recap Report, Commission Calculator, Mobile Bottom Nav, Test Coverage Expansion
+## Priority: HIGH - Lender Matrix Dashboard, Deal Jacket Viewer, Weekend Recap Report, Commission Calculator, Mobile Bottom Nav, Test Coverage Expansion
 
 ## Context
 Previous build (April 5) completed: ROI Calculator, Product Payoff Tracker, Manager Schedule, Compliance Scorecard, Dark Mode Toggle.
 Current test state: 818/819 passing (1 pre-existing deepgram env var failure).
-Git: 8211772 — docs: update manus deploy prompt and nightly task for April 5 build
-TypeScript: 0 errors — clean baseline.
+Git: 8211772 - docs: update manus deploy prompt and nightly task for April 5 build
+TypeScript: 0 errors - clean baseline.
 
 All pages exist: Dashboard, LiveSession, SessionHistory, SessionDetail, EagleEyeView, ObjectionAnalysis,
 AdminPanel, Analytics, BatchUpload, ComplianceRules, Customers, CustomerDetail, ProductMenu,
@@ -26,7 +26,7 @@ New page `LenderMatrix.tsx` at `/lender-matrix`:
 - Lenders: Ally Financial, Capital One, Chase Auto, Wells Fargo, US Bank, Westlake Financial, Credit Acceptance, TD Auto Finance, Bank of America, Regional Credit Union (10 lenders)
 - Rate spread visualization: recharts Bar chart showing buy rate vs sell rate per lender (grouped bars), color-coded by credit tier (filter dropdown)
 - "Best Lender Finder" tool: Select credit score range + deal amount + term → shows ranked lender recommendations sorted by total reserve opportunity
-- Funding speed chart: recharts horizontal BarChart — avg days from contract to funding per lender
+- Funding speed chart: recharts horizontal BarChart - avg days from contract to funding per lender
 - "Reserve Opportunity" heatmap: credit tier (rows) × lender (columns), cell color = max reserve bps (green = high, red = low)
 - Date range filter: Last 30 / Last 90 / YTD
 - Hard-coded demo data: 10 lenders, 5 credit tiers, 12 months of volume history
@@ -40,7 +40,7 @@ New page `DealJacket.tsx` at `/deal-jacket`:
 - Deal summary header: Customer Name, Vehicle (Year Make Model), Deal Date, F&I Manager, Deal Type (Finance/Lease/Cash), Sale Price, Amount Financed, Rate, Term, Monthly Payment, Lender
 - Document checklist card: list of required documents with status (✅ Complete / ⏳ Pending / ❌ Missing)
   - Documents: Credit Application, Menu Presentation, Product Disclosure Forms (per product), Rate Markup Disclosure, Privacy Notice, Arbitration Agreement, GAP Waiver (if GAP sold), Warranty Contract, Adverse Action Notice (if applicable)
-- Product summary card: all products sold in this deal — Product Name, Price, Cost, Gross Profit, Penetration Flag (first-time buyer for this product?)
+- Product summary card: all products sold in this deal - Product Name, Price, Cost, Gross Profit, Penetration Flag (first-time buyer for this product?)
 - Compliance check card: shows any compliance flags triggered during this deal's session (linked to ComplianceAudit data)
 - Deal financials breakdown: stacked bar showing Front Gross + Back Gross + Total Gross
 - "Deal Score" badge: pull ASURA OPS score for this deal's session (link to session detail)
@@ -52,16 +52,16 @@ New page `DealJacket.tsx` at `/deal-jacket`:
 
 ### 3. Weekend Recap Report (HIGH)
 New page `WeekendRecap.tsx` at `/weekend-recap`:
-- Automated weekly performance summary — designed for Monday morning review
+- Automated weekly performance summary - designed for Monday morning review
 - Report period selector: This Week / Last Week / Custom Date Range
 - Executive Summary card: Total Deals, Total F&I Revenue, Avg PVR, PVR vs Prior Week (delta arrow), Product Penetration %, Top Performing Manager, Biggest Win (highest single-deal PVR)
 - "Manager Scoreboard" table: Manager Name, Deals, F&I Revenue, Avg PVR, Product Penetration %, Compliance Score, Coaching Score, Rank (1-N, with medal emoji for top 3)
 - Product performance breakdown: BarChart showing units sold per product this week vs last week (grouped bars)
 - "Wins & Opportunities" section:
   - Wins: Top 3 deals by PVR (customer name, vehicle, PVR, products sold)
-  - Opportunities: Bottom 3 deals by PVR (what was missed — products declined, low score areas)
+  - Opportunities: Bottom 3 deals by PVR (what was missed - products declined, low score areas)
 - Day-by-day trend: LineChart showing daily PVR average across the week (Mon-Sat)
-- Coaching focus areas: AI-generated suggestions based on week's data (e.g., "GAP penetration dropped 8% — review objection handling" or "Thursday PVR spiked — replicate that energy")
+- Coaching focus areas: AI-generated suggestions based on week's data (e.g., "GAP penetration dropped 8% - review objection handling" or "Thursday PVR spiked - replicate that energy")
 - "Share with GM" button: copies formatted text summary to clipboard
 - Print-ready layout with window.print()
 - Hard-coded demo data: 2 weeks of daily deals, 6 managers, all products
@@ -79,7 +79,7 @@ New page `CommissionCalculator.tsx` at `/commission-calculator`:
   - Top 1%: benchmark target ($2,500+ PVR, 65%+ penetration)
 - Monthly projection chart: recharts Area showing 12-month cumulative earnings trajectory for all 3 scenarios
 - "Income vs PVR" slider: adjust PVR from $800 to $3,000 and see real-time comp impact
-- Pay plan presets dropdown: "Standard F&I Plan", "Flat Rate Plan", "Tiered Bonus Plan" — each pre-fills different commission structures
+- Pay plan presets dropdown: "Standard F&I Plan", "Flat Rate Plan", "Tiered Bonus Plan" - each pre-fills different commission structures
 - YTD tracker: input actual monthly earnings (localStorage persisted), show progress chart vs annual target
 - Print/share summary
 - Hard-coded demo defaults: $4,000 base, 15% commission, $25/product, 150 deals, $1,800 avg back gross, 120 deal bonus threshold, $2,000 bonus
@@ -95,7 +95,7 @@ Update `AppLayout.tsx`:
 - Active state: filled icon + label text + primary color underline
 - Tab bar styling: bg-card, border-t, h-16, safe-area-inset-bottom padding for iOS
 - Bottom nav respects dark mode
-- Sidebar still renders on desktop (≥768px) — no change to desktop layout
+- Sidebar still renders on desktop (≥768px) - no change to desktop layout
 - All existing mobile hamburger menu behavior preserved as fallback
 
 ### 6. Expand Test Suite to 870+ (MEDIUM)
@@ -132,7 +132,7 @@ Add `server/nightly-april6.test.ts` with tests for:
 Target: 870+ tests passing (up from 818)
 
 ## Technical Notes
-- No build step for dev — Vite dev server, vanilla tRPC
+- No build step for dev - Vite dev server, vanilla tRPC
 - Tests: pnpm test (target: 870+/871+)
 - TypeScript: pnpm check (target: 0 errors)
 - The 1 deepgram.test.ts failure is pre-existing and acceptable
@@ -166,18 +166,18 @@ Target: 870+ tests passing (up from 818)
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md
 
-## Completion Notes — April 6, 2026
+## Completion Notes - April 6, 2026
 **Completed by**: Henry (Claude Code + verification pass)
 **Tests**: 897/898 passing (79 new tests in nightly-april6.test.ts; 1 pre-existing deepgram env failure)
 **TypeScript**: 0 errors
 
 ### What was built:
-1. **Lender Matrix Dashboard** (`/lender-matrix`) — 10-lender comparison matrix with KPI bar, grouped buy-rate vs sell-rate chart, best lender finder ranked by reserve opportunity, funding speed chart, reserve heatmap, credit-tier filter, and YTD/demo lender data.
-2. **Deal Jacket Viewer** (`/deal-jacket`) — searchable recent-deals selector, deal summary header, document checklist with complete/pending/missing states, product gross breakdown, compliance flag card, gross visualization, deal score badge, and chronological timeline with print support.
-3. **Weekend Recap Report** (`/weekend-recap`) — Monday-morning executive summary, manager scoreboard ranked by PVR, week-over-week product comparison, top wins vs missed opportunities, daily PVR trend, coaching focus callouts, clipboard share, and print layout.
-4. **Commission Calculator** (`/commission-calculator`) — monthly comp estimator with pay-plan presets, current vs ASURA vs top-1% scenarios, cumulative earnings projection, income-vs-PVR slider, YTD tracker persisted in localStorage, and share/print actions.
-5. **Mobile Bottom Navigation** — fixed 5-item bottom tab bar on mobile (`Dashboard`, `Live Session`, `History`, `Analytics`, `More`) with active-state underline, safe-area padding, dark-mode support, and slide-up categorized drawer for the rest of the app.
-6. **Test Suite Expansion** — new `server/nightly-april6.test.ts` covering lender calculations, deal jacket shaping, weekend recap metrics, commission math, and mobile navigation logic.
+1. **Lender Matrix Dashboard** (`/lender-matrix`) - 10-lender comparison matrix with KPI bar, grouped buy-rate vs sell-rate chart, best lender finder ranked by reserve opportunity, funding speed chart, reserve heatmap, credit-tier filter, and YTD/demo lender data.
+2. **Deal Jacket Viewer** (`/deal-jacket`) - searchable recent-deals selector, deal summary header, document checklist with complete/pending/missing states, product gross breakdown, compliance flag card, gross visualization, deal score badge, and chronological timeline with print support.
+3. **Weekend Recap Report** (`/weekend-recap`) - Monday-morning executive summary, manager scoreboard ranked by PVR, week-over-week product comparison, top wins vs missed opportunities, daily PVR trend, coaching focus callouts, clipboard share, and print layout.
+4. **Commission Calculator** (`/commission-calculator`) - monthly comp estimator with pay-plan presets, current vs ASURA vs top-1% scenarios, cumulative earnings projection, income-vs-PVR slider, YTD tracker persisted in localStorage, and share/print actions.
+5. **Mobile Bottom Navigation** - fixed 5-item bottom tab bar on mobile (`Dashboard`, `Live Session`, `History`, `Analytics`, `More`) with active-state underline, safe-area padding, dark-mode support, and slide-up categorized drawer for the rest of the app.
+6. **Test Suite Expansion** - new `server/nightly-april6.test.ts` covering lender calculations, deal jacket shaping, weekend recap metrics, commission math, and mobile navigation logic.
 
 ### Sidebar/navigation updates:
 - **Core nav**: added Deal Jacket
@@ -194,21 +194,21 @@ Target: 870+ tests passing (up from 818)
 - Deploy the latest `main` build to Manus
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 
-## Re-verification — April 8, 2026
+## Re-verification - April 8, 2026
 **Verified by**: Henry (Claude Code)
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 897/898 passing (1 pre-existing deepgram env failure)
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 897/898 passing (1 pre-existing deepgram env failure)
 - All 4 new pages confirmed in `App.tsx` routes and lazy-loaded
 - Mobile bottom nav confirmed in `AppLayout.tsx`
 - `manus-deploy-prompt.md` updated for April 8 deployment
 
-## Re-verification — April 12, 2026
+## Re-verification - April 12, 2026
 **Verified by**: Henry (Claude Code + manual pass)
 - Re-ran Claude Code against this task file in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Claude Code confirmed the nightly build tasks were already completed with no additional feature work required
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ⚠️ — 897/898 passing, with the same known pre-existing `server/deepgram.test.ts` failure caused by missing `DEEPGRAM_API_KEY`
-- `git status` ✅ — clean working tree, no uncommitted changes
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ⚠️ - 897/898 passing, with the same known pre-existing `server/deepgram.test.ts` failure caused by missing `DEEPGRAM_API_KEY`
+- `git status` ✅ - clean working tree, no uncommitted changes
 - Latest commit on `main` at verification time: `bbaf9b6 docs: update nightly task verification and deploy prompt for April 8`
 - `manus-deploy-prompt.md` reviewed and remains accurate for deployment
 
@@ -217,15 +217,15 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav behavior on a narrow viewport in Manus after deploy
 
-## Re-verification — April 13, 2026
+## Re-verification - April 13, 2026
 **Verified by**: Henry (Claude Code + manual verification)
 - Re-ran the nightly verification flow in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed the April 6 feature set is already present, including routes for `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Confirmed mobile bottom navigation and More drawer are present in `client/src/components/AppLayout.tsx`
 - Confirmed `server/nightly-april6.test.ts` is present with lender, deal jacket, weekend recap, commission, and mobile-nav coverage
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ⚠️ — 897/898 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
-- `git status` ✅ — only documentation updates for this verification run
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ⚠️ - 897/898 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
+- `git status` ✅ - only documentation updates for this verification run
 - Latest commit on `main` before tonight's doc update: `bbaf9b6 docs: update nightly task verification and deploy prompt for April 8`
 
 ### What's next:
@@ -233,15 +233,15 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
 
-## Re-verification — April 14, 2026
+## Re-verification - April 14, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all April 6 features present: `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, `/commission-calculator`
 - Confirmed mobile bottom navigation and More drawer in `AppLayout.tsx`
 - Confirmed `server/nightly-april6.test.ts` present with 79 tests
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 897/898 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
-- `git status` ✅ — only documentation update for this verification run
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 897/898 passing (1 pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ - only documentation update for this verification run
 - Latest commit on `main` before tonight's update: `8e4f033 docs: refresh nightly verification for april 13`
 
 ### What's next:
@@ -249,16 +249,16 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
 
-## Re-verification — April 15, 2026
+## Re-verification - April 15, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
-- Confirmed the April 6 feature set is already on `main` — no new feature work needed tonight
+- Confirmed the April 6 feature set is already on `main` - no new feature work needed tonight
 - Confirmed routes for `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator` remain lazy-loaded in `App.tsx`
 - Confirmed mobile bottom navigation and More drawer still present in `client/src/components/AppLayout.tsx`
 - Confirmed `server/nightly-april6.test.ts` still present with 79 tests
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 897/898 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
-- `git status` ✅ — clean working tree at start; only documentation update for this verification run
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 897/898 passing (1 pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ - clean working tree at start; only documentation update for this verification run
 - Latest commit on `main` before tonight's doc update: `ad7564a docs: refresh nightly verification for april 14`
 
 ### What's next:
@@ -266,17 +266,17 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
 
-## Re-verification — April 16, 2026
+## Re-verification - April 16, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
-- Confirmed the April 6 feature set is already on `main` — no new feature work needed tonight
+- Confirmed the April 6 feature set is already on `main` - no new feature work needed tonight
 - Confirmed routes for `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator` remain lazy-loaded in `App.tsx`
 - Confirmed mobile bottom navigation and More drawer still present in `client/src/components/AppLayout.tsx`
 - Confirmed `server/nightly-april6.test.ts` still present with 79 tests
 - Note: test count increased to 967 from prior builds (FI Benchmarks Hub, Objection Library, Deal Funding Tracker added in `e9b27d3`)
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 967/968 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
-- `git status` ✅ — only documentation update for this verification run
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 967/968 passing (1 pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ - only documentation update for this verification run
 - Latest commit on `main` before tonight's doc update: `e9b27d3 feat: fi benchmarks hub, objection library, deal funding tracker, expand tests to 940+`
 
 ### What's next:
@@ -284,7 +284,7 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/lender-matrix`, `/deal-jacket`, `/weekend-recap`, and `/commission-calculator`
 - Verify mobile bottom nav and More drawer behavior on a narrow viewport after deploy
 
-## Nightly Build — April 17, 2026
+## Nightly Build - April 17, 2026
 **Completed by**: Henry (Claude Code kickoff + manual completion/verification)
 - Built **Heat Sheet** at `/heat-sheet` with heat-score tiers, factor badges, KPI bar, sort/filter controls, refresh countdown, heat breakdown modal, and follow-up action modal
 - Built **Word Track Library** at `/word-tracks` with category filtering, search, favorites via localStorage, expandable scripts, copy-to-clipboard, and ASURA pillar tagging across 25+ tracks
@@ -293,8 +293,8 @@ Target: 870+ tests passing (up from 818)
 - Added all four pages to lazy-loaded routes in `client/src/App.tsx`
 - Added nav/sidebar entries in `client/src/components/AppLayout.tsx` for Heat Sheet, Word Tracks, Desk Log, and Rate Watch
 - Added `server/nightly-april17.test.ts` with 61 new tests covering heat scoring, word-track filtering/favorites, desk-log calculations/CSV behavior, and rate-watch calculations/alerts
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ⚠️ — 1028/1029 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ⚠️ - 1028/1029 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
 - Test suite target exceeded beyond 1,020 passing tests
 
 ### What's next:
@@ -302,17 +302,17 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/heat-sheet`, `/word-tracks`, `/desk-log`, and `/rate-watch`
 - Re-check mobile nav and More drawer behavior on a narrow viewport after deploy
 
-## Nightly Build — April 18, 2026
+## Nightly Build - April 18, 2026
 **Completed by**: Henry (Claude Code + verification pass)
-- Built **F&I Snapshot Report** at `/fi-snapshot` with KPI grid (6 cards), trend sparklines (12-week recharts LineChart), Product Leaderboard table, Objection Handling RadarChart (6 axes), top-3 wins, 3 coaching focus areas, PVR trend AreaChart, share/print buttons — demo data for 8 managers with realistic variance
+- Built **F&I Snapshot Report** at `/fi-snapshot` with KPI grid (6 cards), trend sparklines (12-week recharts LineChart), Product Leaderboard table, Objection Handling RadarChart (6 axes), top-3 wins, 3 coaching focus areas, PVR trend AreaChart, share/print buttons - demo data for 8 managers with realistic variance
 - Built **Trade-In Analyzer** at `/trade-in` with year/make/condition ACV lookup table, payoff input, equity calculation, F&I impact panel, financed-amount calculator, monthly payment estimator (amortization formula), product affordability reverse-calculator, equity BarChart, and rule-based Deal Structuring Tips card
-- Built **Product Profitability Center** at `/product-profit` with top KPI bar, 10-product P&L table with trend arrows, margin waterfall BarChart, cost-vs-revenue ScatterChart, per-manager stacked BarChart, month-over-month toggle, underperforming-product alerts (< 25% margin), product mix PieChart, and date range filter — demo data 10 products × 8 managers × 3 months
+- Built **Product Profitability Center** at `/product-profit` with top KPI bar, 10-product P&L table with trend arrows, margin waterfall BarChart, cost-vs-revenue ScatterChart, per-manager stacked BarChart, month-over-month toggle, underperforming-product alerts (< 25% margin), product mix PieChart, and date range filter - demo data 10 products × 8 managers × 3 months
 - Built **Coaching Session Planner** at `/coaching-planner` with manager list panel (due/overdue badges), session form (type, datetime, agenda builder array, notes, star rating, action items, follow-up date), localStorage persistence, custom monthly calendar grid with session dots, coaching cadence KPI, session history (last 5 per manager), overdue alert banner (> 21 days), and clipboard export
 - Added all 4 pages to lazy-loaded routes in `client/src/App.tsx`
 - Added sidebar entries in `client/src/components/AppLayout.tsx` (FI Snapshot + Coaching Planner → Performance; Trade-In → Operations; Product Profit → Business)
 - Added `server/nightly-april18.test.ts` with 46 new tests covering FI snapshot KPI math, trade-in equity/payment/ACV logic, product profit margin calculations, and coaching planner cadence/overdue logic
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 1074/1075 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 1074/1075 passing (1 pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
 - Commit: `724a325` pushed to `main`
 
 ### What's next:
@@ -320,7 +320,7 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/fi-snapshot`, `/trade-in`, `/product-profit`, and `/coaching-planner`
 - Verify mobile nav More drawer shows new pages in correct sections
 
-## Nightly Build — April 19, 2026
+## Nightly Build - April 19, 2026
 **Completed by**: Henry (Claude Code kickoff + verification/finalization pass)
 - Built **Incentive Tracker** at `/incentive-tracker` with KPI bar, source/type/status filters, 15-program incentive table, earned-vs-potential chart, monthly earnings trend, expiring-soon alerts, projected earnings calculator, and localStorage-backed program tracking
 - Built **F&I Health Score** at `/fi-health` with overall health grade, weighted dimension scorecards, benchmark deltas, 6-month trend chart, prescription/action items, score breakdown table, and multi-location radar comparison
@@ -329,8 +329,8 @@ Target: 870+ tests passing (up from 818)
 - Added all 4 pages to lazy-loaded routes in `client/src/App.tsx`
 - Added sidebar entries in `client/src/components/AppLayout.tsx` (F&I Health → Performance; Stip Tracker → Operations; Incentive Tracker + Deal Profit Breakdown → Business)
 - Added `server/nightly-april19.test.ts` with expanded coverage for incentive math, health-score weighting/grades, stip aging and filtering, and deal-profit calculations/comparisons
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ except for the single pre-existing env-var issue — 1123/1124 passing (`server/deepgram.test.ts` still fails because `DEEPGRAM_API_KEY` is not set)
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ except for the single pre-existing env-var issue - 1123/1124 passing (`server/deepgram.test.ts` still fails because `DEEPGRAM_API_KEY` is not set)
 - Commit + push completed after verification
 
 ### What's next:
@@ -338,7 +338,7 @@ Target: 870+ tests passing (up from 818)
 - Smoke-test `/incentive-tracker`, `/fi-health`, `/stip-tracker`, and `/deal-profit`
 - Verify sidebar placement and mobile More drawer categorization for the new pages
 
-## Nightly Build — April 20, 2026
+## Nightly Build - April 20, 2026
 **Completed by**: Henry (Claude Code kickoff + verification/finalization pass)
 - Built **Contract Checklist** at `/contract-checklist` with deal selector, completion progress bar, Ready to Fund badge, KPI bar, critical-items panel, section-by-section checklist, editable notes, print action, and Submit to Lender gating at 100% completion
 - Built **F&I Manager Report Card** at `/report-card` with manager/month selectors, school-style letter grade + GPA header, weighted category breakdown table, 6-month trend chart, radar chart, peer comparison bars, AI coaching narrative, improvement plan, clipboard share, and print support
@@ -347,8 +347,8 @@ Target: 870+ tests passing (up from 818)
 - Added all 4 pages to lazy-loaded routes in `client/src/App.tsx`
 - Added sidebar entries in `client/src/components/AppLayout.tsx` (Report Card → Performance; Contract Checklist + Funding Queue → Operations; GPU Tracker → Business)
 - Added `server/nightly-april20.test.ts` with 57 new tests covering contract checklist calculations, report-card grading logic, funding-queue aging/filtering/KPIs, and GPU tracker calculations/benchmarks
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ except for the single pre-existing env-var issue — 1180/1181 passing (`server/deepgram.test.ts` still fails because `DEEPGRAM_API_KEY` is not set)
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ except for the single pre-existing env-var issue - 1180/1181 passing (`server/deepgram.test.ts` still fails because `DEEPGRAM_API_KEY` is not set)
 - Commit + push completed after verification
 
 ### What's next:
@@ -357,18 +357,18 @@ Target: 870+ tests passing (up from 818)
 - Verify sidebar placement and mobile More drawer categorization for the new pages
 - Verify Funding Queue bulk actions and detail slide-out behavior in Manus
 
-## Nightly Build — April 21, 2026
+## Nightly Build - April 21, 2026
 
 ### Tonight's New Features (4 pages + test expansion)
 
-#### 1. Chargeback Tracker (`/chargeback-tracker`) — HIGH
+#### 1. Chargeback Tracker (`/chargeback-tracker`) - HIGH
 New page `ChargebackTracker.tsx`:
 - Track cancelled products, chargeback amounts, and impact on F&I net income
 - KPI bar: Total Chargebacks (count), Total Chargeback Amount ($), Net F&I After Chargebacks ($), Chargeback Rate (% of deals), Avg Chargeback Amount ($)
 - Chargeback table: Deal #, Customer, Product Cancelled, Original Price ($), Chargeback Amount ($), Date Cancelled, Days Since Close, Manager, Status (Received / Pending / Disputed)
 - Filters: date range, manager, product type, status
-- Reason breakdown: PieChart — voluntary cancellation, lender repossession, customer complaint, early payoff
-- Monthly trend: LineChart — chargebacks vs gross earned (12 months)
+- Reason breakdown: PieChart - voluntary cancellation, lender repossession, customer complaint, early payoff
+- Monthly trend: LineChart - chargebacks vs gross earned (12 months)
 - Manager impact table: Manager Name, Deals Sold, Chargebacks Received, Net Retention Rate %, Net Income After Chargebacks
 - At-risk deals panel: deals closed in last 90 days most likely to chargeback (low score, high rate, short term)
 - Chargeback reserve calculator: input monthly gross + estimated chargeback rate → recommended reserve amount
@@ -376,13 +376,13 @@ New page `ChargebackTracker.tsx`:
 - Add to sidebar under Business section (after GPU Tracker)
 - Lazy-loaded route at `/chargeback-tracker`
 
-#### 2. F&I Trainer Mode (`/trainer-mode`) — HIGH
+#### 2. F&I Trainer Mode (`/trainer-mode`) - HIGH
 New page `TrainerMode.tsx`:
-- Simulated training environment — role-play scenarios for new F&I managers
+- Simulated training environment - role-play scenarios for new F&I managers
 - Scenario selector: credit-challenged buyer, lease return, first-time buyer, cash deal, high-PVR target, objection gauntlet (6 scenarios)
 - Customer profile card: Credit Score, Trade-In, Down Payment, Monthly Budget, Attitude/Resistance Level, Deal Type
 - "What would you do?" interactive Q&A: present 3-4 multiple choice options at each stage (greeting, needs discovery, menu presentation, objection handling, close)
-- Scoring system: each choice earns points for ASURA OPS pillar alignment (Menu Order, Upgrade Architecture, Objection Prevention, Coaching Cadence) — show running score
+- Scoring system: each choice earns points for ASURA OPS pillar alignment (Menu Order, Upgrade Architecture, Objection Prevention, Coaching Cadence) - show running score
 - Live feedback panel: after each choice, show why it was right/wrong using ASURA OPS principles
 - "Show Me the Word Track" button: pull relevant entry from Word Track Library for each stage
 - End of scenario summary: total score, pillar breakdown, top 3 recommendations, comparison to Top 1% benchmark
@@ -391,27 +391,27 @@ New page `TrainerMode.tsx`:
 - Add to sidebar under Coaching section (after Coaching Session Planner)
 - Lazy-loaded route at `/trainer-mode`
 
-#### 3. Monthly Performance Dashboard (`/monthly-dashboard`) — HIGH
+#### 3. Monthly Performance Dashboard (`/monthly-dashboard`) - HIGH
 New page `MonthlyDashboard.tsx`:
-- Consolidated monthly view — one-stop command center for the month in progress
+- Consolidated monthly view - one-stop command center for the month in progress
 - Month/year selector (default: current month)
 - Header KPIs: Total Deals, Total F&I Revenue, Avg PVR, PVR vs Same Month Last Year (delta), Product Penetration %, Reserve Income, Product Income, Total Back Gross
-- Daily pacing chart: recharts ComposedChart — daily cumulative F&I revenue vs pace-to-goal line (based on working days remaining)
+- Daily pacing chart: recharts ComposedChart - daily cumulative F&I revenue vs pace-to-goal line (based on working days remaining)
 - Month-at-a-glance calendar: each day shows deal count + avg PVR (color-coded: green = above target, yellow = near, red = below)
 - Manager performance table: Manager, Deals, PVR, Penetration %, Compliance Score, MTD Revenue, vs Goal
 - Product mix treemap (recharts Treemap): cell size = revenue, color = margin %, labels = product name + units
-- "Month Summary" narrative card: auto-generated 3-line summary (e.g. "On pace for $187K F&I revenue. GAP penetration up 6%. Watch VSC — 4 managers below 35%.")
+- "Month Summary" narrative card: auto-generated 3-line summary (e.g. "On pace for $187K F&I revenue. GAP penetration up 6%. Watch VSC - 4 managers below 35%.")
 - Goal progress bars: user-set monthly goals (PVR target, penetration target, revenue target) with % complete indicators
 - Comparison panel: this month vs last month vs same month last year (3 columns, 6 metrics each)
 - Add to sidebar under Performance section (after F&I Snapshot)
 - Lazy-loaded route at `/monthly-dashboard`
 
-#### 4. Deal Structuring Calculator (`/deal-structure`) — HIGH
+#### 4. Deal Structuring Calculator (`/deal-structure`) - HIGH
 New page `DealStructure.tsx`:
 - Help F&I managers structure deals to hit PVR and payment targets simultaneously
 - Input panel: Vehicle Sale Price ($), Down Payment ($), Trade-In Equity ($), Credit Score, Desired Term (months), Target Monthly Payment ($), Target PVR ($)
 - Output panel: Recommended Amount Financed, Buy Rate (from lender matrix by score), Sell Rate, Reserve Amount ($), Products Needed to Hit PVR (gap between current back gross and target)
-- Payment breakdown table: show payment impact at 3 sell rates (buy rate, mid-point, cap) and 3 terms (48/60/72 months) — 3×3 grid of monthly payments
+- Payment breakdown table: show payment impact at 3 sell rates (buy rate, mid-point, cap) and 3 terms (48/60/72 months) - 3×3 grid of monthly payments
 - "Product Affordability" tool: given payment budget, show which products fit (what can be added without exceeding payment target)
 - Structure optimizer: auto-suggest best combination of rate + term + products to hit both payment and PVR targets
 - Lender recommendation: based on credit score + amount financed, show top 3 lenders from Lender Matrix
@@ -454,7 +454,7 @@ Add `server/nightly-april21.test.ts` with tests for:
 Target: 1,240+ tests passing (up from 1,180)
 
 ## Technical Notes (April 21)
-- No build step for dev — Vite dev server, vanilla tRPC
+- No build step for dev - Vite dev server, vanilla tRPC
 - Tests: pnpm test (target: 1,240+/1,241+)
 - TypeScript: pnpm check (target: 0 errors)
 - The 1 deepgram.test.ts failure is pre-existing and acceptable
@@ -485,7 +485,7 @@ Target: 1,240+ tests passing (up from 1,180)
 3. Update this file with completion notes
 4. Write/update manus-deploy-prompt.md
 
-## Completion Notes — April 22, 2026
+## Completion Notes - April 22, 2026
 **Completed by**: Henry (Claude Code kickoff + manual verification/finalization)
 
 ### What was completed tonight
@@ -511,17 +511,17 @@ Target: 1,240+ tests passing (up from 1,180)
 - `TrainerMode.tsx` is not present yet
 - `ChargebackTracker.tsx`, `MonthlyDashboard.tsx`, `DealStructure.tsx`, and `server/nightly-april21.test.ts` exist in working tree but are not committed yet
 
-## Completion — April 23, 2026
+## Completion - April 23, 2026
 **Completed by**: Henry (Claude Code)
 **Tests**: 1274/1275 passing (99 tests in nightly-april21.test.ts; 1 pre-existing deepgram env failure)
 **TypeScript**: 0 errors
 
 ### What was completed:
-1. **Chargeback Tracker** (`/chargeback-tracker`) — 25 chargebacks, 6 managers, 10 products, KPI bar, chargeback table with filters (date/manager/product/status), reason PieChart, monthly trend LineChart, manager impact table, at-risk deals panel, and reserve calculator
-2. **F&I Trainer Mode** (`/trainer-mode`) — 6 interactive scenarios (credit-challenged buyer, lease return, first-time buyer, cash deal, high-PVR target, objection gauntlet), multi-stage Q&A with 3-4 choices per stage, ASURA OPS pillar scoring (Menu Order, Upgrade Architecture, Objection Prevention, Coaching Cadence), live feedback panel, word track integration, end-of-scenario summary with Top 1% benchmark, and localStorage-persisted progress/high scores
-3. **Monthly Performance Dashboard** (`/monthly-dashboard`) — month/year selector, 8 header KPIs with YoY delta, daily pacing ComposedChart, calendar heatmap, manager table, product mix Treemap, goal progress bars, month-over-month comparison panel
-4. **Deal Structuring Calculator** (`/deal-structure`) — input panel, payment grid (3 rates x 3 terms), product affordability tool, structure optimizer, lender recommendations by credit score, reserve calculator, deal health indicator, localStorage-saved structures (max 10)
-5. **Test Suite** — `server/nightly-april21.test.ts` with 99 tests covering chargeback calculations, trainer scoring, monthly dashboard metrics, and deal structure math
+1. **Chargeback Tracker** (`/chargeback-tracker`) - 25 chargebacks, 6 managers, 10 products, KPI bar, chargeback table with filters (date/manager/product/status), reason PieChart, monthly trend LineChart, manager impact table, at-risk deals panel, and reserve calculator
+2. **F&I Trainer Mode** (`/trainer-mode`) - 6 interactive scenarios (credit-challenged buyer, lease return, first-time buyer, cash deal, high-PVR target, objection gauntlet), multi-stage Q&A with 3-4 choices per stage, ASURA OPS pillar scoring (Menu Order, Upgrade Architecture, Objection Prevention, Coaching Cadence), live feedback panel, word track integration, end-of-scenario summary with Top 1% benchmark, and localStorage-persisted progress/high scores
+3. **Monthly Performance Dashboard** (`/monthly-dashboard`) - month/year selector, 8 header KPIs with YoY delta, daily pacing ComposedChart, calendar heatmap, manager table, product mix Treemap, goal progress bars, month-over-month comparison panel
+4. **Deal Structuring Calculator** (`/deal-structure`) - input panel, payment grid (3 rates x 3 terms), product affordability tool, structure optimizer, lender recommendations by credit score, reserve calculator, deal health indicator, localStorage-saved structures (max 10)
+5. **Test Suite** - `server/nightly-april21.test.ts` with 99 tests covering chargeback calculations, trainer scoring, monthly dashboard metrics, and deal structure math
 
 ### Sidebar/navigation updates:
 - **Performance**: added Monthly Dashboard (after F&I Snapshot)
@@ -535,15 +535,15 @@ Target: 1,240+ tests passing (up from 1,180)
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
 
-## Re-verification — April 24, 2026
+## Re-verification - April 24, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all April 21 features present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
 - Confirmed sidebar entries in `AppLayout.tsx` for all 4 new pages in correct sections
 - Confirmed `server/nightly-april21.test.ts` present with 99 tests
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
-- `git status` ✅ — only documentation update for this verification run
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 1274/1275 passing (1 pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ - only documentation update for this verification run
 - Latest commit on `main` before tonight's update: `fbb6adf fix(roi-calculator): accurate payback period + editable PVR lift + realistic penetration scaling`
 
 ### What's next:
@@ -552,41 +552,41 @@ Target: 1,240+ tests passing (up from 1,180)
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
 
-## Re-verification — April 25, 2026
+## Re-verification - April 25, 2026
 **Verified by**: Henry (manual verification after Claude Code hang)
-- Attempted to run Claude Code for tonight’s build, but the CLI hung without producing output; no code changes were made by the agent
+- Attempted to run Claude Code for tonight's build, but the CLI hung without producing output; no code changes were made by the agent
 - Re-verified the repo state directly in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all April 21 features remain present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
 - Confirmed sidebar entries remain in `client/src/components/AppLayout.tsx` and the route/test artifacts are still in place
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ baseline unchanged — 1274/1275 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ baseline unchanged - 1274/1275 passing, with the same single pre-existing `server/deepgram.test.ts` failure because `DEEPGRAM_API_KEY` is not set
+- `git status` ✅ - clean working tree before tonight's documentation refresh
 - Latest commit on `main` before this update: `7f88ff7 docs: refresh nightly verification for april 24`
 
 ### What was completed tonight:
 - Re-verified current `main` build health
-- Refreshed this task file with tonight’s verification status
-- Refreshed `manus-deploy-prompt.md` for tonight’s deployment handoff
+- Refreshed this task file with tonight's verification status
+- Refreshed `manus-deploy-prompt.md` for tonight's deployment handoff
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
-- Optional follow-up: diagnose why Claude Code stalled before output on tonight’s run
+- Optional follow-up: diagnose why Claude Code stalled before output on tonight's run
 
-## Re-verification — April 25, 2026 (second pass)
+## Re-verification - April 25, 2026 (second pass)
 **Verified by**: Henry (Claude Code + manual verification)
 - Re-ran Claude Code successfully in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`; it refreshed the nightly docs and pushed commit `24ea139`
 - Re-verified all April 21 features remain present: `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, `/deal-structure`
 - Confirmed sidebar entries in `client/src/components/AppLayout.tsx` remain in the correct sections
 - Confirmed `server/nightly-april21.test.ts` remains present
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ❌ — current repo baseline is **1375/1377 passing** with **1 skipped**, not 1274/1275
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ❌ - current repo baseline is **1375/1377 passing** with **1 skipped**, not 1274/1275
 - Confirmed pre-existing env-related noise still appears around Deepgram/OAuth setup, but the current real blocking failure is `server/seed-load-test.test.ts` (`generateDeals` deterministic-seed assertion fails because generated `dealDate` values drift by 1ms between runs)
 - `server/http-stream.test.ts` now passes locally
-- `git status` ✅ — working tree clean after docs refresh and Claude Code push
-- Latest commit on `main` after tonight’s verification: `24ea139 docs: refresh nightly verification for april 25 (second pass)`
+- `git status` ✅ - working tree clean after docs refresh and Claude Code push
+- Latest commit on `main` after tonight's verification: `24ea139 docs: refresh nightly verification for april 25 (second pass)`
 
 ### What was completed tonight:
 - Ran Claude Code per nightly instruction
@@ -594,130 +594,130 @@ Target: 1,240+ tests passing (up from 1,180)
 - Corrected the nightly status to reflect the actual current test baseline and failure state
 - Refreshed the deployment handoff with an explicit blocker note
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
 
-## Nightly Build — April 26, 2026
+## Nightly Build - April 26, 2026
 **Completed by**: Henry (Claude Code)
 **Tests**: 1376/1377 passing, 1 skipped (1 pre-existing deepgram env failure)
 **TypeScript**: 0 errors
 
 ### What was completed tonight:
-1. **Fixed `seed-load-test.ts` deterministic date-generation bug** — the `generateDeals` function in `scripts/seed-load-test.ts` could produce `dealDate` timestamps exceeding `endDate` by 1ms due to floating-point overflow in the LCG RNG multiplication. Applied `Math.min()` clamp on line 98 to guarantee `dealMs ≤ endDate.getTime()`. This restores `server/seed-load-test.test.ts` to green.
-2. **Restored green test baseline** — all 1376 tests now pass (plus 1 skipped deepgram env test), up from 1375/1377 with 1 real failure on April 25.
+1. **Fixed `seed-load-test.ts` deterministic date-generation bug** - the `generateDeals` function in `scripts/seed-load-test.ts` could produce `dealDate` timestamps exceeding `endDate` by 1ms due to floating-point overflow in the LCG RNG multiplication. Applied `Math.min()` clamp on line 98 to guarantee `dealMs ≤ endDate.getTime()`. This restores `server/seed-load-test.test.ts` to green.
+2. **Restored green test baseline** - all 1376 tests now pass (plus 1 skipped deepgram env test), up from 1375/1377 with 1 real failure on April 25.
 
 ### Verification:
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 1376/1377 passing, 1 skipped (pre-existing `server/deepgram.test.ts` env failure)
-- `git status` ✅ — only the seed-load-test fix + documentation updates
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 1376/1377 passing, 1 skipped (pre-existing `server/deepgram.test.ts` env failure)
+- `git status` ✅ - only the seed-load-test fix + documentation updates
 
-### What’s next:
-- Deploy current `main` to Manus — repo is now deploy-ready with a clean test baseline
+### What's next:
+- Deploy current `main` to Manus - repo is now deploy-ready with a clean test baseline
 - Smoke-test `/chargeback-tracker`, `/trainer-mode`, `/monthly-dashboard`, and `/deal-structure`
 - Verify Trainer Mode scenario flow and localStorage persistence
 - Verify mobile More drawer shows new pages in correct sections
 
-## Re-verification — April 27, 2026
+## Re-verification - April 27, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — 1376/1377 passing, 1 skipped (pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `3a8dcdb fix: clamp seed-load-test deal date to prevent 1ms overflow past endDate`
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - 1376/1377 passing, 1 skipped (pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
+- `git status` ✅ - clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `3a8dcdb fix: clamp seed-load-test deal date to prevent 1ms overflow past endDate`
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
-## Re-verification — April 28, 2026
-**Verified by**: Henry (Claude Code — successful run, second pass)
+## Re-verification - April 28, 2026
+**Verified by**: Henry (Claude Code - successful run, second pass)
 - Re-ran Claude Code successfully in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — **1426/1427 passing, 1 skipped** (pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - **1426/1427 passing, 1 skipped** (pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
 - No blocking application test failures
 - Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `dfd2b9f docs(runbook): fix stale Phase 5-only references in deploy runbook`
+- `git status` ✅ - clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `dfd2b9f docs(runbook): fix stale Phase 5-only references in deploy runbook`
 
 ### What was completed tonight:
 - Claude Code ran successfully (earlier attempt stalled; this second pass completed)
-- Re-ran TypeScript and Vitest verification — both green
+- Re-ran TypeScript and Vitest verification - both green
 - Refreshed this task file with verified April 28 baseline
 - Committed and pushed
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
-## Re-verification — April 29, 2026
+## Re-verification - April 29, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — **1426/1427 passing, 1 skipped** (pre-existing `server/deepgram.test.ts` failure — missing `DEEPGRAM_API_KEY`)
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - **1426/1427 passing, 1 skipped** (pre-existing `server/deepgram.test.ts` failure - missing `DEEPGRAM_API_KEY`)
 - No blocking application test failures
 - Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `92a0246 docs: refresh nightly verification for april 28 (second pass)`
+- `git status` ✅ - clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `92a0246 docs: refresh nightly verification for april 28 (second pass)`
 
 ### What was completed tonight:
-- Re-ran TypeScript and Vitest verification — both green
+- Re-ran TypeScript and Vitest verification - both green
 - Refreshed this task file with verified April 29 baseline
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
-## Re-verification — April 30, 2026
+## Re-verification - April 30, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `pnpm test` ✅ — **1464/1466 passing, 1 skipped** (test count increased from 1426 due to recent commits `671082f` and `6299e61` adding release captain and GitHub sync)
+- `pnpm check` ✅ - 0 TypeScript errors
+- `pnpm test` ✅ - **1464/1466 passing, 1 skipped** (test count increased from 1426 due to recent commits `671082f` and `6299e61` adding release captain and GitHub sync)
 - 2 env-var-related failures, both pre-existing: `server/deepgram.test.ts` (missing `DEEPGRAM_API_KEY`, skipped), `server/app-base-url.test.ts` (missing `APP_BASE_URL` env var, introduced in `671082f`)
 - No blocking application test failures
 - Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `6299e61 feat(ops): add release captain`
+- `git status` ✅ - clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `6299e61 feat(ops): add release captain`
 
 ### What was completed tonight:
-- Re-ran TypeScript and Vitest verification — both green
+- Re-ran TypeScript and Vitest verification - both green
 - Refreshed this task file with verified April 30 baseline
 - Noted test count increase to 1464 and new env-var test failure (`app-base-url.test.ts`)
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
-### Independent verification addendum — April 30, 2026
+### Independent verification addendum - April 30, 2026
 **Verified by**: Thomas after Claude Code completion
-- `pnpm check` ✅ — 0 TypeScript errors
-- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- `pnpm check` ✅ - 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ - **1465/1466 passing, 1 skipped**
 - The skipped test is the Deepgram env-gated check; no application test failures remain when the required production `APP_BASE_URL` is provided.
 - `main` is synced to origin after docs refresh commit `a077a6e`.
 
-## Re-verification — May 1, 2026
+## Re-verification - May 1, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- `pnpm check` ✅ - 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ - **1465/1466 passing, 1 skipped**
 - The skipped test is the pre-existing Deepgram env-gated check; no application test failures
 - Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
-- `git status` ✅ — clean working tree before tonight's documentation refresh
+- `git status` ✅ - clean working tree before tonight's documentation refresh
 - Latest commit on `main` before tonight's update: `bcf0c16 docs: finalize april 30 nightly verification`
 
 ### What was completed tonight:
-- Re-ran TypeScript and Vitest verification — both green
+- Re-ran TypeScript and Vitest verification - both green
 - Refreshed this task file with verified May 1 baseline
 
 ### What's next:
@@ -725,19 +725,19 @@ Target: 1,240+ tests passing (up from 1,180)
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
-## Re-verification — May 3, 2026
+## Re-verification - May 3, 2026
 **Verified by**: Henry (Claude Code)
 - Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- `pnpm check` ✅ - 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ - **1465/1466 passing, 1 skipped**
 - The skipped test is the pre-existing Deepgram env-gated check; no application test failures
 - Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
-- `git status` ✅ — clean working tree before tonight's documentation refresh
+- `git status` ✅ - clean working tree before tonight's documentation refresh
 - Latest commit on `main` before tonight's update: `4ec609f docs: refresh nightly verification for may 2 (third pass)`
 
 ### What was completed tonight:
-- Re-ran TypeScript and Vitest verification — both green
+- Re-ran TypeScript and Vitest verification - both green
 - Refreshed this task file with verified May 3 baseline
 
 ### What's next:
@@ -745,49 +745,49 @@ Target: 1,240+ tests passing (up from 1,180)
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
-## Re-verification — May 2, 2026
+## Re-verification - May 2, 2026
 **Verified by**: Henry (manual verification after Claude Code stall)
-- Attempted to run Claude Code for tonight’s build, but the CLI produced no output and stalled; no code changes were made by the agent
+- Attempted to run Claude Code for tonight's build, but the CLI produced no output and stalled; no code changes were made by the agent
 - Re-verified the repo directly in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- `pnpm check` ✅ - 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ - **1465/1466 passing, 1 skipped**
 - The skipped test remains the pre-existing Deepgram env-gated check; no application test failures remain when `APP_BASE_URL` is set
 - Non-blocking test log noise from missing `DATABASE_URL`, `OAUTH_SERVER_URL`, and notification env configuration still appears during isolated test runs, but the suite passes cleanly
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `b25ceee docs: refresh nightly verification for may 1`
+- `git status` ✅ - clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `b25ceee docs: refresh nightly verification for may 1`
 
 ### What was completed tonight:
 - Attempted Claude Code run and terminated it after an output stall
-- Re-ran TypeScript and Vitest verification manually — both green
+- Re-ran TypeScript and Vitest verification manually - both green
 - Refreshed this task file with verified May 2 baseline
-- Refreshed `manus-deploy-prompt.md` for tonight’s deployment handoff
+- Refreshed `manus-deploy-prompt.md` for tonight's deployment handoff
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 - Optional follow-up: diagnose why Claude Code stalled before output on this run
 
-## Re-verification — May 2, 2026 (second pass)
+## Re-verification - May 2, 2026 (second pass)
 **Verified by**: Henry (Claude Code attempted again, manual verification completed)
 - Re-ran Claude Code in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`; it stalled again without producing output, so the session was terminated and no code changes were made by the agent
 - Re-verified the repo directly after the stalled run
 - Confirmed all prior features remain present on `main`
-- `pnpm check` ✅ — 0 TypeScript errors
-- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
+- `pnpm check` ✅ - 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ - **1465/1466 passing, 1 skipped**
 - The skipped test remains the pre-existing Deepgram env-gated check; no application test failures remain when `APP_BASE_URL` is set
 - Non-blocking test log noise from missing `DATABASE_URL`, `OAUTH_SERVER_URL`, and notification env configuration still appears during isolated test runs, but the suite passes cleanly
-- `git status` ✅ — clean working tree before this documentation refresh
-- Latest commit on `main` before tonight’s second-pass update: `baa629b docs: refresh nightly verification for may 2 (second pass)`
+- `git status` ✅ - clean working tree before this documentation refresh
+- Latest commit on `main` before tonight's second-pass update: `baa629b docs: refresh nightly verification for may 2 (second pass)`
 
 ### What was completed tonight:
 - Attempted Claude Code again and confirmed the same no-output stall behavior persists
-- Re-ran TypeScript and Vitest verification manually — both green
+- Re-ran TypeScript and Vitest verification manually - both green
 - Refreshed this task file with a second-pass May 2 verification
 - Refreshed `manus-deploy-prompt.md` so deploy handoff matches the verified repo state
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
@@ -801,34 +801,58 @@ Target: 1,240+ tests passing (up from 1,180)
 - `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
 - The skipped test is the pre-existing Deepgram env-gated check; no application test failures
 - Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `2445749 docs: refresh nightly verification for may 2`
+- `git status` ✅ — clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `2445749 docs: refresh nightly verification for may 2`
 
 ### What was completed tonight:
 - Re-ran TypeScript and Vitest verification — both green
 - Refreshed this task file with verified May 2 (second pass) baseline
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages
 
 ## Re-verification — May 4, 2026
-**Verified by**: Henry (Claude Code)
-- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+**Verified by**: Henry (manual verification after Claude Code stall)
+- Attempted to run Claude Code in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`, but the CLI stalled without producing output, so the run was terminated and no code changes were made by the agent
+- Re-verified the repo directly after the stalled run
 - Confirmed all prior features remain present on `main`
 - `pnpm check` ✅ — 0 TypeScript errors
 - `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
-- The skipped test is the pre-existing Deepgram env-gated check; no application test failures
-- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
-- `git status` ✅ — clean working tree before tonight’s documentation refresh
-- Latest commit on `main` before tonight’s update: `9a20e40 docs: refresh nightly verification for may 3`
+- The skipped test remains the pre-existing Deepgram env-gated check; no application test failures remain when `APP_BASE_URL` is set
+- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but the suite passes cleanly
+- `git status` ✅ — clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `cf439da docs: refresh nightly verification for may 4`
 
 ### What was completed tonight:
-- Re-ran TypeScript and Vitest verification — both green
+- Attempted Claude Code run and terminated it after the same no-output stall pattern
+- Re-ran TypeScript and Vitest verification manually — both green
+- Refreshed this task file with verified May 4 baseline
+- Refreshed `manus-deploy-prompt.md` so deploy handoff matches the verified repo state
+
+### What's next:
+- Deploy current `main` to Manus
+- Smoke-test all recent pages
+- Verify mobile More drawer categorization for all pages
+- Optional follow-up: diagnose why Claude Code is stalling before output on this nightly flow
+
+## Re-verification - May 4, 2026
+**Verified by**: Henry (Claude Code)
+- Re-ran nightly verification in `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
+- Confirmed all prior features remain present on `main`
+- `pnpm check` ✅ - 0 TypeScript errors
+- `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ - **1465/1466 passing, 1 skipped**
+- The skipped test is the pre-existing Deepgram env-gated check; no application test failures
+- Non-blocking test log noise from missing `DATABASE_URL` / `OAUTH_SERVER_URL` during isolated test runs, but suite passes cleanly
+- `git status` ✅ - clean working tree before tonight's documentation refresh
+- Latest commit on `main` before tonight's update: `9a20e40 docs: refresh nightly verification for may 3`
+
+### What was completed tonight:
+- Re-ran TypeScript and Vitest verification - both green
 - Refreshed this task file with verified May 4 baseline
 
-### What’s next:
+### What's next:
 - Deploy current `main` to Manus
 - Smoke-test all recent pages
 - Verify mobile More drawer categorization for all pages

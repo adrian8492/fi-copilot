@@ -7,6 +7,7 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 This repo is **deploy-ready** as of the May 4, 2026 nightly verification.
 
 ### Latest verification (May 4)
+- Claude Code was attempted first for the nightly build flow, but stalled without producing output; repo verification was completed manually afterward
 - `pnpm check` ✅ — 0 TypeScript errors
 - `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
 - No blocking failures in the current application test suite when production `APP_BASE_URL` is provided
