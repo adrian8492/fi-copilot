@@ -4,9 +4,9 @@ Deploy the latest `main` branch of the F&I Co-Pilot app from:
 `/Users/adrian/.openclaw/workspace/Users/adrian/asura/fi-copilot`
 
 ## Current status
-This repo is **deploy-ready** as of the May 3, 2026 nightly verification.
+This repo is **deploy-ready** as of the May 4, 2026 nightly verification.
 
-### Latest verification (May 3)
+### Latest verification (May 4)
 - `pnpm check` ✅ — 0 TypeScript errors
 - `APP_BASE_URL=https://finico-pilot-mqskutaj.manus.space pnpm test` ✅ — **1465/1466 passing, 1 skipped**
 - No blocking failures in the current application test suite when production `APP_BASE_URL` is provided
